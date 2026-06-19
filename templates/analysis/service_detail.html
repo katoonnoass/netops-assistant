@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{% block title %}Serviço {{ service.pk }} - NetOps Assistant{% endblock %}
+
+{% block content %}
+<div class="page-header flex justify-between items-center">
+    <div>
+        <h1>Detalhes do Serviço</h1>
+        <p>{{ service.get_service_type_display }} — {{ service.name|default:"(sem nome)" }}</p>
+    </div>
+    <div class="flex gap-1">
+        <a href="{% url 'service_list' %}" class="btn btn-outline">Lista</a>
+        <a href="{% url 'analysis_detail' service.snapshot.parsed_configs.first.pk %}" class="btn btn-primary">Ver Análise</a>
+    </div>
+</div>
+
+<div class="card mb-2">
+    <h3 class="section-title">Dados do Serviço</h3>
+    <div class="detail-grid">
+        <div class="detail-item"><label>Tipo</label><span><span class="badge badge-info">{{ service.get_service_type_display }}</span></span></div>
+        <div class="detail-item"><label>Nome</label><span>{{ service.name|default:"—" }}</span></div>
+        <div class="detail-item"><label>Confiança</label><span>{{ service.confidence|floatformat:2 }}</span></div>
+        <div class="detail-item"><label>Device</label><span>{{ service.snapshot.device.name|default:"—" }}</span></div>
+        <div class="detail-item"><label>Snapshot</label><span>#{{ service.snapshot.pk }}</span></div>
+        <div class="detail-item"><label>Data</label><span>{{ service.created_at|date:"d/m/Y H:i" }}</span></div>
+    </div>
+    {% if service.description %}
+    <div class="alert alert-info" style="margin-top:0.5rem;">{{ service.description }}</div>
+    {% endif %}
+</div>
+
+{% if service.metadata %}
+<div class="card mb-2">
+    <h3 class="section-title">Metadados</h3>
+    <details><summary>Ver dados</summary><pre>{{ service.metadata|pprint }}</pre></details>
+</div>
+{% endif %}
+
+<div class="card">
+    <h3 class="section-title">Comandos de Validação Sugeridos</h3>
+    <div class="alert alert-info" style="font-size:0.85rem;">Comandos baseados no tipo de serviço. Versões VRP podem variar.</div>
+    {% if commands %}
+    <pre>{% for cmd in commands %}{{ cmd }}
+{% endfor %}</pre>
+    {% else %}
+    <p class="empty-state">Nenhum comando específico.</p>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,32 @@
+#
+sysname SW-QINQ-TRANSPORTE
+#
+interface Eth-Trunk100
+ description AGREGACAO-UPLINK
+ port link-type trunk
+ port trunk allow-pass vlan 100 200 300 400
+#
+interface Eth-Trunk100.3000
+ description CLIENTE-QINQ-EMPRESA-X
+ vlan-type dot1q 3000 second-dot1q 100
+ ip address 10.255.100.1 255.255.255.252
+#
+interface Eth-Trunk100.3001
+ description CLIENTE-QINQ-EMPRESA-Y
+ vlan-type dot1q 3001 second-dot1q 200
+#
+interface Eth-Trunk100.3002
+ description CLIENTE-QINQ-EMPRESA-Z
+ qinq termination pe-vid 3002 ce-vid 300
+#
+interface GigabitEthernet0/0/1
+ description LINK-CORE
+ ip address 10.0.0.1 255.255.255.252
+#
+interface LoopBack0
+ description ROUTER-ID
+ ip address 10.0.0.1 255.255.255.255
+#
+ip route-static 0.0.0.0 0.0.0.0 10.0.0.2
+#
+return

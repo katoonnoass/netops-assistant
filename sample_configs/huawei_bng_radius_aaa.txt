@@ -1,0 +1,63 @@
+#
+sysname NE40-BNG-RADIUS-ISP
+#
+aaa
+ authentication-scheme ISP-AUTH
+  authentication-mode radius local
+ authorization-scheme ISP-AUTHOR
+ accounting-scheme ISP-ACCT
+  accounting-mode radius
+ domain DOMINIO-ISP
+  authentication-scheme ISP-AUTH
+  accounting-scheme ISP-ACCT
+  radius-server group RADIUS-ISP
+#
+radius-server group RADIUS-ISP
+ radius-server authentication 200.100.50.10 1812 weight 0
+ radius-server accounting 200.100.50.10 1813 weight 0
+ radius-server shared-key-cipher S3nh4F0rt3
+ radius-server retransmit 3
+#
+radius-server template RADIUS-BACKUP
+ radius-server authentication 200.100.50.11 1812 weight 1
+ radius-server shared-key-cipher B4ckupK3y
+#
+ip pool POOL-RESIDENCIAL
+ gateway 100.64.0.1
+ dns-server 8.8.8.8
+ dns-server 8.8.4.4
+ lease 86400
+#
+ip pool POOL-CORPORATIVO
+ gateway 10.200.0.1
+ dns-server 10.200.0.100
+#
+interface GigabitEthernet0/0/0
+ description LINK-CORE-SP
+ ip address 10.0.0.1 255.255.255.252
+#
+interface Eth-Trunk100.100
+ description ACESSO-PPPOE-BANDA-LARGA
+ vlan-type dot1q 100
+ bas
+  access-type layer2-subscriber
+  authentication-method pppoe
+#
+interface Eth-Trunk100.200
+ description ACESSO-DEDICADO-CORP
+ vlan-type dot1q 200
+ ip address 10.255.200.1 255.255.255.252
+#
+interface LoopBack0
+ description ROUTER-ID
+ ip address 10.0.0.1 255.255.255.255
+#
+bgp 65000
+ peer 10.0.0.2 as-number 64501
+ peer 10.0.0.2 description BGP-UPSTREAM
+ network 200.100.0.0 mask 255.255.255.0
+#
+ip route-static 0.0.0.0 0.0.0.0 10.0.0.2
+ip route-static 200.100.0.0 255.255.255.0 NULL0 preference 5
+#
+return

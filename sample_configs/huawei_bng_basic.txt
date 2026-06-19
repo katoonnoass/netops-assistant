@@ -1,0 +1,48 @@
+#
+sysname NE40-BNG-BASIC
+#
+aaa
+ authentication-scheme auth_default
+ authentication-scheme auth_radius
+ accounting-scheme acct_default
+ accounting-scheme acct_radius
+ domain ISP-DOMAIN
+  authentication-scheme auth_radius
+  accounting-scheme acct_radius
+  radius-server group RADIUS-GRP
+#
+radius-server group RADIUS-GRP
+ radius-server authentication 10.10.10.100 1812
+ radius-server accounting 10.10.10.100 1813
+ radius-server shared-key-cipher Huawei@123
+#
+ip pool POOL-ASSINANTES
+ gateway 100.64.0.1
+ dns-server 8.8.8.8
+ dns-server 8.8.4.4
+#
+interface GigabitEthernet0/0/1
+ description UPLINK-CORE
+ ip address 10.0.0.1 255.255.255.252
+#
+interface Eth-Trunk1.100
+ description ACESSO-PPPOE-ASSINANTES
+ vlan-type dot1q 100
+ bas
+  access-type layer2-subscriber
+  authentication-method pppoe
+#
+interface Eth-Trunk1.200
+ description ACESSO-IPOE-ASSINANTES
+ vlan-type dot1q 200
+ bas
+  access-type layer3-subscriber
+  authentication-method ipoe
+#
+interface LoopBack0
+ description ROUTER-ID
+ ip address 10.0.0.1 255.255.255.255
+#
+ip route-static 0.0.0.0 0.0.0.0 10.0.0.2
+#
+return

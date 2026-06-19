@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{% block title %}Comparações - NetOps Assistant{% endblock %}
+
+{% block content %}
+<div class="page-header flex justify-between items-center">
+    <div>
+        <h1>Comparações</h1>
+        <p>Comparações de configurações realizadas.</p>
+    </div>
+    <a href="{% url 'comparison_new' %}" class="btn btn-primary">Nova Comparação</a>
+</div>
+
+{% if comparisons %}
+<div class="table-container">
+    <table>
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Título</th>
+                <th>Base</th>
+                <th>Alvo</th>
+                <th>Data</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for c in comparisons %}
+            <tr>
+                <td>{{ c.pk }}</td>
+                <td>{{ c.title|default:"—" }}</td>
+                <td>{{ c.base_snapshot.device.name|default:"#" }}{{ c.base_snapshot.pk }}</td>
+                <td>{{ c.target_snapshot.device.name|default:"#" }}{{ c.target_snapshot.pk }}</td>
+                <td>{{ c.created_at|date:"d/m/Y H:i" }}</td>
+                <td class="text-right">
+                    <a href="{% url 'comparison_detail' c.pk %}" class="btn btn-primary btn-sm">Ver</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="card empty-state">
+    <p>Nenhuma comparação encontrada.</p>
+    <a href="{% url 'comparison_new' %}" class="btn btn-primary mt-2">Criar primeira comparação</a>
+</div>
+{% endif %}
+{% endblock %}

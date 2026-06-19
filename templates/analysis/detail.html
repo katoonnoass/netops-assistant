@@ -1,0 +1,244 @@
+{% extends 'base.html' %}
+{% block title %}Resultado - NetOps Assistant{% endblock %}
+
+{% block content %}
+<div class="page-header flex justify-between items-center">
+    <div>
+        <h1>Resultado da Análise</h1>
+        <p>Snapshot #{{ snapshot.pk }} — {{ snapshot.created_at|date:"d/m/Y H:i" }}</p>
+    </div>
+    <div class="flex gap-1">
+        <a href="{% url 'new_analysis' %}" class="btn btn-primary">Nova Análise</a>
+        <a href="{% url 'snapshot_list' %}" class="btn btn-outline">Histórico</a>
+    </div>
+</div>
+
+<!-- Summary cards -->
+<div class="card-grid">
+    <div class="card stat-card">
+        <div class="stat-value" style="color: var(--primary);">{{ interfaces_count }}</div>
+        <div class="stat-label">Interfaces</div>
+    </div>
+    <div class="card stat-card">
+        <div class="stat-value" style="color: var(--primary);">{{ routes_count }}</div>
+        <div class="stat-label">Rotas Estáticas</div>
+    </div>
+    <div class="card stat-card">
+        <div class="stat-value" style="color: var(--success);">{{ circuits|length }}</div>
+        <div class="stat-label">Circuitos</div>
+    </div>
+    <div class="card stat-card">
+        <div class="stat-value" style="color: var(--danger);">{{ issues|length }}</div>
+        <div class="stat-label">Issues</div>
+    </div>
+    <div class="card stat-card">
+        <div class="stat-value" style="color: var(--primary);">{{ services|length }}</div>
+        <div class="stat-label">Serviços</div>
+    </div>
+</div>
+
+<!-- Documentation button -->
+<div class="card mb-2" style="background: #e8f5e9; border-color: var(--success);">
+    <div class="flex justify-between items-center">
+        <div>
+            <strong>Documentação Automática</strong>
+            <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.2rem;">
+                Gere uma documentação técnica completa em português baseada nos dados parseados.
+            </p>
+        </div>
+        <a href="{% url 'analysis_documentation' parsed.pk %}" class="btn btn-primary">
+            Ver documentação automática
+        </a>
+    </div>
+</div>
+
+<!-- Snapshot details -->
+<div class="card mb-2">
+    <h3 class="section-title">Detalhes do Snapshot</h3>
+    <div class="detail-grid">
+        <div class="detail-item">
+            <label>Snapshot</label>
+            <span>#{{ snapshot.pk }}</span>
+        </div>
+        <div class="detail-item">
+            <label>Equipamento</label>
+            <span>{{ snapshot.device.name|default:"—" }}</span>
+        </div>
+        <div class="detail-item">
+            <label>Fabricante</label>
+            <span><span class="badge badge-primary">{{ snapshot.vendor|default:"—" }}</span></span>
+        </div>
+        <div class="detail-item">
+            <label>Data</label>
+            <span>{{ snapshot.created_at|date:"d/m/Y H:i" }}</span>
+        </div>
+        <div class="detail-item">
+            <label>ParsedConfig ID</label>
+            <span>#{{ parsed.pk }}</span>
+        </div>
+        <div class="detail-item">
+            <label>Parser Version</label>
+            <span>{{ parsed.parser_version }}</span>
+        </div>
+        {% if snapshot.notes %}
+        <div class="detail-item" style="grid-column: 1 / -1;">
+            <label>Observações</label>
+            <span>{{ snapshot.notes }}</span>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Circuits -->
+<div class="card mb-2">
+    <h3 class="section-title">Circuitos Detectados</h3>
+    {% if circuits %}
+        {% for circuit in circuits %}
+        <div class="card" style="margin-bottom: 0.75rem; border-left: 4px solid var(--success);">
+            <div class="flex justify-between items-center mb-1">
+                <strong>{{ circuit.get_circuit_type_display }}</strong>
+                {% with circuit.details.confidence as conf %}
+                    {% if conf %}
+                        <span class="badge badge-primary">{{ conf|floatformat:2 }}</span>
+                    {% endif %}
+                {% endwith %}
+            </div>
+
+            <div class="detail-grid">
+                {% with d=circuit.details %}
+                    {% if d.interface %}
+                    <div class="detail-item">
+                        <label>Interface</label>
+                        <span>{{ d.interface }}</span>
+                    </div>
+                    {% endif %}
+                    {% if d.vlan_id %}
+                    <div class="detail-item">
+                        <label>VLAN</label>
+                        <span>{{ d.vlan_id }}</span>
+                    </div>
+                    {% endif %}
+                    {% if d.transit_network %}
+                    <div class="detail-item">
+                        <label>Rede de Trânsito</label>
+                        <span>{{ d.transit_network }}</span>
+                    </div>
+                    {% endif %}
+                    {% if d.local_ip %}
+                    <div class="detail-item">
+                        <label>IP Local</label>
+                        <span>{{ d.local_ip }}</span>
+                    </div>
+                    {% endif %}
+                    {% if d.remote_ip %}
+                    <div class="detail-item">
+                        <label>IP Remoto</label>
+                        <span>{{ d.remote_ip }}</span>
+                    </div>
+                    {% endif %}
+                    {% if d.routed_prefix %}
+                    <div class="detail-item">
+                        <label>Prefixo Roteado</label>
+                        <span>{{ d.routed_prefix }}</span>
+                    </div>
+                    {% endif %}
+                {% endwith %}
+            </div>
+
+            {% if circuit.description %}
+            <p style="font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.25rem;">
+                {{ circuit.description }}
+            </p>
+            {% endif %}
+
+            {% if circuit.details.metadata %}
+            <details>
+                <summary>Ver metadados completos</summary>
+                <pre>{{ circuit.details|pprint }}</pre>
+            </details>
+            {% endif %}
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="empty-state">
+            <p>Nenhum circuito detectado nesta configuração.</p>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Services -->
+<div class="card mb-2">
+    <h3 class="section-title">Serviços Detectados</h3>
+    {% if services %}
+        {% for svc in services %}
+        <div class="card" style="margin-bottom: 0.75rem; border-left: 4px solid var(--primary);">
+            <div class="flex justify-between items-center mb-1">
+                <strong>{{ svc.get_service_type_display }}</strong>
+                <span class="badge badge-primary">{{ svc.confidence|floatformat:2 }}</span>
+            </div>
+            {% if svc.name %}
+            <p style="font-size: 0.9rem;"><strong>{{ svc.name }}</strong></p>
+            {% endif %}
+            {% if svc.description %}
+            <p style="font-size: 0.9rem; color: var(--text-secondary);">{{ svc.description }}</p>
+            {% endif %}
+            {% if svc.metadata %}
+            <details>
+                <summary>Ver metadados</summary>
+                <pre>{{ svc.metadata|pprint }}</pre>
+            </details>
+            {% endif %}
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="empty-state">
+            <p>Nenhum serviço detectado.</p>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Issues -->
+<div class="card mb-2">
+    <h3 class="section-title">Issues / Riscos</h3>
+    {% if issues %}
+        {% for issue in issues %}
+        <div class="card" style="margin-bottom: 0.75rem; border-left: 4px solid
+            {% if issue.severity == 'critical' %}var(--danger)
+            {% elif issue.severity == 'warning' %}var(--warning)
+            {% else %}var(--info)
+            {% endif %};">
+            <div class="flex justify-between items-center mb-1">
+                <strong>
+                    <span class="badge badge-{{ issue.severity }}">{{ issue.get_severity_display }}</span>
+                    {{ issue.title }}
+                </strong>
+                {% if issue.code %}
+                <code style="font-size: 0.8rem; color: var(--text-secondary);">{{ issue.code }}</code>
+                {% endif %}
+            </div>
+            {% if issue.description %}
+            <p style="font-size: 0.9rem; color: var(--text-secondary);">{{ issue.description }}</p>
+            {% endif %}
+            {% if issue.metadata %}
+            <details>
+                <summary>Ver detalhes</summary>
+                <pre>{{ issue.metadata|pprint }}</pre>
+            </details>
+            {% endif %}
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="empty-state">
+            <p>Nenhum issue encontrado. Configuração limpa!</p>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Parsed JSON -->
+<div class="card">
+    <details>
+        <summary style="font-size: 1rem;">Dados parseados (JSON)</summary>
+        <pre>{{ parsed.parsed_data|pprint }}</pre>
+    </details>
+</div>
+{% endblock %}

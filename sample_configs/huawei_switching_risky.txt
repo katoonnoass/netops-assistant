@@ -1,0 +1,26 @@
+#
+sysname SW-RISCO-L2
+#
+vlan batch 10 20
+#
+interface GigabitEthernet0/0/1
+ port link-type trunk
+ port trunk allow-pass vlan all
+ port trunk pvid vlan 99
+ stp disable
+ stp edged-port enable
+#
+interface GigabitEthernet0/0/2
+ port link-type trunk
+ port trunk allow-pass vlan 10 20
+ stp disable
+#
+interface GigabitEthernet0/0/3
+ port link-type access
+ port default vlan 30
+#
+interface GigabitEthernet0/0/4
+ port link-type trunk
+ port trunk allow-pass vlan 10 20
+#
+return

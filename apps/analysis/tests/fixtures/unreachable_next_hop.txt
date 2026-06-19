@@ -1,0 +1,17 @@
+#
+sysname SW-UNREACHABLE
+#
+interface GigabitEthernet0/0/1
+ description INTERFACE-LOCAL
+ ip address 192.168.1.1 255.255.255.0
+#
+interface Eth-Trunk1.100
+ description CIRCUITO-TRANSITO
+ vlan-type dot1q 100
+ ip address 10.0.0.1 255.255.255.252
+#
+ip route-static 0.0.0.0 0.0.0.0 10.0.0.2
+ip route-static 200.200.200.0 255.255.255.252 10.0.0.2
+ip route-static 172.16.0.0 255.240.0.0 198.51.100.1
+#
+return

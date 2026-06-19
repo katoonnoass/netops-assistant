@@ -1,0 +1,22 @@
+#
+sysname SW-ETH-TRUNK
+#
+interface GigabitEthernet0/0/1
+ description MEMBER-TRUNK100-A
+ eth-trunk 100
+#
+interface XGigabitEthernet0/0/2
+ description MEMBER-TRUNK100-B
+ eth-trunk 100
+#
+interface Eth-Trunk100
+ description AGG-LINK-CORE
+ port link-type trunk
+ port trunk allow-pass vlan 10 20 100
+#
+interface Eth-Trunk100.1234
+ description CLIENTE-X-TRANSITO
+ vlan-type dot1q 1234
+ ip address 10.255.123.1 255.255.255.252
+#
+return

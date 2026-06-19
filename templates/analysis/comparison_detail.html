@@ -1,0 +1,531 @@
+{% extends 'base.html' %}
+{% block title %}Comparação #{{ comparison.pk }} - NetOps Assistant{% endblock %}
+
+{% block content %}
+{% with diff=comparison.diff_data %}
+<div class="page-header flex justify-between items-center">
+    <div>
+        <h1>Comparação #{{ comparison.pk }}</h1>
+        <p>
+            {{ comparison.base_snapshot.device.name|default:"?" }}
+            (#{{ comparison.base_snapshot.pk }}) →
+            {{ comparison.target_snapshot.device.name|default:"?" }}
+            (#{{ comparison.target_snapshot.pk }})
+            — {{ comparison.created_at|date:"d/m/Y H:i" }}
+        </p>
+    </div>
+    <div class="flex gap-1">
+        <a href="{% url 'comparison_new' %}" class="btn btn-primary">Nova Comparação</a>
+        <a href="{% url 'comparison_list' %}" class="btn btn-outline">Lista</a>
+    </div>
+</div>
+
+{% if comparison.title %}
+<div class="alert alert-info">{{ comparison.title }}</div>
+{% endif %}
+
+<!-- Summary cards -->
+<div class="card-grid">
+    <div class="card stat-card">
+        <div class="stat-value" style="color: var(--success);">+{{ diff.interfaces.added|length }}</div>
+        <div class="stat-label">Interfaces Adicionadas</div>
+    </div>
+    <div class="card stat-card">
+        <div class="stat-value" style="color: var(--danger);">-{{ diff.interfaces.removed|length }}</div>
+        <div class="stat-label">Interfaces Removidas</div>
+    </div>
+    <div class="card stat-card">
+        <div class="stat-value" style="color: var(--warning);">{{ diff.interfaces.changed|length }}</div>
+        <div class="stat-label">Interfaces Alteradas</div>
+    </div>
+    <div class="card stat-card">
+        <div class="stat-value" style="color: var(--success);">+{{ diff.static_routes.added|length }}</div>
+        <div class="stat-label">Rotas Adicionadas</div>
+    </div>
+    <div class="card stat-card">
+        <div class="stat-value" style="color: var(--danger);">-{{ diff.static_routes.removed|length }}</div>
+        <div class="stat-label">Rotas Removidas</div>
+    </div>
+    <div class="card stat-card">
+        <div class="stat-value" style="color: var(--primary);">{{ diff.bgp.peers_added|length }}/{{ diff.bgp.peers_removed|length }}</div>
+        <div class="stat-label">Peers BGP +/-</div>
+    </div>
+    <div class="card stat-card">
+        <div class="stat-value" style="color: var(--success);">+{{ diff.circuits.added|length }}</div>
+        <div class="stat-label">Circuitos Novos</div>
+    </div>
+    <div class="card stat-card">
+        <div class="stat-value" style="color: var(--danger);">{{ diff.issues.new_count }}</div>
+        <div class="stat-label">Issues Novas</div>
+    </div>
+</div>
+
+<!-- Impacts -->
+{% if diff.impacts %}
+<div class="card mb-2">
+    <h3 class="section-title">Impactos Prováveis</h3>
+    {% for imp in diff.impacts %}
+    <div class="card" style="margin-bottom:0.5rem; border-left:4px solid
+        {% if imp.severity == 'critical' %}var(--danger)
+        {% elif imp.severity == 'warning' %}var(--warning)
+        {% else %}var(--info)
+        {% endif %}; padding:0.75rem;">
+        <div class="flex justify-between items-center">
+            <strong>{{ imp.impact }}</strong>
+            <span class="badge badge-{{ imp.severity }}">{{ imp.severity }}</span>
+        </div>
+        <p style="font-size:0.85rem;color:var(--text-secondary);margin-top:0.25rem;">{{ imp.detail }}</p>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Recommendations -->
+{% if diff.recommendations %}
+<div class="card mb-2">
+    <h3 class="section-title">Recomendações</h3>
+    {% for r in diff.recommendations %}
+    <div class="card" style="margin-bottom:0.5rem; border-left:4px solid
+        {% if r.severity == 'critical' %}var(--danger)
+        {% elif r.severity == 'warning' %}var(--warning)
+        {% else %}var(--info)
+        {% endif %}; padding:0.75rem;">
+        <div class="flex justify-between items-center">
+            <strong>{{ r.recommendation }}</strong>
+            <span class="badge badge-{{ r.severity }}">{{ r.severity }}</span>
+        </div>
+        <p style="font-size:0.85rem;color:var(--text-secondary);margin-top:0.25rem;">{{ r.rationale }}</p>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Interfaces added -->
+{% if diff.interfaces.added %}
+<div class="card mb-2">
+    <h3 class="section-title">Interfaces Adicionadas</h3>
+    {% for iface in diff.interfaces.added %}
+    <div class="card" style="margin-bottom:0.5rem;padding:0.75rem;border-left:4px solid var(--success);">
+        <strong>{{ iface.name }}</strong>
+        <div class="detail-grid" style="gap:0.5rem;margin-top:0.25rem;">
+            {% if iface.type %}<div class="detail-item"><label>Tipo</label><span>{{ iface.type }}</span></div>{% endif %}
+            {% if iface.description %}<div class="detail-item"><label>Descrição</label><span>{{ iface.description }}</span></div>{% endif %}
+            {% if iface.ip_address %}<div class="detail-item"><label>IP</label><span>{{ iface.ip_address }}</span></div>{% endif %}
+            {% if iface.vlan_id %}<div class="detail-item"><label>VLAN</label><span>{{ iface.vlan_id }}</span></div>{% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Interfaces removed -->
+{% if diff.interfaces.removed %}
+<div class="card mb-2">
+    <h3 class="section-title">Interfaces Removidas</h3>
+    {% for iface in diff.interfaces.removed %}
+    <div class="card" style="margin-bottom:0.5rem;padding:0.75rem;border-left:4px solid var(--danger);">
+        <strong>{{ iface.name }}</strong>
+        {% if iface.description %}<p style="font-size:0.85rem;color:var(--text-secondary);">{{ iface.description }}</p>{% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Interfaces changed -->
+{% if diff.interfaces.changed %}
+<div class="card mb-2">
+    <h3 class="section-title">Interfaces Alteradas</h3>
+    {% for iface in diff.interfaces.changed %}
+    <div class="card" style="margin-bottom:0.5rem;padding:0.75rem;border-left:4px solid var(--warning);">
+        <strong>{{ iface.name }}</strong>
+        {% for ch in iface.changes %}
+        <div style="font-size:0.85rem;margin-top:0.25rem;">
+            <code>{{ ch.field }}</code>:
+            <span style="color:var(--danger);">{{ ch.from|default:"(vazio)" }}</span> →
+            <span style="color:var(--success);">{{ ch.to|default:"(vazio)" }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- VLANs -->
+{% if diff.vlans.added or diff.vlans.removed or diff.vlans.changed %}
+<div class="card mb-2">
+    <h3 class="section-title">VLANs</h3>
+    {% if diff.vlans.added %}
+    <div style="margin-bottom:1rem;">
+        <h4 style="color:var(--success);">Adicionadas</h4>
+        {% for v in diff.vlans.added %}
+        <div style="padding:0.25rem 0;"><strong>VLAN {{ v.vlan_id }}</strong>{% if v.description %} &mdash; {{ v.description }}{% endif %}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% if diff.vlans.removed %}
+    <div style="margin-bottom:1rem;">
+        <h4 style="color:var(--danger);">Removidas</h4>
+        {% for v in diff.vlans.removed %}
+        <div style="padding:0.25rem 0;"><strong>VLAN {{ v.vlan_id }}</strong>{% if v.description %} &mdash; {{ v.description }}{% endif %}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% if diff.vlans.changed %}
+    <div>
+        <h4 style="color:var(--warning);">Alteradas</h4>
+        {% for v in diff.vlans.changed %}
+        <div style="padding:0.25rem 0;"><strong>VLAN {{ v.vlan_id }}</strong>
+        {% for field, vals in v.changes.items %}
+        <div style="font-size:0.85rem;"><code>{{ field }}</code>: <span style="color:var(--danger);">{{ vals.before|default:"(vazio)" }}</span> &rarr; <span style="color:var(--success);">{{ vals.after|default:"(vazio)" }}</span></div>
+        {% endfor %}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- IP Prefixes -->
+{% if diff.ip_prefixes.added or diff.ip_prefixes.removed or diff.ip_prefixes.changed %}
+<div class="card mb-2">
+    <h3 class="section-title">IP Prefix-List</h3>
+    {% if diff.ip_prefixes.added %}
+    <div style="margin-bottom:0.5rem;">
+        <h4 style="color:var(--success);">Adicionados</h4>
+        {% for pp in diff.ip_prefixes.added %}<div style="padding:0.25rem 0;"><strong>{{ pp.name }}</strong> ({{ pp.rule_count }} regras)</div>{% endfor %}
+    </div>
+    {% endif %}
+    {% if diff.ip_prefixes.removed %}
+    <div style="margin-bottom:0.5rem;">
+        <h4 style="color:var(--danger);">Removidos</h4>
+        {% for pp in diff.ip_prefixes.removed %}<div style="padding:0.25rem 0;"><strong>{{ pp.name }}</strong> ({{ pp.rule_count }} regras)</div>{% endfor %}
+    </div>
+    {% endif %}
+    {% if diff.ip_prefixes.changed %}
+    <div>
+        <h4 style="color:var(--warning);">Alterados</h4>
+        {% for pp in diff.ip_prefixes.changed %}
+        <div style="padding:0.25rem 0;"><strong>{{ pp.name }}</strong></div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- Route-Policies -->
+{% if diff.route_policies.added or diff.route_policies.removed or diff.route_policies.changed %}
+<div class="card mb-2">
+    <h3 class="section-title">Route-Policies</h3>
+    {% if diff.route_policies.added %}
+    <div style="margin-bottom:0.5rem;">
+        <h4 style="color:var(--success);">Adicionadas</h4>
+        {% for rp in diff.route_policies.added %}<div style="padding:0.25rem 0;"><strong>{{ rp.name }}</strong> node {{ rp.node }} ({{ rp.action }})</div>{% endfor %}
+    </div>
+    {% endif %}
+    {% if diff.route_policies.removed %}
+    <div style="margin-bottom:0.5rem;">
+        <h4 style="color:var(--danger);">Removidas</h4>
+        {% for rp in diff.route_policies.removed %}<div style="padding:0.25rem 0;"><strong>{{ rp.name }}</strong> node {{ rp.node }} ({{ rp.action }})</div>{% endfor %}
+    </div>
+    {% endif %}
+    {% if diff.route_policies.changed %}
+    <div>
+        <h4 style="color:var(--warning);">Alteradas</h4>
+        {% for rp in diff.route_policies.changed %}<div style="padding:0.25rem 0;"><strong>{{ rp.name }}</strong> node {{ rp.node }}</div>{% endfor %}
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- ACLs -->
+{% if diff.acls.added or diff.acls.removed or diff.acls.changed %}
+<div class="card mb-2">
+    <h3 class="section-title">ACLs</h3>
+    {% if diff.acls.added %}
+    <div style="margin-bottom:0.5rem;">
+        <h4 style="color:var(--success);">Adicionadas</h4>
+        {% for acl in diff.acls.added %}<div style="padding:0.25rem 0;"><strong>{{ acl.name }}</strong> ({{ acl.type }}, {{ acl.rule_count }} regras)</div>{% endfor %}
+    </div>
+    {% endif %}
+    {% if diff.acls.removed %}
+    <div style="margin-bottom:0.5rem;">
+        <h4 style="color:var(--danger);">Removidas</h4>
+        {% for acl in diff.acls.removed %}<div style="padding:0.25rem 0;"><strong>{{ acl.name }}</strong> ({{ acl.type }})</div>{% endfor %}
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- AS-path filters -->
+{% if diff.as_path_filters.added or diff.as_path_filters.removed or diff.as_path_filters.changed %}
+<div class="card mb-2">
+    <h3 class="section-title">AS-Path Filters</h3>
+    {% if diff.as_path_filters.added %}
+    <div style="margin-bottom:0.5rem;">
+        <h4 style="color:var(--success);">Adicionados</h4>
+        {% for af in diff.as_path_filters.added %}<div style="padding:0.25rem 0;"><strong>{{ af.name }}</strong> ({{ af.rules|length }} regras)</div>{% endfor %}
+    </div>
+    {% endif %}
+    {% if diff.as_path_filters.removed %}
+    <div style="margin-bottom:0.5rem;">
+        <h4 style="color:var(--danger);">Removidos</h4>
+        {% for af in diff.as_path_filters.removed %}<div style="padding:0.25rem 0;"><strong>{{ af.name }}</strong></div>{% endfor %}
+    </div>
+    {% endif %}
+    {% if diff.as_path_filters.changed %}
+    <div>
+        <h4 style="color:var(--warning);">Alterados</h4>
+        {% for af in diff.as_path_filters.changed %}<div style="padding:0.25rem 0;"><strong>{{ af.name }}</strong></div>{% endfor %}
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- Community filters -->
+{% if diff.community_filters.added or diff.community_filters.removed or diff.community_filters.changed %}
+<div class="card mb-2">
+    <h3 class="section-title">Community Filters</h3>
+    {% if diff.community_filters.added %}
+    <div style="margin-bottom:0.5rem;">
+        <h4 style="color:var(--success);">Adicionados</h4>
+        {% for cf in diff.community_filters.added %}<div style="padding:0.25rem 0;"><strong>{{ cf.name }}</strong> ({{ cf.type }})</div>{% endfor %}
+    </div>
+    {% endif %}
+    {% if diff.community_filters.removed %}
+    <div style="margin-bottom:0.5rem;">
+        <h4 style="color:var(--danger);">Removidos</h4>
+        {% for cf in diff.community_filters.removed %}<div style="padding:0.25rem 0;"><strong>{{ cf.name }}</strong></div>{% endfor %}
+    </div>
+    {% endif %}
+    {% if diff.community_filters.changed %}
+    <div>
+        <h4 style="color:var(--warning);">Alterados</h4>
+        {% for cf in diff.community_filters.changed %}<div style="padding:0.25rem 0;"><strong>{{ cf.name }}</strong></div>{% endfor %}
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- Switching L2 -->
+{% if diff.switching.allowed_vlans_changed or diff.switching.access_vlan_changed or diff.switching.pvid_changed or diff.switching.eth_trunk_members_changed %}
+<div class="card mb-2">
+    <h3 class="section-title">Switching L2 <span class="badge badge-warning">alterado</span></h3>
+    {% for item in diff.switching.allowed_vlans_changed %}
+    <div style="padding:0.25rem 0;"><strong>{{ item.interface }}</strong>: allowed VLANs <span style="color:var(--danger);">{{ item.before|default:"(vazio)" }}</span> &rarr; <span style="color:var(--success);">{{ item.after|default:"(vazio)" }}</span></div>
+    {% endfor %}
+    {% for item in diff.switching.access_vlan_changed %}
+    <div style="padding:0.25rem 0;"><strong>{{ item.interface }}</strong>: access VLAN <span style="color:var(--danger);">{{ item.before|default:"(vazio)" }}</span> &rarr; <span style="color:var(--success);">{{ item.after|default:"(vazio)" }}</span></div>
+    {% endfor %}
+    {% for item in diff.switching.pvid_changed %}
+    <div style="padding:0.25rem 0;"><strong>{{ item.interface }}</strong>: PVID <span style="color:var(--danger);">{{ item.before|default:"(vazio)" }}</span> &rarr; <span style="color:var(--success);">{{ item.after|default:"(vazio)" }}</span></div>
+    {% endfor %}
+    {% for item in diff.switching.eth_trunk_members_changed %}
+    <div style="padding:0.25rem 0;">
+        <strong>{{ item.eth_trunk }}</strong>: membros
+        {% if item.members_added %} <span style="color:var(--success);">+{{ item.members_added|join:", " }}</span>{% endif %}
+        {% if item.members_removed %} <span style="color:var(--danger);">-{{ item.members_removed|join:", " }}</span>{% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- STP -->
+{% if diff.stp.mode_changed or diff.stp.instances_added or diff.stp.instances_removed or diff.stp.instances_changed %}
+<div class="card mb-2">
+    <h3 class="section-title">STP/MSTP <span class="badge badge-warning">alterado</span></h3>
+    {% if diff.stp.mode_changed %}
+    <div><strong>Modo</strong>: <span style="color:var(--danger);">{{ diff.stp.mode_changed.before }}</span> &rarr; <span style="color:var(--success);">{{ diff.stp.mode_changed.after }}</span></div>
+    {% endif %}
+    {% if diff.stp.instances_added %}
+    <div><strong>Instancias adicionadas</strong>: {{ diff.stp.instances_added|length }}</div>
+    {% endif %}
+    {% if diff.stp.instances_changed %}
+    <div><strong>Instancias alteradas</strong>: {{ diff.stp.instances_changed|length }}</div>
+    {% endif %}
+</div>
+{% endif %}
+
+{% if diff.static_routes.added or diff.static_routes.removed or diff.static_routes.changed %}
+<div class="card mb-2">
+    <h3 class="section-title">Rotas Estáticas</h3>
+    {% for route in diff.static_routes.added %}
+    <div class="card" style="margin-bottom:0.5rem;padding:0.75rem;border-left:4px solid var(--success);">
+        <strong>+ {{ route.destination }} via {{ route.next_hop }}</strong>
+        {% if route.description %}<p style="font-size:0.85rem;color:var(--text-secondary);">{{ route.description }}</p>{% endif %}
+    </div>
+    {% endfor %}
+    {% for route in diff.static_routes.removed %}
+    <div class="card" style="margin-bottom:0.5rem;padding:0.75rem;border-left:4px solid var(--danger);">
+        <strong>- {{ route.destination }} via {{ route.next_hop }}</strong>
+    </div>
+    {% endfor %}
+    {% for route in diff.static_routes.changed %}
+    <div class="card" style="margin-bottom:0.5rem;padding:0.75rem;border-left:4px solid var(--warning);">
+        <strong>~ {{ route.key }}</strong>
+        {% for ch in route.changes %}
+        <div style="font-size:0.85rem;"><code>{{ ch.field }}</code>: {{ ch.from }} → {{ ch.to }}</div>
+        {% endfor %}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- BGP changes -->
+{% if diff.bgp.peers_added or diff.bgp.peers_removed or diff.bgp.networks_added or diff.bgp.networks_removed %}
+<div class="card mb-2">
+    <h3 class="section-title">BGP</h3>
+    {% for peer in diff.bgp.peers_added %}
+    <div class="card" style="margin-bottom:0.5rem;padding:0.75rem;border-left:4px solid var(--success);">
+        <strong>+ Peer: {{ peer.ip }} (AS {{ peer.remote_as }})</strong>
+        {% if peer.description %}<p style="font-size:0.85rem;color:var(--text-secondary);">{{ peer.description }}</p>{% endif %}
+    </div>
+    {% endfor %}
+    {% for peer in diff.bgp.peers_removed %}
+    <div class="card" style="margin-bottom:0.5rem;padding:0.75rem;border-left:4px solid var(--danger);">
+        <strong>- Peer: {{ peer.ip }}</strong>
+    </div>
+    {% endfor %}
+    {% if diff.bgp.networks_added %}
+    <div style="margin-top:0.5rem;">
+        <strong>Redes adicionadas:</strong>
+        {% for n in diff.bgp.networks_added %}<span class="badge badge-success">{{ n }}</span> {% endfor %}
+    </div>
+    {% endif %}
+    {% if diff.bgp.networks_removed %}
+    <div style="margin-top:0.5rem;">
+        <strong>Redes removidas:</strong>
+        {% for n in diff.bgp.networks_removed %}<span class="badge badge-danger" style="background:#f8d7da;color:#842029;">{{ n }}</span> {% endfor %}
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- Circuits -->
+{% if diff.circuits.added or diff.circuits.removed %}
+<div class="card mb-2">
+    <h3 class="section-title">Circuitos</h3>
+    {% for c in diff.circuits.added %}
+    <div class="card" style="margin-bottom:0.5rem;padding:0.75rem;border-left:4px solid var(--success);">
+        <strong>+ {{ c.type_display }}</strong> — {{ c.interface|default:"?" }}
+        {% if c.vlan_id %} (VLAN {{ c.vlan_id }}){% endif %}
+    </div>
+    {% endfor %}
+    {% for c in diff.circuits.removed %}
+    <div class="card" style="margin-bottom:0.5rem;padding:0.75rem;border-left:4px solid var(--danger);">
+        <strong>- {{ c.type_display }}</strong> — {{ c.interface|default:"?" }}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Issues -->
+{% if diff.issues.new or diff.issues.resolved %}
+<div class="card mb-2">
+    <h3 class="section-title">Issues</h3>
+    {% for issue in diff.issues.new %}
+    <div class="card" style="margin-bottom:0.5rem;padding:0.75rem;border-left:4px solid var(--danger);">
+        <div class="flex justify-between">
+            <strong><span class="badge badge-{{ issue.severity }}">{{ issue.severity_display }}</span> {{ issue.title }}</strong>
+        </div>
+        <p style="font-size:0.85rem;color:var(--text-secondary);">{{ issue.description }}</p>
+    </div>
+    {% endfor %}
+    {% for issue in diff.issues.resolved %}
+    <div class="card" style="margin-bottom:0.5rem;padding:0.75rem;border-left:4px solid var(--success);">
+        <div class="flex justify-between">
+            <strong>✓ Resolvido: {{ issue.title }}</strong>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- BGP detailed changes -->
+{% if diff.bgp.peers_changed %}
+<div class="card mb-2">
+    <h3 class="section-title">BGP — Peers Alterados (Detalhado)</h3>
+    {% for pc in diff.bgp.peers_changed %}
+    <div class="card" style="margin-bottom:0.5rem;padding:0.75rem;border-left:4px solid var(--warning);">
+        <strong>Peer: {{ pc.ip }}</strong>
+        {% for ch in pc.changes %}
+        <div style="font-size:0.85rem;margin-top:0.25rem;">
+            <code>{{ ch.field }}</code>:
+            <span style="color:var(--danger);">{{ ch.from|default:"(vazio)" }}</span> →
+            <span style="color:var(--success);">{{ ch.to|default:"(vazio)" }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Validation Plan -->
+{% if diff.validation_plan %}
+<div class="card mb-2">
+    <h3 class="section-title">Plano de Validação Pós-Mudança</h3>
+    {% for item in diff.validation_plan %}
+    <div class="card" style="margin-bottom:0.5rem;padding:0.75rem;border-left:4px solid
+        {% if item.severity == 'critical' %}var(--danger)
+        {% elif item.severity == 'warning' %}var(--warning)
+        {% else %}var(--info)
+        {% endif %};">
+        <div class="flex justify-between items-center">
+            <strong>{{ item.title }}</strong>
+            <span class="badge badge-{{ item.severity }}">{{ item.severity }}</span>
+        </div>
+        <p style="font-size:0.85rem;color:var(--text-secondary);margin-top:0.25rem;">{{ item.reason }}</p>
+        {% if item.commands %}
+        <details style="margin-top:0.25rem;">
+            <summary>Comandos de validação ({{ item.commands|length }})</summary>
+            <pre>{% for cmd in item.commands %}{{ cmd }}
+{% endfor %}</pre>
+        </details>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Rollback Plan -->
+{% if diff.rollback_plan %}
+<div class="card mb-2">
+    <h3 class="section-title">Plano de Rollback Sugerido</h3>
+    <div class="alert alert-warning" style="margin-bottom:0.75rem;">
+        O NetOps Assistant não aplica rollback automaticamente.
+        As sugestões abaixo são para conferência manual do operador.
+    </div>
+    {% for item in diff.rollback_plan %}
+    <div class="card" style="margin-bottom:0.5rem;padding:0.75rem;border-left:4px solid
+        {% if item.risk_level == 'critical' %}var(--danger)
+        {% elif item.risk_level == 'high' %}var(--warning)
+        {% else %}var(--info)
+        {% endif %};">
+        <div class="flex justify-between items-center">
+            <strong>{{ item.change_type }}: {{ item.object }}</strong>
+            <span class="badge badge-{{ item.risk_level }}">{{ item.risk_level }}</span>
+        </div>
+        <p style="font-size:0.85rem;color:var(--text-secondary);margin-top:0.25rem;">{{ item.suggestion }}</p>
+        {% if item.verification_commands %}
+        <details style="margin-top:0.25rem;">
+            <summary>Comandos de verificação</summary>
+            <pre>{% for cmd in item.verification_commands %}{{ cmd }}
+{% endfor %}</pre>
+        </details>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Raw diff -->
+<div class="card">
+    <details>
+        <summary style="font-size:1rem;">Diff bruto (+{{ diff.raw_diff.added_count }}/-{{ diff.raw_diff.removed_count }})</summary>
+        {% if diff.raw_diff.truncated %}
+        <div class="alert alert-warning">Diff truncado em 2000 linhas.</div>
+        {% endif %}
+        <pre style="background:#f8f9fa;border:1px solid var(--border);border-radius:6px;padding:0.75rem;font-size:0.8rem;max-height:400px;overflow:auto;">{{ diff.raw_diff.lines }}</pre>
+    </details>
+</div>
+{% endwith %}
+{% endblock %}

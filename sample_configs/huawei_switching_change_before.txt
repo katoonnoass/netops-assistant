@@ -1,0 +1,29 @@
+#
+sysname SW-MUDANCA-L2
+#
+vlan batch 10 20 30
+#
+vlan 10
+ description CLIENTES-ANTIGO
+#
+stp enable
+stp mode rstp
+#
+interface GigabitEthernet0/0/1
+ description CLIENTE-X
+ port link-type access
+ port default vlan 10
+ eth-trunk 100
+#
+interface GigabitEthernet0/0/2
+ description UPLINK-CORE
+ port link-type trunk
+ port trunk allow-pass vlan 10 20
+ port trunk pvid vlan 1
+#
+interface Eth-Trunk100
+ description AGG-CORE
+ port link-type trunk
+ port trunk allow-pass vlan 10 20
+#
+return

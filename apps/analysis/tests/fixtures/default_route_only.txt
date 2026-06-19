@@ -1,0 +1,11 @@
+#
+sysname SW-DEFAULT-ONLY
+#
+interface Eth-Trunk1.100
+ description DEFAULT-VIA-TRANSITO
+ vlan-type dot1q 100
+ ip address 10.0.0.1 255.255.255.252
+#
+ip route-static 0.0.0.0 0.0.0.0 10.0.0.2
+#
+return

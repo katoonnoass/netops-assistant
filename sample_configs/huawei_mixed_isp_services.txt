@@ -1,0 +1,55 @@
+#
+sysname NE40-MIXED-TESTE
+#
+interface GigabitEthernet0/0/0
+ description UPLINK-CORE-SP
+ ip address 10.0.0.1 255.255.255.252
+#
+interface GigabitEthernet0/0/1
+ port link-type trunk
+ port trunk allow-pass vlan 100 200 300 400 500 600 700
+#
+interface Eth-Trunk100.1234
+ description CLIENTE-L3-MEGA-TRANSITO
+ vlan-type dot1q 1234
+ ip address 10.255.123.1 255.255.255.252
+#
+interface Eth-Trunk100.2000
+ description TRANSPORTE-OLT-POP02
+ vlan-type dot1q 2000
+#
+interface Eth-Trunk100.2001
+ vlan-type dot1q 2001
+#
+interface Eth-Trunk100.3000
+ description CLIENTE-QINQ-EMPRESA-X
+ vlan-type dot1q 3000 second-dot1q 100
+#
+interface Eth-Trunk100.3001
+ description CLIENTE-QINQ-EMPRESA-Y
+ qinq termination pe-vid 3001 ce-vid 200
+#
+interface Eth-Trunk100.4000
+ description L2VPN-CLIENTE-Z
+ vlan-type dot1q 4000
+ l2 binding vsi VSI-CLIENTE-Z
+#
+interface LoopBack0
+ description ROUTER-ID
+ ip address 10.0.0.1 255.255.255.255
+#
+vsi VSI-CLIENTE-Z static
+ pwsignal ldp
+  vsi-id 9000
+ peer 10.10.10.10
+#
+bgp 65000
+ peer 10.0.0.2 as-number 64501
+ peer 10.0.0.2 description BGP-UPSTREAM
+ network 200.100.0.0 mask 255.255.255.0
+#
+ip route-static 200.200.200.0 255.255.255.252 10.255.123.2 description CLIENTE-L3-PUBLICO
+ip route-static 0.0.0.0 0.0.0.0 10.0.0.2
+ip route-static 10.10.10.0 255.255.255.0 NULL0 preference 5
+#
+return

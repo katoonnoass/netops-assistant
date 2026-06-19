@@ -1,0 +1,28 @@
+#
+sysname NE40-MGMT-DIFF
+#
+snmp-agent
+snmp-agent sys-info version v2c v3
+snmp-agent community read cipher %^%#KEXAMPLE1
+snmp-agent target-host trap address udp-domain 10.0.0.10 params securityname NOC v2c
+snmp-agent acl 2001
+#
+ntp-service enable
+ntp-service unicast-server 10.0.0.1
+#
+info-center enable
+info-center loghost 10.0.0.20
+#
+aaa
+ local-user admin password irreversible-cipher %^%#KEXAMPLE3
+ local-user admin privilege level 15
+ local-user admin service-type ssh terminal
+#
+user-interface vty 0 4
+ authentication-mode aaa
+ protocol inbound ssh
+ acl 2001 inbound
+#
+stelnet server enable
+#
+return

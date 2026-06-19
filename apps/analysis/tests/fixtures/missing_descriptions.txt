@@ -1,0 +1,28 @@
+#
+sysname SW-MISSING-DESCS
+#
+interface GigabitEthernet0/0/1
+ port link-type trunk
+ port trunk allow-pass vlan 100
+#
+interface GigabitEthernet0/0/2
+ description TENHO-DESCRICAO
+ port link-type access
+ port default vlan 20
+#
+interface Eth-Trunk1.100
+ vlan-type dot1q 100
+ ip address 10.0.0.1 255.255.255.252
+#
+interface Eth-Trunk1.200
+ description TENHO-DESCRICAO-SUB
+ vlan-type dot1q 200
+ ip address 10.0.1.1 255.255.255.252
+#
+interface LoopBack0
+ ip address 10.0.0.1 255.255.255.255
+#
+ip route-static 10.200.0.0 255.255.255.0 10.0.0.2
+ip route-static 10.201.0.0 255.255.255.0 10.0.1.2 description ROTA-COM-DESCR
+#
+return

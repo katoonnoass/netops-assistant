@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+{% block title %}Issue {{ issue.pk }} - NetOps Assistant{% endblock %}
+
+{% block content %}
+<div class="page-header flex justify-between items-center">
+    <div>
+        <h1>Detalhes da Issue</h1>
+        <p>#{{ issue.pk }} — {{ issue.code }}</p>
+    </div>
+    <div class="flex gap-1">
+        <a href="{% url 'issue_list' %}" class="btn btn-outline">Lista</a>
+        {% if parsed %}
+        <a href="{% url 'analysis_detail' parsed.pk %}" class="btn btn-primary">Ver Análise</a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card mb-2" style="border-left:4px solid
+    {% if issue.severity == 'critical' %}var(--danger)
+    {% elif issue.severity == 'warning' %}var(--warning)
+    {% else %}var(--info)
+    {% endif %};">
+    <h3 class="section-title">Dados da Issue</h3>
+    <div class="detail-grid">
+        <div class="detail-item"><label>Severidade</label><span><span class="badge badge-{{ issue.severity }}">{{ issue.get_severity_display }}</span></span></div>
+        <div class="detail-item"><label>Código</label><span><code>{{ issue.code }}</code></span></div>
+        <div class="detail-item"><label>Título</label><span>{{ issue.title }}</span></div>
+        <div class="detail-item" style="grid-column:1/-1;"><label>Descrição</label><span>{{ issue.description }}</span></div>
+        <div class="detail-item"><label>Device</label><span>{{ issue.snapshot.device.name|default:"—" }}</span></div>
+        <div class="detail-item"><label>Snapshot</label><span>#{{ issue.snapshot.pk }}</span></div>
+        <div class="detail-item"><label>Data</label><span>{{ issue.created_at|date:"d/m/Y H:i" }}</span></div>
+    </div>
+</div>
+
+{% if issue.metadata %}
+<div class="card mb-2">
+    <h3 class="section-title">Evidências</h3>
+    <details><summary>Ver metadados</summary><pre>{{ issue.metadata|pprint }}</pre></details>
+</div>
+{% endif %}
+
+<div class="card">
+    <h3 class="section-title">Ação Corretiva Sugerida</h3>
+    <div class="alert alert-info">{{ suggestion }}</div>
+</div>
+{% endblock %}

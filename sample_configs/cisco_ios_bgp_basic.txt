@@ -1,0 +1,36 @@
+hostname CISCO-BGP
+!
+interface GigabitEthernet0/0
+ description UPLINK-PRIMARY
+ no shutdown
+ ip address 10.0.0.1 255.255.255.252
+!
+interface GigabitEthernet0/1
+ description UPLINK-SECONDARY
+ no shutdown
+ ip address 10.0.1.1 255.255.255.252
+!
+interface Loopback0
+ ip address 192.0.2.1 255.255.255.255
+!
+router bgp 64500
+ bgp router-id 192.0.2.1
+ neighbor 10.0.0.2 remote-as 65000
+ neighbor 10.0.0.2 description UPSTREAM-A
+ neighbor 10.0.0.2 update-source Loopback0
+ neighbor 10.0.1.2 remote-as 65100
+ neighbor 10.0.1.2 description UPSTREAM-B
+ neighbor 10.0.1.2 update-source Loopback0
+ !
+ address-family ipv4
+  network 10.10.0.0 mask 255.255.255.0
+  network 10.20.0.0 mask 255.255.255.0
+  neighbor 10.0.0.2 activate
+  neighbor 10.0.0.2 route-map PREFER-A in
+  neighbor 10.0.0.2 route-map ANUNCIO-OUT out
+  neighbor 10.0.1.2 activate
+  neighbor 10.0.1.2 route-map PREFER-B in
+  neighbor 10.0.1.2 route-map ANUNCIO-OUT out
+ exit-address-family
+!
+end

@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+{% block title %}Serviços - NetOps Assistant{% endblock %}
+
+{% block content %}
+<div class="page-header flex justify-between items-center">
+    <div>
+        <h1>Serviços Detectados</h1>
+        <p>{{ services|length }} serviço(s) encontrado(s).</p>
+    </div>
+    <div class="flex gap-1">
+        <a href="{% url 'service_export' %}{% if filter_type %}?type={{ filter_type }}{% endif %}" class="btn btn-outline btn-sm">Exportar CSV</a>
+        <a href="{% url 'service_list' %}" class="btn btn-outline btn-sm">Limpar Filtros</a>
+    </div>
+</div>
+
+<div class="card mb-2">
+    <form method="get" class="flex gap-1 items-center" style="flex-wrap:wrap;">
+        <select name="type" class="form-control" style="width:auto;min-width:140px;">
+            <option value="">Todos os tipos</option>
+            {% for val, label in service_type_choices %}
+            <option value="{{ val }}" {% if filter_type == val %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+        <input type="text" name="device" class="form-control" style="width:auto;min-width:120px;" placeholder="Dispositivo..." value="{{ filter_device }}">
+        <select name="vendor" class="form-control" style="width:auto;min-width:100px;">
+            {% for val, label in vendor_choices %}<option value="{{ val }}" {% if filter_vendor == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+        <input type="number" name="min_confidence" class="form-control" style="width:auto;min-width:80px;" placeholder="Confiança min" value="{{ filter_min_conf }}" step="0.1" min="0" max="1">
+        <input type="text" name="q" class="form-control" style="width:auto;min-width:180px;" placeholder="Buscar nome/descrição..." value="{{ filter_q }}">
+        <button type="submit" class="btn btn-primary btn-sm">Filtrar</button>
+    </form>
+</div>
+
+{% if services %}
+<div class="table-container">
+    <table>
+        <thead><tr><th>Tipo</th><th>Nome</th><th>Confiança</th><th>Device</th><th>Data</th><th></th></tr></thead>
+        <tbody>
+        {% for s in services %}
+        <tr>
+            <td><span class="badge badge-info">{{ s.get_service_type_display }}</span></td>
+            <td>{{ s.name|default:"—" }}</td>
+            <td>{{ s.confidence|floatformat:2 }}</td>
+            <td>{{ s.snapshot.device.name|default:"—" }}</td>
+            <td>{{ s.created_at|date:"d/m/Y" }}</td>
+            <td class="text-right"><a href="{% url 'service_detail' s.pk %}" class="btn btn-primary btn-sm">Detalhes</a></td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="card empty-state"><p>Nenhum serviço encontrado.</p></div>
+{% endif %}
+{% endblock %}

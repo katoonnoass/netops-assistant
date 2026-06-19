@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% block title %}Nova Análise - NetOps Assistant{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Nova Análise</h1>
+    <p>Cole a configuração do equipamento para análise automática.</p>
+</div>
+
+<div class="card">
+    <form method="post">
+        {% csrf_token %}
+
+        <div class="form-group">
+            <label for="id_device_name">Nome do equipamento</label>
+            <input type="text" name="device_name" id="id_device_name" class="form-control"
+                   placeholder="Ex: ROTEADOR-TRANSITO-SP" value="{{ form.device_name.value|default:'' }}" required>
+            <div class="help-text">Nome do equipamento (será criado/reutilizado automaticamente).</div>
+            {% if form.device_name.errors %}
+                <div class="form-error">{{ form.device_name.errors.0 }}</div>
+            {% endif %}
+        </div>
+
+        <div class="form-group">
+            <label for="id_vendor">Fabricante</label>
+            <select name="vendor" id="id_vendor" class="form-control" required>
+                <option value="huawei" selected>Huawei / VRP</option>
+            </select>
+            <div class="help-text">Fabricante do equipamento. Por enquanto apenas Huawei é suportado.</div>
+        </div>
+
+        <div class="form-group">
+            <label for="id_raw_config">Configuração bruta</label>
+            <textarea name="raw_config" id="id_raw_config" class="form-control"
+                      placeholder="Cole aqui a saída do comando display current-configuration..."
+                      required>{{ form.raw_config.value|default:'' }}</textarea>
+            <div class="help-text">A saída completa do <code>display current-configuration</code> do equipamento.</div>
+            {% if form.raw_config.errors %}
+                <div class="form-error">{{ form.raw_config.errors.0 }}</div>
+            {% endif %}
+        </div>
+
+        <div class="form-group">
+            <label for="id_notes">Observações <span style="font-weight: 400; color: var(--text-secondary);">(opcional)</span></label>
+            <textarea name="notes" id="id_notes" class="form-control"
+                      style="min-height: 60px; font-family: inherit;"
+                      placeholder="Informações adicionais sobre esta análise...">{{ form.notes.value|default:'' }}</textarea>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Analisar Configuração</button>
+    </form>
+</div>
+{% endblock %}

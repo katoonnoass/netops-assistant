@@ -1,0 +1,26 @@
+#
+sysname NE40-MGMT-RISCO
+#
+snmp-agent
+snmp-agent sys-info version v2c
+snmp-agent community read cipher %^%#KEXAMPLE1
+snmp-agent community write cipher %^%#KEXAMPLE2
+snmp-agent target-host trap address udp-domain 10.0.0.10 params securityname NOC v2c
+snmp-agent trap enable
+#
+ntp-service enable
+ntp-service unicast-server 10.0.0.1
+#
+info-center enable
+#
+aaa
+ local-user admin password irreversible-cipher %^%#KEXAMPLE3
+ local-user admin privilege level 15
+ local-user admin service-type ssh terminal telnet
+#
+user-interface vty 0 4
+ authentication-mode aaa
+ protocol inbound telnet
+ idle-timeout 30 0
+#
+return

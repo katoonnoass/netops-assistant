@@ -1,0 +1,35 @@
+#
+sysname NE40-MGMT-DIFF
+#
+snmp-agent
+snmp-agent sys-info version v3
+snmp-agent community read cipher %^%#KEXAMPLE1-NEW
+snmp-agent target-host trap address udp-domain 10.0.0.11 params securityname NOC-NOVO v3
+snmp-agent acl 2001
+snmp-agent usm-user v3 NMS
+snmp-agent group v3 NMS authentication
+#
+ntp-service enable
+ntp-service unicast-server 10.0.0.2
+ntp-service unicast-server 10.0.0.3 preference
+#
+info-center enable
+info-center loghost 10.0.0.20
+info-center loghost 10.0.0.21 facility local7
+#
+aaa
+ local-user admin password irreversible-cipher %^%#KEXAMPLE4
+ local-user admin privilege level 15
+ local-user admin service-type ssh terminal
+ local-user operador password cipher %^%#KEXAMPLE5
+ local-user operador privilege level 3
+ local-user operador service-type ssh
+#
+user-interface vty 0 4
+ authentication-mode aaa
+ protocol inbound ssh
+ acl 2001 inbound
+#
+stelnet server enable
+#
+return

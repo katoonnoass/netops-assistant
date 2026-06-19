@@ -1,0 +1,239 @@
+{% extends 'base.html' %}
+{% block title %}{{ summary.device.name }} - NetOps Assistant{% endblock %}
+
+{% block content %}
+{% with s=summary %}
+<div class="page-header flex justify-between items-center">
+    <div>
+        <h1>{{ s.device.name }}</h1>
+        <p>
+            <span class="badge badge-primary">{{ s.device.vendor }}</span>
+            {% if s.device.ip_address %} — {{ s.device.ip_address }}{% endif %}
+            {% if s.device.hostname %} ({{ s.device.hostname }}){% endif %}
+        </p>
+    </div>
+    <div class="flex gap-1">
+        <a href="{% url 'device_list' %}" class="btn btn-outline">Dispositivos</a>
+        {% if s.last_parsed %}
+        <a href="{% url 'analysis_detail' s.last_parsed.pk %}" class="btn btn-primary">Ver Análise</a>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Status banner -->
+<div class="card mb-2" style="border-left:4px solid
+    {% if s.status == 'critical' %}var(--danger)
+    {% elif s.status == 'warning' %}var(--warning)
+    {% elif s.status == 'ok' %}var(--success)
+    {% else %}var(--info)
+    {% endif %};">
+    <div class="flex justify-between items-center">
+        <div>
+            <strong>Status Operacional:
+            {% if s.status == 'critical' %}<span class="badge badge-critical">Crítico</span>
+            {% elif s.status == 'warning' %}<span class="badge badge-warning">Atenção</span>
+            {% elif s.status == 'ok' %}<span class="badge badge-success">OK</span>
+            {% else %}<span class="badge badge-info">Sem análise</span>{% endif %}
+            </strong>
+            <p style="font-size:0.85rem;color:var(--text-secondary);margin-top:0.2rem;">
+                {{ s.total_snapshots }} snapshot(s).
+                {% if s.last_snapshot %}Último: {{ s.last_snapshot.created_at|date:"d/m/Y H:i" }} (#{{ s.last_snapshot.pk }}).{% endif %}
+            </p>
+        </div>
+        <div class="flex gap-1">
+            {% if s.last_parsed %}
+            <a href="{% url 'analysis_documentation' s.last_parsed.pk %}" class="btn btn-outline btn-sm">Documentação</a>
+            {% endif %}
+            <a href="{% url 'new_analysis' %}" class="btn btn-primary btn-sm">Nova Análise</a>
+        </div>
+    </div>
+</div>
+
+<!-- Summary cards -->
+<div class="card-grid">
+    <div class="card stat-card">
+        <div class="stat-value" style="color:var(--success);">{{ s.circuits|length }}</div>
+        <div class="stat-label">Circuitos</div>
+    </div>
+    <div class="card stat-card">
+        <div class="stat-value" style="color:var(--info);">{{ s.services|length }}</div>
+        <div class="stat-label">Serviços</div>
+    </div>
+    <div class="card stat-card">
+        <div class="stat-value" style="color:var(--danger);">{{ s.critical_count }}</div>
+        <div class="stat-label">Issues Críticas</div>
+    </div>
+    <div class="card stat-card">
+        <div class="stat-value" style="color:var(--warning);">{{ s.warning_count }}</div>
+        <div class="stat-label">Issues Atenção</div>
+    </div>
+</div>
+
+<!-- Recommended actions -->
+{% if actions %}
+<div class="card mb-2">
+    <h3 class="section-title">Ações Recomendadas</h3>
+    {% for a in actions %}
+    <div class="card" style="margin-bottom:0.35rem;padding:0.5rem 0.75rem;border-left:4px solid
+        {% if a.priority == 'high' %}var(--danger)
+        {% elif a.priority == 'medium' %}var(--warning)
+        {% else %}var(--info)
+        {% endif %};">
+        <strong>{{ a.action }}</strong>
+        <p style="font-size:0.85rem;color:var(--text-secondary);margin-top:0.15rem;">{{ a.reason }}</p>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Latest snapshots -->
+<div class="card mb-2">
+    <h3 class="section-title">Snapshots</h3>
+    {% if s.snapshots %}
+    <div class="table-container">
+        <table>
+            <thead><tr><th>ID</th><th>Data</th><th>Vendor</th><th>Origem</th><th>Circuitos</th><th>Issues</th><th></th></tr></thead>
+            <tbody>
+            {% for snap in s.snapshots|slice:":10" %}
+            <tr>
+                <td>#{{ snap.pk }}</td>
+                <td>{{ snap.created_at|date:"d/m/Y H:i" }}</td>
+                <td><span class="badge badge-primary">{{ snap.vendor }}</span></td>
+                <td>{{ snap.get_source_display }}</td>
+                <td>{{ snap.detected_circuits.count }}</td>
+                <td>{{ snap.analysis_issues.count }}</td>
+                <td class="text-right">
+                    {% with snap.parsed_configs.first as p %}
+                    {% if p %}
+                    <a href="{% url 'analysis_detail' p.pk %}" class="btn btn-primary btn-sm">Análise</a>
+                    <a href="{% url 'analysis_documentation' p.pk %}" class="btn btn-outline btn-sm">Doc</a>
+                    {% endif %}
+                    {% endwith %}
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="empty-state">Nenhum snapshot.</p>
+    {% endif %}
+</div>
+
+<!-- Circuits from latest snapshot -->
+{% if s.circuits %}
+<div class="card mb-2">
+    <h3 class="section-title">Circuitos (último snapshot)</h3>
+    <div class="table-container">
+        <table>
+            <thead><tr><th>Tipo</th><th>Interface</th><th>VLAN</th><th>Prefixo / VSI</th><th>Confiança</th><th></th></tr></thead>
+            <tbody>
+            {% for c in s.circuits %}
+            <tr>
+                <td><span class="badge badge-primary">{{ c.get_circuit_type_display }}</span></td>
+                <td>{{ c.details.interface|default:"—" }}</td>
+                <td>{{ c.details.vlan_id|default:"—" }}</td>
+                <td>{{ c.details.routed_prefix|default:"—" }}</td>
+                <td>{{ c.details.confidence|floatformat:2 }}</td>
+                <td class="text-right"><a href="{% url 'circuit_detail' c.pk %}" class="btn btn-primary btn-sm">Detalhes</a></td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- Services from latest snapshot -->
+{% if s.services %}
+<div class="card mb-2">
+    <h3 class="section-title">Serviços (último snapshot)</h3>
+    <div class="table-container">
+        <table>
+            <thead><tr><th>Tipo</th><th>Nome</th><th>Confiança</th><th></th></tr></thead>
+            <tbody>
+            {% for svc in s.services %}
+            <tr>
+                <td><span class="badge badge-info">{{ svc.get_service_type_display }}</span></td>
+                <td>{{ svc.name|default:"—" }}</td>
+                <td>{{ svc.confidence|floatformat:2 }}</td>
+                <td class="text-right"><a href="{% url 'service_detail' svc.pk %}" class="btn btn-primary btn-sm">Detalhes</a></td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- Issues from latest snapshot -->
+{% if s.issues %}
+<div class="card mb-2">
+    <h3 class="section-title">Issues (último snapshot)</h3>
+    <div class="table-container">
+        <table>
+            <thead><tr><th>Severidade</th><th>Código</th><th>Título</th><th></th></tr></thead>
+            <tbody>
+            {% for issue in s.issues %}
+            <tr>
+                <td><span class="badge badge-{{ issue.severity }}">{{ issue.get_severity_display }}</span></td>
+                <td><code>{{ issue.code }}</code></td>
+                <td>{{ issue.title }}</td>
+                <td class="text-right"><a href="{% url 'issue_detail' issue.pk %}" class="btn btn-primary btn-sm">Detalhes</a></td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- Comparisons -->
+{% if s.comparisons %}
+<div class="card mb-2">
+    <h3 class="section-title">Comparações Recentes</h3>
+    <div class="table-container">
+        <table>
+            <thead><tr><th>#</th><th>Base</th><th>Alvo</th><th>Data</th><th></th></tr></thead>
+            <tbody>
+            {% for c in s.comparisons %}
+            <tr>
+                <td>{{ c.pk }}</td>
+                <td>{{ c.base_snapshot.device.name|default:"?" }} #{{ c.base_snapshot.pk }}</td>
+                <td>{{ c.target_snapshot.device.name|default:"?" }} #{{ c.target_snapshot.pk }}</td>
+                <td>{{ c.created_at|date:"d/m/Y H:i" }}</td>
+                <td class="text-right"><a href="{% url 'comparison_detail' c.pk %}" class="btn btn-primary btn-sm">Ver</a></td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- Timeline -->
+{% if timeline %}
+<div class="card">
+    <h3 class="section-title">Timeline</h3>
+    <div style="max-height:300px;overflow-y:auto;">
+        {% for e in timeline %}
+        <div class="card" style="margin-bottom:0.35rem;padding:0.5rem 0.75rem;border-left:4px solid
+            {% if e.type == 'critical_issue' %}var(--danger)
+            {% elif e.type == 'snapshot' %}var(--primary)
+            {% elif e.type == 'analysis' %}var(--success)
+            {% elif e.type == 'comparison' %}var(--info)
+            {% else %}var(--border)
+            {% endif %};">
+            <div style="font-size:0.85rem;">
+                <span style="color:var(--text-secondary);">{{ e.date|date:"d/m/Y H:i" }}</span>
+                {% if e.url %}<a href="{{ e.url }}" style="text-decoration:none;">{% endif %}
+                <strong>{{ e.label }}</strong>
+                {% if e.url %}</a>{% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+{% endwith %}
+{% endblock %}

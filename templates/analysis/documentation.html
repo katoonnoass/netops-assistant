@@ -1,0 +1,565 @@
+{% extends 'base.html' %}
+{% block title %}Documentação - {{ doc.summary.sysname }} - NetOps Assistant{% endblock %}
+
+{% block content %}
+<div class="page-header flex justify-between items-center">
+    <div>
+        <h1>Documentação Automática</h1>
+        <p>{{ doc.summary.sysname }} — {{ doc.summary.device_name }}</p>
+    </div>
+    <div class="flex gap-1">
+        <a href="{% url 'analysis_detail' parsed.pk %}" class="btn btn-outline">Voltar ao resultado</a>
+        <a href="{% url 'new_analysis' %}" class="btn btn-primary">Nova Análise</a>
+    </div>
+</div>
+
+<!-- Summary -->
+<div class="card-grid">
+    <div class="card stat-card">
+        <div class="stat-value" style="color: var(--primary);">{{ doc.summary.total_interfaces }}</div>
+        <div class="stat-label">Interfaces</div>
+    </div>
+    <div class="card stat-card">
+        <div class="stat-value" style="color: var(--primary);">{{ doc.summary.total_static_routes }}</div>
+        <div class="stat-label">Rotas Estáticas</div>
+    </div>
+    <div class="card stat-card" style="grid-column: span 1;">
+        <div class="stat-value" style="color: var(--success);">{{ doc.summary.total_circuits }}</div>
+        <div class="stat-label">Circuitos</div>
+    </div>
+    <div class="card stat-card">
+        <div class="stat-value" style="color: var(--danger);">{{ doc.summary.total_issues }}</div>
+        <div class="stat-label">Issues</div>
+    </div>
+    <div class="card stat-card">
+        <div class="stat-value" style="color: var(--info);">{{ doc.summary.total_services }}</div>
+        <div class="stat-label">Serviços</div>
+    </div>
+</div>
+
+<div class="card mb-2">
+    <h3 class="section-title">Resumo do Equipamento</h3>
+    <div class="detail-grid">
+        <div class="detail-item">
+            <label>Equipamento</label>
+            <span>{{ doc.summary.device_name }}</span>
+        </div>
+        <div class="detail-item">
+            <label>Sysname</label>
+            <span>{{ doc.summary.sysname }}</span>
+        </div>
+        <div class="detail-item">
+            <label>Fabricante</label>
+            <span><span class="badge badge-primary">{{ doc.summary.vendor }}</span></span>
+        </div>
+        <div class="detail-item">
+            <label>Snapshots / Análise</label>
+            <span>#{{ doc.summary.snapshot_id }} / #{{ doc.summary.parsed_id }}</span>
+        </div>
+    </div>
+</div>
+
+<!-- Roles -->
+{% if doc.detected_roles %}
+<div class="card mb-2">
+    <h3 class="section-title">Funções Prováveis Detectadas</h3>
+    <div class="flex gap-1" style="flex-wrap: wrap;">
+        {% for role in doc.detected_roles %}
+        <div class="card" style="margin-bottom: 0.5rem; border-left: 4px solid
+            {% if role.confidence == 'alta' %}var(--success)
+            {% else %}var(--warning)
+            {% endif %}; padding: 0.75rem; flex: 1 1 280px;">
+            <strong>{{ role.role }}</strong>
+            <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.25rem;">
+                {{ role.evidence }}
+            </p>
+            <span class="badge badge-{% if role.confidence == 'alta' %}success{% else %}warning{% endif %}">
+                Confiança {{ role.confidence }}
+            </span>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Logical Map -->
+<div class="card mb-2">
+    <h3 class="section-title">Mapa Lógico Textual</h3>
+    <pre style="background: #f8f9fa; border: 1px solid var(--border); border-radius: 6px; padding: 1rem; font-size: 0.85rem; line-height: 1.6; overflow-x: auto;">{{ doc.logical_map }}</pre>
+</div>
+
+<!-- Interfaces -->
+<div class="card mb-2">
+    <h3 class="section-title">Interfaces ({{ doc.interfaces|length }})</h3>
+    {% if doc.interfaces %}
+        {% for iface in doc.interfaces %}
+        <div class="card" style="margin-bottom: 0.5rem; border-left: 4px solid var(--primary); padding: 0.75rem;">
+            <div class="flex justify-between items-center">
+                <strong>{{ iface.name }}</strong>
+                <span class="badge badge-primary">{{ iface.type_display }}</span>
+            </div>
+            <div class="detail-grid" style="margin-top: 0.5rem; gap: 0.5rem;">
+                {% if iface.description %}
+                <div class="detail-item">
+                    <label>Descrição</label>
+                    <span>{{ iface.description }}</span>
+                </div>
+                {% endif %}
+                {% if iface.ip_address %}
+                <div class="detail-item">
+                    <label>IP</label>
+                    <span>{{ iface.ip_address }}</span>
+                </div>
+                {% endif %}
+                {% if iface.vlan_id %}
+                <div class="detail-item">
+                    <label>VLAN</label>
+                    <span>{{ iface.vlan_id }}</span>
+                </div>
+                {% endif %}
+                {% if iface.parent %}
+                <div class="detail-item">
+                    <label>Interface Pai</label>
+                    <span>{{ iface.parent }}</span>
+                </div>
+                {% endif %}
+                {% if iface.shutdown %}
+                <div class="detail-item">
+                    <label>Status</label>
+                    <span class="badge badge-critical">Shutdown</span>
+                </div>
+                {% endif %}
+            </div>
+            <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.25rem;">
+                {{ iface.explanation }}
+            </p>
+        </div>
+        {% endfor %}
+    {% else %}
+        <p class="empty-state">Nenhuma interface detectada.</p>
+    {% endif %}
+</div>
+
+<!-- Eth-Trunks / Subinterfaces -->
+{% if doc.eth_trunks %}
+<div class="card mb-2">
+    <h3 class="section-title">Eth-Trunks ({{ doc.eth_trunks|length }})</h3>
+    {% for trunk in doc.eth_trunks %}
+    <div class="card" style="margin-bottom: 0.5rem; border-left: 4px solid var(--success); padding: 0.75rem;">
+        <strong>{{ trunk.name }}</strong>
+        {% if trunk.description %}
+        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.25rem;">{{ trunk.description }}</p>
+        {% endif %}
+        <p style="font-size: 0.85rem; color: var(--text-secondary);">{{ trunk.explanation }}</p>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if doc.subinterfaces %}
+<div class="card mb-2">
+    <h3 class="section-title">Subinterfaces VLAN ({{ doc.subinterfaces|length }})</h3>
+    {% for sub in doc.subinterfaces %}
+    <div class="card" style="margin-bottom: 0.5rem; border-left: 4px solid var(--info); padding: 0.75rem;">
+        <div class="flex justify-between items-center">
+            <strong>{{ sub.name }}</strong>
+            <span class="badge badge-primary">VLAN {{ sub.vlan_id }}</span>
+        </div>
+        {% if sub.description %}
+        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.25rem;">{{ sub.description }}</p>
+        {% endif %}
+        <p style="font-size: 0.85rem; color: var(--text-secondary);">{{ sub.explanation }}</p>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Static Routes -->
+<div class="card mb-2">
+    <h3 class="section-title">Rotas Estáticas ({{ doc.static_routes|length }})</h3>
+    {% if doc.static_routes %}
+        {% for route in doc.static_routes %}
+        <div class="card" style="margin-bottom: 0.5rem; border-left: 4px solid
+            {% if route.is_null0 %}var(--info)
+            {% elif route.next_hop_reachable %}var(--success)
+            {% else %}var(--danger)
+            {% endif %}; padding: 0.75rem;">
+            <div class="flex justify-between items-center">
+                <strong>{{ route.destination }}</strong>
+                <span>
+                    {% if route.is_default %}
+                        <span class="badge badge-warning">Default</span>
+                    {% endif %}
+                    {% if route.is_null0 %}
+                        <span class="badge badge-info">Blackhole</span>
+                    {% endif %}
+                    {% if not route.next_hop_reachable and not route.is_null0 %}
+                        <span class="badge badge-critical">Next-hop inalcançável</span>
+                    {% endif %}
+                </span>
+            </div>
+            <div class="detail-grid" style="margin-top: 0.5rem; gap: 0.5rem;">
+                <div class="detail-item">
+                    <label>Next-hop</label>
+                    <span>{{ route.next_hop }}</span>
+                </div>
+                {% if route.description %}
+                <div class="detail-item">
+                    <label>Descrição</label>
+                    <span>{{ route.description }}</span>
+                </div>
+                {% endif %}
+                {% if route.preference and route.preference != '60' %}
+                <div class="detail-item">
+                    <label>Preference</label>
+                    <span>{{ route.preference }}</span>
+                </div>
+                {% endif %}
+                {% if route.tag %}
+                <div class="detail-item">
+                    <label>Tag</label>
+                    <span>{{ route.tag }}</span>
+                </div>
+                {% endif %}
+            </div>
+            <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.25rem;">
+                {{ route.explanation }}
+            </p>
+        </div>
+        {% endfor %}
+    {% else %}
+        <p class="empty-state">Nenhuma rota estática detectada.</p>
+    {% endif %}
+</div>
+
+<!-- BGP -->
+{% if doc.bgp %}
+<div class="card mb-2">
+    <h3 class="section-title">BGP</h3>
+    {% for bgp in doc.bgp %}
+    <div class="card" style="margin-bottom: 0.5rem; border-left: 4px solid var(--primary); padding: 0.75rem;">
+        <div class="flex justify-between items-center">
+            <strong>AS {{ bgp.as_number }}</strong>
+            <span class="badge badge-primary">{{ bgp.peer_count }} peer(s)</span>
+        </div>
+
+        {% if bgp.peers %}
+        <div style="margin-top: 0.5rem;">
+            <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary);">Peers:</label>
+            {% for peer in bgp.peers %}
+            <div class="card" style="margin-top: 0.25rem; padding: 0.5rem; font-size: 0.85rem;">
+                <div class="flex justify-between">
+                    <span>{{ peer.ip }}</span>
+                    <span class="badge badge-info">AS {{ peer.remote_as }}</span>
+                </div>
+                {% if peer.description %}
+                <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.2rem;">
+                    {{ peer.description }}
+                </p>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if bgp.networks %}
+        <div style="margin-top: 0.5rem;">
+            <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary);">Redes anunciadas ({{ bgp.networks|length }}):</label>
+            <div style="display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.25rem;">
+                {% for net in bgp.networks %}
+                <span class="badge badge-success">{{ net }}</span>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Policies -->
+{% if doc.policies %}
+<div class="card mb-2">
+    <h3 class="section-title">Políticas de Roteamento e Filtros</h3>
+    <div class="card-grid" style="margin-bottom:1rem;">
+        <div class="card stat-card"><div class="stat-value">{{ doc.policies.ip_prefixes|length }}</div><div class="stat-label">IP Prefixes</div></div>
+        <div class="card stat-card"><div class="stat-value">{{ doc.policies.route_policies|length }}</div><div class="stat-label">Route-Policies</div></div>
+        <div class="card stat-card"><div class="stat-value">{{ doc.policies.acls|length }}</div><div class="stat-label">ACLs</div></div>
+        <div class="card stat-card"><div class="stat-value">{{ doc.policies.as_path_filters|length }}</div><div class="stat-label">AS-path filters</div></div>
+        <div class="card stat-card"><div class="stat-value">{{ doc.policies.community_filters|length }}</div><div class="stat-label">Community filters</div></div>
+    </div>
+
+    {% if doc.policies.summary %}
+    <div class="alert alert-info" style="margin-bottom:0.75rem;">{{ doc.policies.summary }}</div>
+    {% endif %}
+
+    {% if doc.policies.ip_prefixes %}
+    <h4 style="margin-top:0.75rem;">IP Prefix-List</h4>
+    {% for pp in doc.policies.ip_prefixes %}
+    <div class="card" style="margin-bottom:0.5rem;padding:0.75rem;border-left:4px solid var(--info);">
+        <strong>{{ pp.name }}</strong> ({{ pp.rules|length }} regras)
+        <ul style="margin-top:0.25rem;padding-left:1.25rem;font-size:0.85rem;">
+        {% for rule in pp.rules %}
+            <li>Index {{ rule.index }}: <strong>{{ rule.action }}</strong> {{ rule.prefix }}{% if rule.ge %} ge {{ rule.ge }}{% endif %}{% if rule.le %} le {{ rule.le }}{% endif %}</li>
+        {% endfor %}
+        </ul>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if doc.policies.route_policies %}
+    <h4 style="margin-top:0.75rem;">Route-Policy</h4>
+    {% for rp in doc.policies.route_policies %}
+    <div class="card" style="margin-bottom:0.5rem;padding:0.75rem;border-left:4px solid var(--warning);">
+        <strong>{{ rp.name }}</strong>
+        {% for node in rp.nodes %}
+        <div style="margin-top:0.25rem;padding-left:0.5rem;font-size:0.85rem;">
+            Node {{ node.node }}: <strong>{{ node.action }}</strong>
+            {% for im in node.if_match %}
+            <div style="padding-left:0.5rem;color:var(--text-secondary);">if-match {{ im.type }} {{ im.name }}</div>
+            {% endfor %}
+            {% for ap in node.apply %}
+            <div style="padding-left:0.5rem;color:var(--text-secondary);">apply {{ ap.type }} {{ ap.value }}</div>
+            {% endfor %}
+        </div>
+        {% endfor %}
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if doc.policies.as_path_filters %}
+    <h4 style="margin-top:0.75rem;">AS-Path Filters</h4>
+    {% for af in doc.policies.as_path_filters %}
+    <div class="card" style="margin-bottom:0.25rem;padding:0.5rem;font-size:0.85rem;border-left:4px solid var(--info);">
+        <strong>{{ af.name }}</strong>
+        <ul style="margin-top:0.25rem;padding-left:1rem;">
+        {% for rule in af.rules %}
+            <li>{{ rule.action }} {{ rule.pattern }}</li>
+        {% endfor %}
+        </ul>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if doc.policies.community_filters %}
+    <h4 style="margin-top:0.75rem;">Community Filters</h4>
+    {% for cf in doc.policies.community_filters %}
+    <div class="card" style="margin-bottom:0.25rem;padding:0.5rem;font-size:0.85rem;border-left:4px solid var(--info);">
+        <strong>{{ cf.name }}</strong> ({{ cf.type }})
+        <ul style="margin-top:0.25rem;padding-left:1rem;">
+        {% for rule in cf.rules %}
+            <li>{% if rule.index %}Index {{ rule.index }}: {% endif %}{{ rule.action }} {{ rule.value }}</li>
+        {% endfor %}
+        </ul>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if doc.policies.acls %}
+    <h4 style="margin-top:0.75rem;">ACLs</h4>
+    {% for acl in doc.policies.acls %}
+    <div class="card" style="margin-bottom:0.25rem;padding:0.5rem;font-size:0.85rem;border-left:4px solid var(--warning);">
+        <strong>{{ acl.name }}</strong> ({{ acl.type }}) &mdash; {{ acl.rules|length }} regra(s)
+        <table style="width:100%;margin-top:0.25rem;border-collapse:collapse;font-size:0.8rem;">
+            <thead>
+                <tr style="border-bottom:1px solid var(--border);">
+                    <th style="text-align:left;padding:0.2rem 0.5rem;">Action</th>
+                    <th style="text-align:left;padding:0.2rem 0.5rem;">Protocolo</th>
+                    <th style="text-align:left;padding:0.2rem 0.5rem;">Source</th>
+                    <th style="text-align:left;padding:0.2rem 0.5rem;">Destination</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for rule in acl.rules %}
+                <tr style="border-bottom:1px solid #eee;">
+                    <td style="padding:0.2rem 0.5rem;"><span class="badge badge-{% if rule.action == 'permit' %}success{% else %}danger{% endif %}">{{ rule.action }}</span></td>
+                    <td style="padding:0.2rem 0.5rem;">{{ rule.protocol|default:"ip" }}</td>
+                    <td style="padding:0.2rem 0.5rem;font-family:monospace;">{{ rule.source|default:"any" }}</td>
+                    <td style="padding:0.2rem 0.5rem;font-family:monospace;">{{ rule.destination|default:"any" }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if doc.policies.dependencies %}
+    <h4 style="margin-top:0.75rem;">Dependências BGP → Route-Policy</h4>
+    {% for dep in doc.policies.dependencies %}
+    <div class="card" style="margin-bottom:0.25rem;padding:0.5rem;font-size:0.85rem;border-left:4px solid var(--success);">
+        Peer <strong>{{ dep.peer }}</strong> ({{ dep.direction }}): {{ dep.route_policy }}
+        {% if dep.found %}<span class="badge badge-success">OK</span>{% else %}<span class="badge badge-critical">não encontrada</span>{% endif %}
+        {% if dep.dependencies.ip_prefixes %}<div>IP Prefixes: {{ dep.dependencies.ip_prefixes|join:", " }}</div>{% endif %}
+        {% if dep.dependencies.as_path_filters %}<div>AS-path: {{ dep.dependencies.as_path_filters|join:", " }}</div>{% endif %}
+        {% if dep.dependencies.community_filters %}<div>Community: {{ dep.dependencies.community_filters|join:", " }}</div>{% endif %}
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if doc.policies.orphans %}
+    <div style="margin-top:0.75rem;">
+        <h4 style="color:var(--warning);">Órfãos</h4>
+        {% if doc.policies.orphans.route_policies %}<div><span class="badge badge-warning">route-policy</span> {{ doc.policies.orphans.route_policies|join:", " }}</div>{% endif %}
+        {% if doc.policies.orphans.ip_prefixes %}<div><span class="badge badge-warning">ip-prefix</span> {{ doc.policies.orphans.ip_prefixes|join:", " }}</div>{% endif %}
+        {% if doc.policies.orphans.as_path_filters %}<div><span class="badge badge-warning">as-path</span> {{ doc.policies.orphans.as_path_filters|join:", " }}</div>{% endif %}
+        {% if doc.policies.orphans.community_filters %}<div><span class="badge badge-warning">community</span> {{ doc.policies.orphans.community_filters|join:", " }}</div>{% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- Circuits -->
+<div class="card mb-2">
+    <h3 class="section-title">Circuitos Detectados ({{ doc.circuits|length }})</h3>
+    {% if doc.circuits %}
+        {% for circuit in doc.circuits %}
+        <div class="card" style="margin-bottom: 0.75rem; border-left: 4px solid var(--success); padding: 0.75rem;">
+            <div class="flex justify-between items-center mb-1">
+                <strong>{{ circuit.type_display }}</strong>
+                <span class="badge badge-primary">{{ circuit.confidence|floatformat:2 }}</span>
+            </div>
+
+            <div class="detail-grid" style="gap: 0.5rem;">
+                {% if circuit.interface %}
+                <div class="detail-item">
+                    <label>Interface</label>
+                    <span>{{ circuit.interface }}</span>
+                </div>
+                {% endif %}
+                {% if circuit.vlan_id %}
+                <div class="detail-item">
+                    <label>VLAN</label>
+                    <span>{{ circuit.vlan_id }}</span>
+                </div>
+                {% endif %}
+                {% if circuit.transit_network %}
+                <div class="detail-item">
+                    <label>Rede de Trânsito</label>
+                    <span>{{ circuit.transit_network }}</span>
+                </div>
+                {% endif %}
+                {% if circuit.local_ip %}
+                <div class="detail-item">
+                    <label>IP Local</label>
+                    <span>{{ circuit.local_ip }}</span>
+                </div>
+                {% endif %}
+                {% if circuit.remote_ip %}
+                <div class="detail-item">
+                    <label>IP Remoto</label>
+                    <span>{{ circuit.remote_ip }}</span>
+                </div>
+                {% endif %}
+                {% if circuit.routed_prefix %}
+                <div class="detail-item">
+                    <label>Prefixo Roteado</label>
+                    <span>{{ circuit.routed_prefix }}
+                        {% if circuit.routed_prefix_is_public is not None %}
+                            {% if circuit.routed_prefix_is_public %}
+                                <span class="badge badge-success" style="margin-left: 0.25rem;">Público</span>
+                            {% else %}
+                                <span class="badge badge-warning" style="margin-left: 0.25rem;">Privado</span>
+                            {% endif %}
+                        {% endif %}
+                    </span>
+                </div>
+                {% endif %}
+                {% if circuit.default_route_via_transit %}
+                <div class="detail-item">
+                    <label>Rota Default</label>
+                    <span>Sim (trafegando pelo trânsito)</span>
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="alert alert-info" style="margin-top: 0.5rem; font-size: 0.9rem;">
+                {{ circuit.explanation }}
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <p class="empty-state">Nenhum circuito detectado.</p>
+    {% endif %}
+</div>
+
+<!-- Services -->
+<div class="card mb-2">
+    <h3 class="section-title">Serviços Detectados ({{ doc.services|length }})</h3>
+    {% if doc.services %}
+        {% for svc in doc.services %}
+        <div class="card" style="margin-bottom: 0.5rem; border-left: 4px solid var(--info); padding: 0.75rem;">
+            <div class="flex justify-between items-center">
+                <strong>{{ svc.service_type_display }}</strong>
+                <span class="badge badge-primary">{{ svc.confidence|floatformat:2 }}</span>
+            </div>
+            {% if svc.name %}
+            <p style="font-size: 0.9rem; font-weight: 600; margin-top: 0.25rem;">{{ svc.name }}</p>
+            {% endif %}
+            <p style="font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.25rem;">{{ svc.description }}</p>
+            {% if svc.metadata %}
+            <details>
+                <summary>Ver detalhes</summary>
+                <pre>{{ svc.metadata|pprint }}</pre>
+            </details>
+            {% endif %}
+        </div>
+        {% endfor %}
+    {% else %}
+        <p class="empty-state">Nenhum serviço detectado.</p>
+    {% endif %}
+</div>
+
+<!-- Issues -->
+<div class="card mb-2">
+    <h3 class="section-title">Issues / Riscos ({{ doc.issues|length }})</h3>
+    {% if doc.issues %}
+        {% for issue in doc.issues %}
+        <div class="card" style="margin-bottom: 0.5rem; border-left: 4px solid
+            {% if issue.severity == 'critical' %}var(--danger)
+            {% elif issue.severity == 'warning' %}var(--warning)
+            {% else %}var(--info)
+            {% endif %}; padding: 0.75rem;">
+            <div class="flex justify-between items-center">
+                <strong>
+                    <span class="badge badge-{{ issue.severity }}">{{ issue.severity_display }}</span>
+                    {{ issue.title }}
+                </strong>
+                {% if issue.code %}
+                <code style="font-size: 0.8rem; color: var(--text-secondary);">{{ issue.code }}</code>
+                {% endif %}
+            </div>
+            {% if issue.description %}
+            <p style="font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.25rem;">{{ issue.description }}</p>
+            {% endif %}
+        </div>
+        {% endfor %}
+    {% else %}
+        <p class="empty-state">Nenhuma issue encontrada. Configuração limpa!</p>
+    {% endif %}
+</div>
+
+<!-- Recommendations -->
+<div class="card">
+    <h3 class="section-title">Recomendações Operacionais</h3>
+    {% if doc.recommendations %}
+        {% for rec in doc.recommendations %}
+        <div class="card" style="margin-bottom: 0.5rem; border-left: 4px solid
+            {% if rec.severity == 'critical' %}var(--danger)
+            {% elif rec.severity == 'warning' %}var(--warning)
+            {% else %}var(--info)
+            {% endif %}; padding: 0.75rem;">
+            <div class="flex justify-between items-center">
+                <strong>{{ rec.recommendation }}</strong>
+                <span class="badge badge-{{ rec.severity }}">{{ rec.severity }}</span>
+            </div>
+            <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.25rem;">
+                {{ rec.rationale }}
+            </p>
+        </div>
+        {% endfor %}
+    {% else %}
+        <p class="empty-state">Nenhuma recomendação gerada.</p>
+    {% endif %}
+</div>
+{% endblock %}

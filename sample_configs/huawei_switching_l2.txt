@@ -1,0 +1,62 @@
+#
+sysname SW-AGREGACAO-L2
+#
+vlan batch 10 20 30 100 to 105
+#
+vlan 10
+ description CLIENTES-RESIDENCIAIS
+#
+vlan 20
+ description GERENCIA-OLT
+#
+vlan 100
+ description TRANSPORTE-CORE
+#
+stp enable
+stp mode mstp
+stp region-configuration
+ region-name REDE-METRO
+ revision-level 1
+ instance 1 vlan 1-50
+ instance 2 vlan 51-100
+ active region-configuration
+#
+interface GigabitEthernet0/0/1
+ description CLIENTE-FULANO
+ port link-type access
+ port default vlan 10
+ stp edged-port enable
+ broadcast-suppression 20
+ loopback-detect enable
+ lldp enable
+#
+interface GigabitEthernet0/0/2
+ description CLIENTE-BELTRANO
+ port link-type access
+ port default vlan 20
+ stp edged-port enable
+#
+interface GigabitEthernet0/0/3
+ description UPLINK-CORE
+ port link-type trunk
+ port trunk allow-pass vlan 10 20 100
+ port trunk pvid vlan 1
+#
+interface GigabitEthernet0/0/4
+ description UPLINK-OLT
+ port link-type trunk
+ port trunk allow-pass vlan 10 20
+#
+interface GigabitEthernet0/0/5
+ description CLIENTE-HYBRID
+ port link-type hybrid
+ port hybrid tagged vlan 100
+ port hybrid untagged vlan 10 20
+ port hybrid pvid vlan 10
+#
+interface Eth-Trunk1
+ description AGG-LINK-CORE
+ port link-type trunk
+ port trunk allow-pass vlan 10 20 30 100 101 102 103 104 105
+#
+return

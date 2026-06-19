@@ -1,0 +1,48 @@
+#
+sysname NE40-MGMT-TESTE
+#
+snmp-agent
+snmp-agent sys-info version v2c v3
+snmp-agent community read cipher %^%#KEXAMPLE1
+snmp-agent community write cipher %^%#KEXAMPLE2
+snmp-agent target-host trap address udp-domain 10.0.0.10 params securityname NOC v2c
+snmp-agent trap enable
+snmp-agent mib-view included iso iso
+snmp-agent usm-user v3 NMS
+snmp-agent group v3 NMS privacy
+snmp-agent acl 2001
+#
+ntp-service enable
+ntp-service unicast-server 10.0.0.1
+ntp-service unicast-server 10.0.0.2 preference
+ntp-service source-interface LoopBack0
+#
+info-center enable
+info-center loghost 10.0.0.20
+info-center loghost 10.0.0.21 facility local7
+info-center timestamp log date
+#
+aaa
+ authentication-scheme default
+ authorization-scheme default
+ accounting-scheme default
+ domain default
+ local-user admin password irreversible-cipher %^%#KEXAMPLE3
+ local-user admin privilege level 15
+ local-user admin service-type ssh terminal
+ local-user operador password cipher %^%#KEXAMPLE4
+ local-user operador privilege level 3
+ local-user operador service-type ssh
+#
+user-interface vty 0 4
+ authentication-mode aaa
+ protocol inbound ssh
+ idle-timeout 10 0
+ acl 2001 inbound
+#
+stelnet server enable
+ssh user admin
+ssh user admin authentication-type password
+ssh user admin service-type stelnet
+#
+return

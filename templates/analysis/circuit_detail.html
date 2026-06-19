@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+{% block title %}Circuito {{ circuit.pk }} - NetOps Assistant{% endblock %}
+
+{% block content %}
+{% with d=circuit.details %}
+<div class="page-header flex justify-between items-center">
+    <div>
+        <h1>Detalhes do Circuito</h1>
+        <p>{{ circuit.get_circuit_type_display }} — {{ d.interface|default:"?" }}</p>
+    </div>
+    <div class="flex gap-1">
+        <a href="{% url 'circuit_list' %}" class="btn btn-outline">Lista</a>
+        {% if parsed %}
+        <a href="{% url 'analysis_detail' parsed.pk %}" class="btn btn-primary">Ver Análise</a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card mb-2">
+    <h3 class="section-title">Dados do Circuito</h3>
+    <div class="detail-grid">
+        <div class="detail-item"><label>Tipo</label><span><span class="badge badge-primary">{{ circuit.get_circuit_type_display }}</span></span></div>
+        <div class="detail-item"><label>Confiança</label><span>{{ d.confidence|floatformat:2 }}</span></div>
+        {% if d.interface %}<div class="detail-item"><label>Interface</label><span>{{ d.interface }}</span></div>{% endif %}
+        {% if d.vlan_id %}<div class="detail-item"><label>VLAN</label><span>{{ d.vlan_id }}</span></div>{% endif %}
+        {% if d.second_vlan_id %}<div class="detail-item"><label>VLAN Interna</label><span>{{ d.second_vlan_id }}</span></div>{% endif %}
+        {% if d.pe_vid %}<div class="detail-item"><label>PE-VID</label><span>{{ d.pe_vid }}</span></div>{% endif %}
+        {% if d.ce_vid %}<div class="detail-item"><label>CE-VID</label><span>{{ d.ce_vid }}</span></div>{% endif %}
+        {% if d.transit_network %}<div class="detail-item"><label>Rede de Trânsito</label><span>{{ d.transit_network }}</span></div>{% endif %}
+        {% if d.local_ip %}<div class="detail-item"><label>IP Local</label><span>{{ d.local_ip }}</span></div>{% endif %}
+        {% if d.remote_ip %}<div class="detail-item"><label>IP Remoto</label><span>{{ d.remote_ip }}</span></div>{% endif %}
+        {% if d.routed_prefix %}<div class="detail-item"><label>Prefixo Roteado</label><span>{{ d.routed_prefix }}</span></div>{% endif %}
+        {% if d.vsi_name %}<div class="detail-item"><label>VSI</label><span>{{ d.vsi_name }}</span></div>{% endif %}
+        {% if d.vsi_id %}<div class="detail-item"><label>VSI-ID</label><span>{{ d.vsi_id }}</span></div>{% endif %}
+        {% if d.vsi_peers %}<div class="detail-item"><label>Peers VPLS</label><span>{{ d.vsi_peers|join:", " }}</span></div>{% endif %}
+        {% if circuit.description %}<div class="detail-item" style="grid-column:1/-1;"><label>Descrição</label><span>{{ circuit.description }}</span></div>{% endif %}
+    </div>
+    <p style="font-size:0.85rem;color:var(--text-secondary);margin-top:0.5rem;">
+        Snapshot: <a href="/analysis/{{ parsed.pk }}/" style="color:var(--primary);">#{{ circuit.snapshot.pk }}</a>
+        — Dispositivo: <a href="/devices/{{ circuit.snapshot.device.pk }}/" style="color:var(--primary);">{{ circuit.snapshot.device.name|default:"(sem device)" }}</a>
+        — {{ circuit.created_at|date:"d/m/Y H:i" }}
+    </p>
+</div>
+
+<!-- Evidence/metadata -->
+{% if d.evidence or d.metadata %}
+<div class="card mb-2">
+    <h3 class="section-title">Evidências</h3>
+    <details>
+        <summary>Ver dados completos</summary>
+        <pre>{{ d|pprint }}</pre>
+    </details>
+</div>
+{% endif %}
+
+<!-- Validation commands -->
+<div class="card">
+    <h3 class="section-title">Comandos de Validação Sugeridos</h3>
+    <div class="alert alert-info" style="font-size:0.85rem;">
+        Comandos baseados no tipo de circuito. Versões VRP podem variar.
+    </div>
+    {% if commands %}
+    <pre>{% for cmd in commands %}{{ cmd }}
+{% endfor %}</pre>
+    {% else %}
+    <p class="empty-state">Nenhum comando específico para este tipo.</p>
+    {% endif %}
+</div>
+{% endwith %}
+{% endblock %}

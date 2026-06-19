@@ -1,0 +1,46 @@
+#
+sysname NE40-POLICY-BASIC
+#
+interface GigabitEthernet0/0/0
+ description UPLINK-UPSTREAM
+ ip address 10.0.0.1 255.255.255.252
+#
+interface GigabitEthernet0/0/1
+ description CLIENTE-X
+ ip address 10.0.1.1 255.255.255.252
+#
+interface LoopBack0
+ ip address 192.168.0.1 255.255.255.255
+#
+ip ip-prefix CLIENTE-X index 10 permit 200.200.200.0 30
+ip ip-prefix CLIENTE-X index 20 deny 0.0.0.0 0 less-equal 32
+ip ip-prefix AGREGA index 10 permit 10.0.0.0 8 greater-equal 16 less-equal 28
+#
+route-policy EXPORT-CLIENTE permit node 10
+ if-match ip-prefix CLIENTE-X
+ apply community 65000:100 additive
+#
+route-policy EXPORT-AGREGA permit node 10
+ if-match ip-prefix AGREGA
+ apply local-preference 150
+ apply med 50
+#
+acl number 3001
+ rule 5 permit ip source 10.0.0.0 0.0.0.255 destination 192.168.0.0 0.0.255.255
+ rule 10 deny ip
+#
+acl name NOC-MGMT basic
+ rule 5 permit source 10.10.10.0 0.0.0.255
+#
+bgp 65000
+ bgp router-id 192.168.0.1
+ peer 10.0.0.2 as-number 64500
+ peer 10.0.0.2 description UPSTREAM-ISP
+ peer 10.0.0.2 route-policy IMPORT-UPSTREAM import
+ peer 10.0.0.2 route-policy EXPORT-AGREGA export
+ peer 10.0.1.2 as-number 64510
+ peer 10.0.1.2 description CLIENTE-X
+ peer 10.0.1.2 route-policy IMPORT-CLIENTE import
+ peer 10.0.1.2 route-policy EXPORT-CLIENTE export
+#
+return

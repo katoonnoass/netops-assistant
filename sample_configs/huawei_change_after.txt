@@ -1,0 +1,46 @@
+#
+sysname NE40-CLIENTES
+#
+interface GigabitEthernet0/0/0
+ description UPLINK-CORE-SP
+ ip address 10.0.0.1 255.255.255.252
+#
+interface Eth-Trunk100.100
+ description CLIENTE-ALFA-TRANSITO-NOVO
+ vlan-type dot1q 100
+ ip address 10.255.100.1 255.255.255.252
+#
+interface Eth-Trunk100.200
+ description TRANSPORTE-NOVO-CLIENTE-BETA
+ vlan-type dot1q 200
+#
+interface Eth-Trunk100.300
+ description CLIENTE-GAMA-L3
+ vlan-type dot1q 300
+ ip address 10.255.200.1 255.255.255.252
+#
+interface LoopBack0
+ description ROUTER-ID
+ ip address 10.0.0.1 255.255.255.255
+#
+bgp 65000
+ peer 10.0.0.2 as-number 64501
+ peer 10.0.0.2 description BGP-UPSTREAM
+ peer 10.255.100.2 as-number 64510
+ peer 10.255.100.2 description CLIENTE-ALFA-BGP-NOVO
+ peer 10.255.100.2 route-policy ALFA-IN import
+ peer 10.255.100.2 route-policy ALFA-OUT export
+ peer 10.255.100.2 connect-interface LoopBack0
+ peer 10.255.200.2 as-number 64520
+ peer 10.255.200.2 description BGP-CLIENTE-GAMA
+ ipv4-family unicast
+  network 10.0.0.0 mask 255.255.255.0
+  network 200.200.0.0 mask 255.255.255.0
+  peer 10.255.100.2 enable
+#
+ip route-static vpn-instance CLIENTE-A 10.10.10.0 255.255.255.0 172.16.0.2 description ROTA-VPN-CLIENTE-A
+ip route-static 200.200.200.0 255.255.255.252 10.255.100.2 description CLIENTE-ALFA-PUBLICO
+ip route-static 200.200.201.0 255.255.255.252 10.255.200.2 description CLIENTE-GAMA-PUBLICO
+ip route-static 0.0.0.0 0.0.0.0 10.0.0.2
+#
+return

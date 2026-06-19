@@ -1,0 +1,34 @@
+#
+sysname ROTEADOR-BGP-IX
+#
+interface GigabitEthernet0/0/0
+ description LINK-IX-SP
+ ip address 192.0.2.1 255.255.255.252
+#
+interface GigabitEthernet0/0/1
+ description LINK-CLIENTE-TRANSITO
+ ip address 10.255.0.1 255.255.255.252
+#
+interface Eth-Trunk1.100
+ description CIRCUITO-CLIENTE-A
+ vlan-type dot1q 100
+ ip address 10.100.0.1 255.255.255.252
+#
+interface LoopBack0
+ description ROUTER-ID
+ ip address 10.0.0.1 255.255.255.255
+#
+bgp 65000
+ peer 192.0.2.2 as-number 64501
+ peer 192.0.2.2 description IX-SP-PEER
+ peer 10.255.0.2 as-number 64502
+ peer 10.100.0.2 as-number 64503
+ peer 10.100.0.2 description BGP-CLIENTE-A
+ network 200.100.0.0 mask 255.255.255.0
+ network 200.100.1.0 mask 255.255.255.0
+#
+ip route-static 0.0.0.0 0.0.0.0 192.0.2.2
+ip route-static 200.100.0.0 255.255.255.0 NULL0 preference 5
+ip route-static 200.100.1.0 255.255.255.0 NULL0 preference 5
+#
+return

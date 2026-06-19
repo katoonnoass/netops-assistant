@@ -1,0 +1,30 @@
+hostname CISCO-TRANSITO
+!
+interface GigabitEthernet0/0
+ description UPLINK-CORE
+ no shutdown
+!
+interface GigabitEthernet0/0.1234
+ description CLIENTE-X-TRANSITO-IP
+ encapsulation dot1Q 1234
+ ip address 10.255.123.1 255.255.255.252
+!
+interface Loopback0
+ ip address 192.0.2.1 255.255.255.255
+!
+ip route 200.200.200.0 255.255.255.252 10.255.123.2
+!
+router bgp 65000
+ bgp router-id 192.0.2.1
+ neighbor 10.255.123.2 remote-as 64520
+ neighbor 10.255.123.2 description CLIENTE-X
+ neighbor 10.255.123.2 update-source Loopback0
+ !
+ address-family ipv4
+  neighbor 10.255.123.2 activate
+  neighbor 10.255.123.2 route-map CLIENTE-IN in
+  neighbor 10.255.123.2 route-map CLIENTE-OUT out
+  network 200.200.200.0 mask 255.255.255.252
+ exit-address-family
+!
+end

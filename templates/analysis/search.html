@@ -1,0 +1,310 @@
+{% extends 'base.html' %}
+{% block title %}Busca Técnica Global — NetOps Assistant{% endblock %}
+
+{% block extrahead %}
+<style>
+.search-section { margin-bottom: 1.5rem; }
+.search-section h3 {
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.25rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.search-section h3 .badge { font-size: 0.75rem; margin-left: auto; }
+.result-item {
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 0.35rem;
+    border-left: 3px solid var(--primary);
+    background: var(--surface);
+    border-radius: 4px;
+}
+.result-item.score-high { border-left-color: var(--success); }
+.result-item.score-medium { border-left-color: var(--warning); }
+.result-item.score-low { border-left-color: var(--info); }
+.result-item .title { font-weight: 600; }
+.result-item .meta {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-top: 0.15rem;
+}
+.result-item .evidence {
+    font-family: monospace;
+    font-size: 0.78rem;
+    background: #1a1a2e;
+    color: #e0e0e0;
+    padding: 0.35rem 0.5rem;
+    border-radius: 3px;
+    margin-top: 0.3rem;
+    white-space: pre-wrap;
+    max-height: 80px;
+    overflow-y: auto;
+    line-height: 1.3;
+}
+.results-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+.results-summary .stat {
+    background: var(--surface);
+    padding: 0.35rem 0.65rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    border: 1px solid var(--border);
+}
+.results-summary .stat strong { font-size: 1rem; }
+.search-type-tag {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    border-radius: 3px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    background: var(--primary);
+    color: #fff;
+}
+.search-type-tag.ip { background: #2196f3; }
+.search-type-tag.prefix { background: #9c27b0; }
+.search-type-tag.vlan { background: #ff9800; }
+.search-type-tag.interface { background: #4caf50; }
+.search-type-tag.asn { background: #f44336; }
+.search-type-tag.text { background: #607d8b; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Busca Técnica Global</h1>
+    <p>Busque por VLAN, IP, prefixo, interface, ASN, BGP, VSI, RADIUS, texto em configurações.</p>
+</div>
+
+<div class="card mb-2">
+    <form method="get" class="flex gap-1 items-center" style="flex-wrap:wrap;">
+        <input type="text" name="q" class="form-control" style="flex:1;min-width:250px;" placeholder="VLAN, IP, prefixo, interface, ASN, texto..." value="{{ query }}" autofocus>
+        <button type="submit" class="btn btn-primary">Buscar</button>
+    </form>
+    <details style="margin-top:0.5rem;font-size:0.85rem;">
+        <summary style="cursor:pointer;color:var(--text-secondary);">Filtros opcionais</summary>
+        <div class="flex gap-1 items-center" style="flex-wrap:wrap;margin-top:0.5rem;">
+            <select name="vendor" class="form-control" style="width:auto;min-width:100px;">
+                {% for val, label in vendor_choices %}
+                <option value="{{ val }}" {% if filter_vendor == val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            <select name="device" class="form-control" style="width:auto;min-width:120px;">
+                <option value="">Todos dispositivos</option>
+                {% for d in devices_qs %}
+                <option value="{{ d.name }}" {% if filter_device == d.name %}selected{% endif %}>{{ d.name }}</option>
+                {% endfor %}
+            </select>
+            <label style="display:flex;align-items:center;gap:0.3rem;">
+                <input type="checkbox" name="last_snapshot_only" {% if filter_last_only %}checked{% endif %}>
+                Apenas último snapshot por dispositivo
+            </label>
+        </div>
+    </details>
+</div>
+
+{% if results %}
+{% with r=results %}
+<div class="search-type-tag {{ r.classification.type }}">{{ r.classification.type|upper }}</div>
+<span style="font-size:0.85rem;color:var(--text-secondary);margin-left:0.5rem;">
+    query: <code>{{ r.classification.query }}</code>
+    {% if r.classification.value != r.classification.query %}
+    → valor normalizado: <code>{{ r.classification.value }}</code>
+    {% endif %}
+</span>
+
+<div class="results-summary">
+    {% for section, count in r.summary.items %}
+    {% if section != 'total' %}
+    <div class="stat"><strong>{{ count }}</strong> {{ section }}</div>
+    {% endif %}
+    {% endfor %}
+    <div class="stat"><strong>{{ r.summary.total }}</strong> total</div>
+</div>
+
+{% if r.devices %}
+<div class="search-section">
+    <h3>Dispositivos <span class="badge badge-primary">{{ r.devices|length }}</span></h3>
+    {% for d in r.devices %}
+    <div class="result-item score-high">
+        <div class="title"><a href="{{ d.url }}">{{ d.title }}</a></div>
+        <div class="meta">{{ d.description }}</div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if r.interfaces %}
+<div class="search-section">
+    <h3>Interfaces <span class="badge badge-primary">{{ r.interfaces|length }}</span></h3>
+    {% for iface in r.interfaces %}
+    <div class="result-item {% if iface.score >= 0.9 %}score-high{% elif iface.score >= 0.6 %}score-medium{% else %}score-low{% endif %}">
+        <div class="title"><a href="{{ iface.url }}">{{ iface.title }}</a></div>
+        <div class="meta">
+            {{ iface.device }} —
+            {% if iface.metadata.ip %}{{ iface.metadata.ip }} — {% endif %}
+            {% if iface.metadata.vlan_id %}VLAN {{ iface.metadata.vlan_id }} — {% endif %}
+            {{ iface.description }}
+        </div>
+        {% if iface.evidence %}
+        <div class="evidence">{% for e in iface.evidence %}{{ e }}{% if not forloop.last %}{% endif %}{% endfor %}</div>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if r.circuits %}
+<div class="search-section">
+    <h3>Circuitos <span class="badge badge-primary">{{ r.circuits|length }}</span></h3>
+    {% for c in r.circuits %}
+    <div class="result-item {% if c.score >= 0.9 %}score-high{% elif c.score >= 0.6 %}score-medium{% else %}score-low{% endif %}">
+        <div class="title"><a href="{{ c.url }}">{{ c.title }}</a></div>
+        <div class="meta">
+            {{ c.device }} —
+            {% if c.metadata.vlan %}VLAN {{ c.metadata.vlan }} — {% endif %}
+            {% if c.metadata.routed_prefix %}{{ c.metadata.routed_prefix }} — {% endif %}
+            {% if c.metadata.vsi_name %}{{ c.metadata.vsi_name }} — {% endif %}
+            {{ c.description }}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if r.static_routes %}
+<div class="search-section">
+    <h3>Rotas Estáticas <span class="badge badge-primary">{{ r.static_routes|length }}</span></h3>
+    {% for sr in r.static_routes %}
+    <div class="result-item {% if sr.score >= 0.9 %}score-high{% elif sr.score >= 0.6 %}score-medium{% else %}score-low{% endif %}">
+        <div class="title">{{ sr.title }}</div>
+        <div class="meta">
+            {{ sr.device }} —
+            {% if sr.metadata.vpn_instance %}VPN: {{ sr.metadata.vpn_instance }} — {% endif %}
+            {{ sr.description }}
+        </div>
+        {% if sr.evidence %}
+        <div class="evidence">{% for e in sr.evidence %}{{ e }}{% endfor %}</div>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if r.bgp_peers %}
+<div class="search-section">
+    <h3>BGP <span class="badge badge-primary">{{ r.bgp_peers|length }}</span></h3>
+    {% for bgp in r.bgp_peers %}
+    <div class="result-item {% if bgp.score >= 0.9 %}score-high{% elif bgp.score >= 0.6 %}score-medium{% else %}score-low{% endif %}">
+        <div class="title">{{ bgp.title }}</div>
+        <div class="meta">
+            {{ bgp.device }} —
+            {% if bgp.metadata.route_policy_import %}import: {{ bgp.metadata.route_policy_import }} — {% endif %}
+            {% if bgp.metadata.route_policy_export %}export: {{ bgp.metadata.route_policy_export }} — {% endif %}
+            {{ bgp.description }}
+        </div>
+        {% if bgp.evidence %}
+        <div class="evidence">{% for e in bgp.evidence %}{{ e }}{% endfor %}</div>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if r.policies %}
+<div class="search-section">
+    <h3>Políticas / Filtros <span class="badge badge-primary">{{ r.policies|length }}</span></h3>
+    {% for pol in r.policies %}
+    <div class="result-item {% if pol.score >= 0.9 %}score-high{% elif pol.score >= 0.6 %}score-medium{% else %}score-low{% endif %}">
+        <div class="title">
+            <span class="search-type-tag" style="font-size:0.7rem;margin-right:0.35rem;background:
+                {% if pol.type == 'route_policy' %}#e91e63
+                {% elif pol.type == 'ip_prefix' %}#9c27b0
+                {% elif pol.type == 'acl' %}#ff5722
+                {% elif pol.type == 'as_path_filter' %}#009688
+                {% elif pol.type == 'community_filter' %}#00bcd4
+                {% elif pol.type == 'bgp_policy_dependency' %}#ff9800
+                {% else %}#607d8b{% endif %}">{{ pol.type }}</span>
+            <a href="{{ pol.url }}">{{ pol.title }}</a>
+        </div>
+        <div class="meta">
+            {{ pol.device }} — {{ pol.description }}
+        </div>
+        {% if pol.evidence %}
+        <div class="evidence">{% for e in pol.evidence %}{{ e }}{% if not forloop.last %}<hr style="border-color:var(--border);margin:0.2rem 0;">{% endif %}{% endfor %}</div>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if r.services %}
+<div class="search-section">
+    <h3>Serviços <span class="badge badge-primary">{{ r.services|length }}</span></h3>
+    {% for svc in r.services %}
+    <div class="result-item {% if svc.score >= 0.9 %}score-high{% elif svc.score >= 0.6 %}score-medium{% else %}score-low{% endif %}">
+        <div class="title"><a href="{{ svc.url }}">{{ svc.title }}</a></div>
+        <div class="meta">{{ svc.device }} — {{ svc.description }}</div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if r.issues %}
+<div class="search-section">
+    <h3>Issues <span class="badge badge-primary">{{ r.issues|length }}</span></h3>
+    {% for issue in r.issues %}
+    <div class="result-item">
+        <div class="title"><a href="{{ issue.url }}">{{ issue.title }}</a></div>
+        <div class="meta">{{ issue.device }} — {{ issue.description }}</div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if r.raw_matches %}
+<div class="search-section">
+    <h3>Ocorrências em texto bruto <span class="badge badge-primary">{{ r.raw_matches|length }}</span></h3>
+    {% for rm in r.raw_matches %}
+    <div class="result-item score-low">
+        <div class="title">{{ rm.title }}</div>
+        <div class="meta">{{ rm.description }}</div>
+        {% if rm.evidence %}
+        <div class="evidence">{% for e in rm.evidence %}{{ e }}{% if not forloop.last %}<hr style="border-color:var(--border);margin:0.2rem 0;">{% endif %}{% endfor %}</div>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if r.summary.total == 0 %}
+<div class="card empty-state"><p>Nenhum resultado encontrado para "<strong>{{ query }}</strong>".</p></div>
+{% endif %}
+
+{% endwith %}
+{% elif query %}
+<div class="card empty-state"><p>Nenhum resultado encontrado para "<strong>{{ query }}</strong>".</p></div>
+{% else %}
+<div class="card empty-state"><p>Digite um termo para buscar. Exemplos:</p>
+<ul style="margin-top:0.5rem;line-height:1.8;">
+    <li><code>1234</code> — busca por VLAN, ASN, interface</li>
+    <li><code>Eth-Trunk100.1234</code> — busca por interface/subinterface</li>
+    <li><code>10.255.123.2</code> — busca por IP exato</li>
+    <li><code>200.200.200.0/30</code> — busca por prefixo CIDR</li>
+    <li><code>64520</code> — busca por ASN</li>
+    <li><code>RADIUS-ISP</code> — busca por nome de serviço</li>
+    <li><code>VSI-CLIENTE-Z</code> — busca por VSI</li>
+    <li><code>CLIENTE-MEGA</code> — busca textual em descrições e configurações</li>
+</ul>
+</div>
+{% endif %}
+{% endblock %}

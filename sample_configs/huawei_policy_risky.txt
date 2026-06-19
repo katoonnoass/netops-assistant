@@ -1,0 +1,36 @@
+#
+sysname NE40-POLICY-RISK
+#
+interface GigabitEthernet0/0/0
+ description UPLINK-CORE
+ ip address 10.255.0.1 255.255.255.252
+#
+interface LoopBack0
+ ip address 192.168.255.1 255.255.255.255
+#
+ip ip-prefix PERMIT-ANY index 10 permit 0.0.0.0 0 less-equal 32
+ip ip-prefix ORFAO-PREFIX index 10 permit 10.0.0.0 8
+#
+ip ip-prefix BOGONS index 10 deny 10.0.0.0 8 greater-equal 8 less-equal 32
+#
+ip as-path-filter ORFAO-AS index 10 permit .*
+ip as-path-filter 10 permit ^64520$
+#
+ip community-filter 99 permit 65000:100
+#
+route-policy EXPORT-PERMIT permit node 10
+#
+route-policy ORFAO-POLICY deny node 10
+ if-match ip-prefix ORFAO-PREFIX
+#
+acl number 2000
+ rule 5 deny
+#
+bgp 65000
+ bgp router-id 192.168.255.1
+ peer 10.255.0.2 as-number 64500
+ peer 10.255.0.2 description UPSTREAM
+ peer 10.255.0.2 route-policy IMPORT-MISSING import
+ peer 10.255.0.2 route-policy EXPORT-PERMIT export
+#
+return

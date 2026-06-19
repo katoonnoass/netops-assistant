@@ -1,0 +1,190 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard - NetOps Assistant{% endblock %}
+
+{% block content %}
+<div class="page-header flex justify-between items-center">
+    <div>
+        <h1>Dashboard Operacional</h1>
+        <p>Visão consolidada da rede analisada.</p>
+    </div>
+    <div class="flex gap-1">
+        <a href="{% url 'search' %}" class="btn btn-outline">Busca Técnica</a>
+        <a href="{% url 'new_analysis' %}" class="btn btn-primary">Nova Análise</a>
+    </div>
+</div>
+
+<div class="card mb-2">
+    <form method="get" action="{% url 'search' %}" class="flex gap-1 items-center">
+        <input type="text" name="q" class="form-control" placeholder="Busca técnica global — VLAN, IP, prefixo, interface..." style="flex:1;">
+        <button type="submit" class="btn btn-primary btn-sm">Buscar</button>
+    </form>
+</div>
+
+<!-- Summary cards -->
+<div class="card-grid">
+    <div class="card stat-card">
+        <div class="stat-value" style="color: var(--primary);">{{ summary.devices }}</div>
+        <div class="stat-label">Dispositivos</div>
+    </div>
+    <div class="card stat-card">
+        <div class="stat-value" style="color: var(--primary);">{{ summary.snapshots }}</div>
+        <div class="stat-label">Snapshots</div>
+    </div>
+    <div class="card stat-card">
+        <div class="stat-value" style="color: var(--info);">{{ summary.parsed_configs }}</div>
+        <div class="stat-label">Análises</div>
+    </div>
+    <div class="card stat-card">
+        <div class="stat-value" style="color: var(--success);">{{ summary.circuits }}</div>
+        <div class="stat-label">Circuitos</div>
+    </div>
+    <div class="card stat-card">
+        <div class="stat-value" style="color: var(--info);">{{ summary.services }}</div>
+        <div class="stat-label">Serviços</div>
+    </div>
+    <div class="card stat-card">
+        <div class="stat-value" style="color: var(--danger);">{{ summary.issues }}</div>
+        <div class="stat-label">Issues</div>
+    </div>
+    <div class="card stat-card">
+        <div class="stat-value" style="color: var(--info);">{{ summary.comparisons }}</div>
+        <div class="stat-label">Comparações</div>
+    </div>
+</div>
+
+<!-- Severity breakdown + list links -->
+<div class="card-grid" style="grid-template-columns: 1fr 1fr;">
+    <div class="card">
+        <h3 class="section-title" style="border:none;padding:0;margin-bottom:0.5rem;">Issues por Severidade</h3>
+        <div class="flex gap-1" style="flex-wrap:wrap;">
+            <a href="/issues/?severity=critical" class="badge badge-critical" style="font-size:0.9rem;padding:0.3rem 0.8rem;text-decoration:none;">
+                Crítico: {{ summary.critical_issues }}
+            </a>
+            <a href="/issues/?severity=warning" class="badge badge-warning" style="font-size:0.9rem;padding:0.3rem 0.8rem;text-decoration:none;">
+                Atenção: {{ summary.warning_issues }}
+            </a>
+            <a href="/issues/?severity=info" class="badge badge-info" style="font-size:0.9rem;padding:0.3rem 0.8rem;text-decoration:none;">
+                Informativo: {{ summary.info_issues }}
+            </a>
+        </div>
+        {% if summary.circuit_types %}
+        <h3 class="section-title" style="border:none;padding:0;margin:0.75rem 0 0.5rem;">Circuitos por Tipo</h3>
+        <div class="flex gap-1" style="flex-wrap:wrap;">
+            {% for ct in summary.circuit_types %}
+            <a href="/circuits/?type={{ ct.circuit_type }}" class="badge badge-primary" style="font-size:0.85rem;padding:0.25rem 0.6rem;text-decoration:none;">
+                {{ ct.circuit_type }}: {{ ct.total }}
+            </a>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% if summary.service_types %}
+        <h3 class="section-title" style="border:none;padding:0;margin:0.75rem 0 0.5rem;">Serviços por Tipo</h3>
+        <div class="flex gap-1" style="flex-wrap:wrap;">
+            {% for st in summary.service_types %}
+            <a href="/services/?type={{ st.service_type }}" class="badge badge-info" style="font-size:0.85rem;padding:0.25rem 0.6rem;text-decoration:none;">
+                {{ st.service_type }}: {{ st.total }}
+            </a>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Recommended actions -->
+    <div class="card">
+        <h3 class="section-title" style="border:none;padding:0;margin-bottom:0.5rem;">Ações Recomendadas</h3>
+        {% if actions %}
+            {% for a in actions %}
+            <div class="card" style="margin-bottom:0.35rem;padding:0.5rem 0.75rem;border-left:4px solid
+                {% if a.priority == 'high' %}var(--danger)
+                {% elif a.priority == 'medium' %}var(--warning)
+                {% else %}var(--info)
+                {% endif %};">
+                <div style="font-size:0.85rem;">
+                    <a href="{{ a.url }}" style="text-decoration:none;color:var(--text);">
+                        <strong>{{ a.action }}</strong>
+                    </a>
+                    <div style="color:var(--text-secondary);font-size:0.8rem;margin-top:0.15rem;">{{ a.reason }}</div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+        <p class="empty-state" style="padding:0.5rem;">Nenhuma ação recomendada.</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Devices in attention -->
+{% if devices_in_attention %}
+<div class="card mb-2">
+    <h3 class="section-title">Dispositivos em Atenção</h3>
+    <div class="flex gap-1" style="flex-wrap:wrap;">
+        {% for d in devices_in_attention %}
+        <a href="{% url 'device_detail' d.pk %}" class="card" style="display:inline-block;padding:0.5rem 0.75rem;text-decoration:none;border-left:4px solid
+            {% if d.attention_type == 'critical' %}var(--danger)
+            {% else %}var(--warning)
+            {% endif %};">
+            <strong>{{ d.name }}</strong>
+            <span class="badge badge-{{ d.attention_type }}" style="margin-left:0.25rem;">
+                {{ d.attention_label }}
+            </span>
+        </a>
+        {% endfor %}
+    </div>
+    <div style="margin-top:0.5rem;"><a href="{% url 'device_list' %}" class="btn btn-outline btn-sm">Ver todos dispositivos</a></div>
+</div>
+{% endif %}
+
+<!-- Latest analyses per device -->
+<div class="card mb-2">
+    <h3 class="section-title">Últimas Análises por Equipamento</h3>
+    {% if latest_parsed %}
+    <div class="table-container">
+        <table>
+            <thead><tr><th>Equipamento</th><th>Snapshot</th><th>Data</th><th>Circuitos</th><th>Issues</th><th></th></tr></thead>
+            <tbody>
+            {% for p in latest_parsed %}
+            <tr>
+                <td><strong>{{ p.snapshot.device.name|default:"—" }}</strong></td>
+                <td>#{{ p.snapshot.pk }}</td>
+                <td>{{ p.created_at|date:"d/m/Y H:i" }}</td>
+                <td>{{ p.snapshot.detected_circuits.count }}</td>
+                <td>{{ p.snapshot.analysis_issues.count }}</td>
+                <td class="text-right">
+                    <a href="{% url 'analysis_detail' p.pk %}" class="btn btn-primary btn-sm">Ver</a>
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="empty-state">Nenhuma análise encontrada.</p>
+    {% endif %}
+</div>
+
+<!-- Recent comparisons -->
+<div class="card mb-2">
+    <h3 class="section-title">Comparações Recentes</h3>
+    {% if recent_comparisons %}
+    <div class="table-container">
+        <table>
+            <thead><tr><th>#</th><th>Base</th><th>Alvo</th><th>Data</th><th></th></tr></thead>
+            <tbody>
+            {% for c in recent_comparisons %}
+            <tr>
+                <td>{{ c.pk }}</td>
+                <td>{{ c.base_snapshot.device.name|default:"?" }} #{{ c.base_snapshot.pk }}</td>
+                <td>{{ c.target_snapshot.device.name|default:"?" }} #{{ c.target_snapshot.pk }}</td>
+                <td>{{ c.created_at|date:"d/m/Y H:i" }}</td>
+                <td class="text-right"><a href="{% url 'comparison_detail' c.pk %}" class="btn btn-primary btn-sm">Ver</a></td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="empty-state">Nenhuma comparação.</p>
+    {% endif %}
+    <div style="margin-top:0.5rem;"><a href="{% url 'comparison_new' %}" class="btn btn-outline btn-sm">Nova Comparação</a></div>
+</div>
+{% endblock %}

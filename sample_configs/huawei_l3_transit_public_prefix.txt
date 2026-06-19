@@ -1,0 +1,43 @@
+#
+sysname ROTEADOR-TRANSITO-SP
+#
+interface GigabitEthernet0/0/0
+ description LINK-CORE-SP01
+ ip address 10.0.0.1 255.255.255.252
+#
+interface Eth-Trunk100
+ description AGREGACAO-CLIENTES
+ port link-type trunk
+ port trunk allow-pass vlan 100 200 300 400
+#
+interface Eth-Trunk100.1234
+ description CLIENTE-MEGA-TRANSITO-L3
+ vlan-type dot1q 1234
+ ip address 10.255.123.1 255.255.255.252
+#
+interface Eth-Trunk100.5678
+ description CLIENTE-ALPHA-TRANSITO-L3
+ vlan-type dot1q 5678
+ ip address 10.255.200.1 255.255.255.252
+#
+interface LoopBack0
+ description ROUTER-ID
+ ip address 10.0.0.1 255.255.255.255
+#
+interface LoopBack100
+ description ORIGEM-NAT
+ ip address 200.100.50.1 255.255.255.255
+#
+bgp 65000
+ peer 10.255.200.2 as-number 64500
+ peer 10.255.200.2 description BGP-CLIENTE-ALPHA
+ peer 10.0.0.2 as-number 64501
+ peer 10.0.0.2 description BGP-UPSTREAM
+ network 200.100.50.0 mask 255.255.255.0
+#
+ip route-static 200.200.200.0 255.255.255.252 10.255.123.2 description CLIENTE-MEGA-PUBLICO
+ip route-static 200.201.201.0 255.255.255.252 10.255.123.2 description CLIENTE-MEGA-PUBLICO-2
+ip route-static 0.0.0.0 0.0.0.0 10.0.0.2
+ip route-static 10.10.10.0 255.255.255.0 NULL0 preference 5
+#
+return

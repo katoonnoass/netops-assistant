@@ -1,0 +1,40 @@
+#
+sysname SW-L2VPN-VSI
+#
+vsi VSI-CLIENTE-X static
+ pwsignal ldp
+  vsi-id 5000
+ peer 10.10.10.10
+#
+vsi VSI-CLIENTE-Y static
+ pwsignal ldp
+  vsi-id 5001
+ peer 10.10.10.11
+ peer 10.10.10.12
+#
+interface Eth-Trunk100
+ description AGREGACAO-UPLINK
+ port link-type trunk
+ port trunk allow-pass vlan 100 200 300
+#
+interface Eth-Trunk100.4000
+ description L2VPN-CLIENTE-X
+ vlan-type dot1q 4000
+ l2 binding vsi VSI-CLIENTE-X
+#
+interface Eth-Trunk100.4001
+ description L2VPN-CLIENTE-Y
+ vlan-type dot1q 4001
+ l2 binding vsi VSI-CLIENTE-Y
+#
+interface GigabitEthernet0/0/1
+ description LINK-CORE
+ ip address 10.0.0.1 255.255.255.252
+#
+interface LoopBack0
+ description ROUTER-ID
+ ip address 10.0.0.1 255.255.255.255
+#
+ip route-static 0.0.0.0 0.0.0.0 10.0.0.2
+#
+return

@@ -1,0 +1,42 @@
+#
+sysname SW-MUDANCA-L2
+#
+vlan batch 10 20 30 40
+#
+vlan 10
+ description CLIENTES-NOVO
+#
+vlan 40
+ description NOVO-CLIENTE
+#
+stp enable
+stp mode mstp
+stp region-configuration
+ region-name REDE-METRO
+ instance 1 vlan 10 20
+ active region-configuration
+#
+interface GigabitEthernet0/0/1
+ description CLIENTE-X
+ port link-type access
+ port default vlan 20
+ eth-trunk 100
+#
+interface GigabitEthernet0/0/2
+ description UPLINK-CORE-V2
+ port link-type trunk
+ port trunk allow-pass vlan 10 20 40
+ port trunk pvid vlan 99
+#
+interface GigabitEthernet0/0/3
+ description NOVO-CLIENTE
+ port link-type access
+ port default vlan 40
+ eth-trunk 200
+#
+interface Eth-Trunk100
+ description AGG-CORE-V2
+ port link-type trunk
+ port trunk allow-pass vlan 10 20 40
+#
+return

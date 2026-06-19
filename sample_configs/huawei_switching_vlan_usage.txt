@@ -1,0 +1,40 @@
+#
+sysname SW-VLAN-USAGE
+#
+vlan batch 10 20 1234 3000 4000
+#
+vlan 10
+ description CLIENTES-VLAN10
+#
+interface GigabitEthernet0/0/1
+ description ACCESS-PORT
+ port link-type access
+ port default vlan 10
+#
+interface Eth-Trunk100
+ description TRUNK-CORE
+ port link-type trunk
+ port trunk allow-pass vlan 10 20
+#
+interface Eth-Trunk100.1234
+ description CLIENTE-X-TRANSITO
+ vlan-type dot1q 1234
+ ip address 10.255.123.1 255.255.255.252
+#
+interface Eth-Trunk200.3000
+ description QINQ-OUTER
+ vlan-type dot1q 3000 second-dot1q 100
+#
+interface GigabitEthernet0/0/2.4000
+ description L2VPN-VSI
+ vlan-type dot1q 4000
+ l2 binding vsi VSI-CLIENTE-Z
+#
+stp enable
+stp mode mstp
+stp region-configuration
+ region-name REDE-METRO
+ instance 1 vlan 10 20
+ active region-configuration
+#
+return

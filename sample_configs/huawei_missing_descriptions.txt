@@ -1,0 +1,27 @@
+#
+sysname ROTEADOR-SEM-DESCS
+#
+interface GigabitEthernet0/0/0
+ ip address 192.168.1.1 255.255.255.0
+#
+interface GigabitEthernet0/0/1
+ description LINK-CLIENTE-FIBRA
+ ip address 10.10.10.1 255.255.255.252
+#
+interface Eth-Trunk1.100
+ vlan-type dot1q 100
+ ip address 10.20.0.1 255.255.255.252
+#
+interface Eth-Trunk1.200
+ description TRANSPORTE-CLIENTE-BETA
+ vlan-type dot1q 200
+ ip address 10.20.1.1 255.255.255.252
+#
+interface LoopBack0
+ description ROUTER-ID
+ ip address 10.0.0.1 255.255.255.255
+#
+ip route-static 200.200.0.0 255.255.255.0 192.168.1.254
+ip route-static 200.201.0.0 255.255.255.0 10.20.0.2 description ROTA-COM-DESCRICAO
+#
+return

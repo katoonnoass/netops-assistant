@@ -1,0 +1,49 @@
+#
+sysname RACK01-CORE-SW01
+#
+interface GigabitEthernet0/0/1
+ description LINK-FIBRA-CLIENTE-A
+ port link-type trunk
+ port trunk allow-pass vlan 100 200 300
+#
+interface GigabitEthernet0/0/2
+ description LINK-REDE-INTERNA
+ port link-type access
+ port default vlan 10
+#
+interface GigabitEthernet0/0/1.100
+ description SUBCLIENTE-A-VLAN100
+ vlan-type dot1q 100
+ ip address 192.168.100.1 255.255.255.252
+#
+interface Eth-Trunk1
+ description AGREGACAO-BACKBONE
+ port link-type trunk
+ port trunk allow-pass vlan 10 20 30 40 50
+#
+interface Eth-Trunk1.200
+ description TRANSPORTE-QINQ-CLIENTE-B
+ vlan-type dot1q 200
+ ip address 10.200.0.1 255.255.255.252
+#
+interface LoopBack0
+ description ROUTER-ID-LOOPBACK
+ ip address 10.0.0.1 255.255.255.255
+#
+interface VLANIF10
+ description VLAN-GERENCIA
+ ip address 192.168.10.254 255.255.255.0
+#
+bgp 65000
+ peer 10.200.0.2 as-number 64500
+ peer 10.200.0.2 description BGP-CLIENTE-A
+ peer 192.168.255.1 as-number 65001
+ peer 192.168.255.1 description BGP-IX-SP
+ network 10.0.0.0 mask 255.255.255.0
+ network 192.168.0.0 mask 255.255.255.0
+#
+ip route-static 0.0.0.0 0.0.0.0 10.200.0.2
+ip route-static 172.16.0.0 255.255.0.0 192.168.10.1 preference 60
+ip route-static 10.0.0.0 255.0.0.0 NULL0 preference 5 tag 100
+#
+return

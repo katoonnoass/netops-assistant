@@ -1,0 +1,30 @@
+#
+sysname SW-TRANSPORTE-VLAN
+#
+interface Eth-Trunk100
+ description AGREGACAO-UPLINK
+ port link-type trunk
+ port trunk allow-pass vlan 100 200 300
+#
+interface Eth-Trunk100.2000
+ description TRANSPORTE-OLT-POP02
+ vlan-type dot1q 2000
+#
+interface Eth-Trunk100.2001
+ description TRANSPORTE-CLINTE-EMPRESA-X
+ vlan-type dot1q 2001
+#
+interface Eth-Trunk100.2002
+ vlan-type dot1q 2002
+#
+interface GigabitEthernet0/0/1
+ description LINK-CORE
+ ip address 10.0.0.1 255.255.255.252
+#
+interface LoopBack0
+ description ROUTER-ID
+ ip address 10.0.0.1 255.255.255.255
+#
+ip route-static 0.0.0.0 0.0.0.0 10.0.0.2
+#
+return

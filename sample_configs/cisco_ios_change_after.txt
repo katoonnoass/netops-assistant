@@ -1,0 +1,44 @@
+hostname CISCO-DIFF
+!
+interface GigabitEthernet0/0
+ description UPLINK-CORE-V2
+ no shutdown
+!
+interface GigabitEthernet0/0.100
+ description CLIENTE-A-TRANSITO-NOVO
+ encapsulation dot1Q 100
+ ip address 10.255.100.1 255.255.255.252
+!
+interface GigabitEthernet0/0.200
+ description CLIENTE-B-TRANSITO
+ encapsulation dot1Q 200
+ ip address 10.255.200.1 255.255.255.252
+!
+interface GigabitEthernet0/0.300
+ description CLIENTE-C-TRANSITO
+ encapsulation dot1Q 300
+ ip address 10.255.300.1 255.255.255.252
+!
+interface Loopback0
+ ip address 192.0.2.1 255.255.255.255
+!
+ip route 200.200.200.0 255.255.255.252 10.255.100.2
+ip route 200.200.201.0 255.255.255.252 10.255.200.2
+ip route 200.200.202.0 255.255.255.252 10.255.300.2
+!
+router bgp 65000
+ bgp router-id 192.0.2.1
+ neighbor 10.255.100.2 remote-as 64520
+ neighbor 10.255.100.2 description CLIENTE-A-NOVO
+ neighbor 10.255.100.2 route-map CUSTOMER-A-OUT out
+ neighbor 10.255.300.2 remote-as 64540
+ neighbor 10.255.300.2 description CLIENTE-C
+ !
+ address-family ipv4
+  neighbor 10.255.100.2 activate
+  neighbor 10.255.300.2 activate
+  network 200.200.200.0 mask 255.255.255.252
+  network 200.200.202.0 mask 255.255.255.252
+ exit-address-family
+!
+end

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}NetOps Assistant{% endblock %}</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'css/app.css' %}">
+</head>
+<body>
+    <nav class="navbar">
+        <a href="{% url 'dashboard' %}" class="navbar-brand">
+            NetOps Assistant
+        </a>
+        <ul class="navbar-nav">
+            <li><a href="{% url 'dashboard' %}" {% if request.resolver_match.url_name == 'dashboard' %}class="active"{% endif %}>Dashboard</a></li>
+            <li><a href="{% url 'search' %}" {% if request.resolver_match.url_name == 'search' %}class="active"{% endif %}>Busca</a></li>
+            <li><a href="{% url 'device_list' %}" {% if request.resolver_match.url_name == 'device_list' %}class="active"{% endif %}>Dispositivos</a></li>
+            <li><a href="{% url 'new_analysis' %}" {% if request.resolver_match.url_name == 'new_analysis' %}class="active"{% endif %}>Nova Análise</a></li>
+            <li><a href="{% url 'circuit_list' %}" {% if request.resolver_match.url_name == 'circuit_list' %}class="active"{% endif %}>Circuitos</a></li>
+            <li><a href="{% url 'service_list' %}" {% if request.resolver_match.url_name == 'service_list' %}class="active"{% endif %}>Serviços</a></li>
+            <li><a href="{% url 'issue_list' %}" {% if request.resolver_match.url_name == 'issue_list' %}class="active"{% endif %}>Issues</a></li>
+            <li><a href="{% url 'comparison_list' %}" {% if request.resolver_match.url_name == 'comparison_list' %}class="active"{% endif %}>Comparações</a></li>
+        </ul>
+    </nav>
+
+    <main class="container">
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>

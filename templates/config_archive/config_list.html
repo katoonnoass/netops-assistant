@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+{% block title %}Histórico - NetOps Assistant{% endblock %}
+
+{% block content %}
+<div class="page-header flex justify-between items-center">
+    <div>
+        <h1>Histórico de Análises</h1>
+        <p>Todas as configurações analisadas.</p>
+    </div>
+    <a href="{% url 'new_analysis' %}" class="btn btn-primary">Nova Análise</a>
+</div>
+
+{% if snapshots %}
+<div class="table-container">
+    <table>
+        <thead>
+            <tr>
+                <th>Snapshot</th>
+                <th>Equipamento</th>
+                <th>Fabricante</th>
+                <th>Origem</th>
+                <th>Data</th>
+                <th>Circuitos</th>
+                <th>Issues</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for snap in snapshots %}
+            <tr>
+                <td><strong>#{{ snap.pk }}</strong></td>
+                <td>{{ snap.device.name|default:"—" }}</td>
+                <td><span class="badge badge-primary">{{ snap.vendor|default:"—" }}</span></td>
+                <td>{{ snap.get_source_display }}</td>
+                <td>{{ snap.created_at|date:"d/m/Y H:i" }}</td>
+                <td>{{ snap.detected_circuits.count }}</td>
+                <td>{{ snap.analysis_issues.count }}</td>
+                <td class="text-right">
+                    {% with snap.parsed_configs.first as parsed %}
+                        {% if parsed %}
+                            <a href="{% url 'analysis_detail' parsed.pk %}" class="btn btn-primary btn-sm">Ver</a>
+                        {% else %}
+                            <span class="badge badge-warning">Não analisado</span>
+                        {% endif %}
+                    {% endwith %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="card empty-state">
+    <p>Nenhuma análise encontrada.</p>
+    <a href="{% url 'new_analysis' %}" class="btn btn-primary mt-2">Criar primeira análise</a>
+</div>
+{% endif %}
+{% endblock %}
