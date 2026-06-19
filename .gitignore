@@ -33,3 +33,12 @@ Thumbs.db
 # Project specific
 logs/
 *.log
+
+# Debug/scratch files (root-level temp scripts)
+_debug_*.py
+_fix_*.py
+_check_*.py
+_find_*.py
+tmp_*.py
+temp_*.py
+scratch_*.py
