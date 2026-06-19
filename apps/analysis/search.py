@@ -124,6 +124,10 @@ def classify_search_query(query: str) -> dict[str, Any]:
     if re.match(r"^Eth-Trunk\d+(\.\d+)?$", q, re.IGNORECASE):
         return {"type": "interface", "value": q, "query": query}
 
+    # --- ISIS / MPLS / LDP keyword ---
+    if q.lower() in ("isis", "mpls", "ldp"):
+        return {"type": "text", "value": q, "query": query}
+
     return {"type": "text", "value": q, "query": query}
 
 
@@ -1003,6 +1007,301 @@ def _search_bgp_peer_score(classification: dict, peer: dict, local_as: str) -> f
     return 0.0
 
 
+def _search_isis(
+    classification: dict, filters: dict | None, only_last_snapshot: bool = False
+) -> list[dict]:
+    """Search ISIS processes and interfaces inside ParsedConfig.parsed_data."""
+    q = classification["query"]
+    qtype = classification["type"]
+    qval = classification.get("value", q)
+
+    parsed_qs = ParsedConfig.objects.select_related(
+        "snapshot__device"
+    ).all()
+
+    if filters:
+        if filters.get("vendor"):
+            parsed_qs = parsed_qs.filter(snapshot__vendor=filters["vendor"])
+        if filters.get("device"):
+            parsed_qs = parsed_qs.filter(
+                snapshot__device__name__icontains=filters["device"]
+            )
+        if filters.get("last_snapshot_only") or only_last_snapshot:
+            from django.db.models import Max
+
+            latest_ids = (
+                parsed_qs.values("snapshot__device_id")
+                .annotate(max_id=Max("pk"))
+                .values_list("max_id", flat=True)
+            )
+            parsed_qs = parsed_qs.filter(pk__in=list(latest_ids))
+
+    results: list[dict] = []
+    for parsed in parsed_qs:
+        isis_blocks = parsed.parsed_data.get("isis", [])
+        if not isis_blocks:
+            continue
+
+        for isis in isis_blocks:
+            process_id = isis.get("process_id", "")
+            network_entity = isis.get("network_entity", "")
+            is_level = isis.get("is_level", "")
+
+            score = 0.0
+            if q.lower() == process_id.lower():
+                score = 1.0
+            elif q.lower() in process_id.lower():
+                score = 0.9
+            elif network_entity and q.lower() in network_entity.lower():
+                score = 0.9
+            elif is_level and q.lower() in is_level.lower():
+                score = 0.8
+            elif q.lower() in str(isis.get("raw", "")).lower():
+                score = 0.6
+
+            if score == 0.0:
+                continue
+
+            results.append(
+                {
+                    "type": "isis",
+                    "title": f"ISIS Process {process_id}",
+                    "description": f"NET: {network_entity or '-'} | Level: {is_level or '-'}",
+                    "device": parsed.snapshot.device.name if parsed.snapshot.device else "",
+                    "device_pk": parsed.snapshot.device.pk if parsed.snapshot.device else None,
+                    "snapshot": parsed.snapshot.pk,
+                    "parsed_config": parsed.pk,
+                    "url": f"/analysis/{parsed.pk}/",
+                    "score": score,
+                    "metadata": {
+                        "process_id": process_id,
+                        "network_entity": network_entity or "",
+                        "is_level": is_level or "",
+                    },
+                    "evidence": [isis.get("raw", "")[:300]] if isis.get("raw") else [],
+                }
+            )
+
+        # Also search in interfaces for isis_enabled
+        for iface in parsed.parsed_data.get("interfaces", []):
+            if not iface.get("isis_enabled"):
+                continue
+            iface_name = iface.get("name", "")
+            iface_process = iface.get("isis_process_id", "")
+            iface_circuit = iface.get("isis_circuit_type", "")
+
+            score = 0.0
+            if q.lower() == iface_name.lower():
+                score = 1.0
+            elif q.lower() in iface_name.lower():
+                score = 0.9
+            elif iface_process and q.lower() in iface_process.lower():
+                score = 0.9
+            elif iface_circuit and q.lower() in iface_circuit.lower():
+                score = 0.7
+
+            if score == 0.0:
+                continue
+
+            results.append(
+                {
+                    "type": "isis_interface",
+                    "title": f"ISIS on {iface_name}",
+                    "description": f"Process: {iface_process or '-'} | Circuit: {iface_circuit or '-'} | Cost: {iface.get('isis_cost', '-')}",
+                    "device": parsed.snapshot.device.name if parsed.snapshot.device else "",
+                    "device_pk": parsed.snapshot.device.pk if parsed.snapshot.device else None,
+                    "snapshot": parsed.snapshot.pk,
+                    "parsed_config": parsed.pk,
+                    "url": f"/analysis/{parsed.pk}/",
+                    "score": score,
+                    "metadata": {
+                        "interface": iface_name,
+                        "isis_process_id": iface_process or "",
+                        "isis_circuit_type": iface_circuit or "",
+                        "isis_cost": iface.get("isis_cost"),
+                    },
+                    "evidence": [],
+                }
+            )
+
+    results.sort(key=lambda r: r["score"], reverse=True)
+    return results[:20]
+
+
+def _search_core(
+    classification: dict, filters: dict | None, only_last_snapshot: bool = False
+) -> list[dict]:
+    """Search MPLS and MPLS LDP inside ParsedConfig.parsed_data."""
+    q = classification["query"]
+    qtype = classification["type"]
+    qval = classification.get("value", q)
+
+    parsed_qs = ParsedConfig.objects.select_related(
+        "snapshot__device"
+    ).all()
+
+    if filters:
+        if filters.get("vendor"):
+            parsed_qs = parsed_qs.filter(snapshot__vendor=filters["vendor"])
+        if filters.get("device"):
+            parsed_qs = parsed_qs.filter(
+                snapshot__device__name__icontains=filters["device"]
+            )
+        if filters.get("last_snapshot_only") or only_last_snapshot:
+            from django.db.models import Max
+
+            latest_ids = (
+                parsed_qs.values("snapshot__device_id")
+                .annotate(max_id=Max("pk"))
+                .values_list("max_id", flat=True)
+            )
+            parsed_qs = parsed_qs.filter(pk__in=list(latest_ids))
+
+    results: list[dict] = []
+    for parsed in parsed_qs:
+        mpls = parsed.parsed_data.get("mpls", {})
+        ldp = parsed.parsed_data.get("mpls_ldp", {})
+        device_name = parsed.snapshot.device.name if parsed.snapshot.device else ""
+        device_pk = parsed.snapshot.device.pk if parsed.snapshot.device else None
+
+        # MPLS global info
+        lsr_id = mpls.get("lsr_id", "")
+        mpls_enabled = mpls.get("enabled", False)
+
+        if mpls_enabled:
+            score = 0.0
+            if q.lower() == "mpls":
+                score = 0.7
+            elif lsr_id and q.lower() == lsr_id.lower():
+                score = 1.0
+            elif lsr_id and q.lower() in lsr_id.lower():
+                score = 0.9
+            elif q.lower() in str(mpls.get("raw_lines", [])).lower():
+                score = 0.6
+
+            if score > 0.0:
+                results.append(
+                    {
+                        "type": "mpls",
+                        "title": f"MPLS — LSR-ID: {lsr_id or '(não configurado)'}",
+                        "description": f"TE: {'sim' if mpls.get('te_enabled') else 'não'}",
+                        "device": device_name,
+                        "device_pk": device_pk,
+                        "snapshot": parsed.snapshot.pk,
+                        "parsed_config": parsed.pk,
+                        "url": f"/analysis/{parsed.pk}/",
+                        "score": score,
+                        "metadata": {
+                            "lsr_id": lsr_id or "",
+                            "te_enabled": mpls.get("te_enabled", False),
+                            "enabled": mpls_enabled,
+                        },
+                        "evidence": mpls.get("raw_lines", [])[:3],
+                    }
+                )
+
+        # MPLS LDP info
+        ldp_enabled = ldp.get("enabled", False)
+        if ldp_enabled:
+            score = 0.0
+            if q.lower() == "ldp":
+                score = 0.7
+            elif q.lower() in str(ldp.get("raw_lines", [])).lower():
+                score = 0.6
+
+            if score > 0.0:
+                results.append(
+                    {
+                        "type": "mpls_ldp",
+                        "title": "MPLS LDP",
+                        "description": f"Graceful Restart: {'sim' if ldp.get('graceful_restart') else 'não'}",
+                        "device": device_name,
+                        "device_pk": device_pk,
+                        "snapshot": parsed.snapshot.pk,
+                        "parsed_config": parsed.pk,
+                        "url": f"/analysis/{parsed.pk}/",
+                        "score": score,
+                        "metadata": {
+                            "enabled": True,
+                            "graceful_restart": ldp.get("graceful_restart", False),
+                        },
+                        "evidence": ldp.get("raw_lines", [])[:3],
+                    }
+                )
+
+        # LDP remote peers
+        for peer in ldp.get("remote_peers", []):
+            peer_name = peer.get("name", "")
+            peer_ip = peer.get("remote_ip", "")
+
+            score = 0.0
+            if q.lower() == peer_name.lower():
+                score = 1.0
+            elif q.lower() in peer_name.lower():
+                score = 0.9
+            elif qtype == "ip" and peer_ip and qval == peer_ip:
+                score = 1.0
+            elif peer_ip and q.lower() in peer_ip:
+                score = 0.8
+
+            if score == 0.0:
+                continue
+
+            results.append(
+                {
+                    "type": "mpls_ldp_peer",
+                    "title": f"LDP Remote Peer: {peer_name}",
+                    "description": f"Remote IP: {peer_ip or '-'}",
+                    "device": device_name,
+                    "device_pk": device_pk,
+                    "snapshot": parsed.snapshot.pk,
+                    "parsed_config": parsed.pk,
+                    "url": f"/analysis/{parsed.pk}/",
+                    "score": score,
+                    "metadata": {
+                        "peer_name": peer_name,
+                        "remote_ip": peer_ip or "",
+                    },
+                    "evidence": peer.get("raw_lines", [])[:3],
+                }
+            )
+
+        # Search interfaces with mpls_enabled
+        if q.lower() not in ("mpls", "ldp"):
+            for iface in parsed.parsed_data.get("interfaces", []):
+                if not iface.get("mpls_enabled"):
+                    continue
+                iface_name = iface.get("name", "")
+                score = 0.0
+                if q.lower() == iface_name.lower():
+                    score = 1.0
+                elif q.lower() in iface_name.lower():
+                    score = 0.9
+                else:
+                    continue
+                results.append(
+                    {
+                        "type": "mpls_interface",
+                        "title": f"MPLS on {iface_name}",
+                        "description": f"MTU: {iface.get('mpls_mtu', '-')}",
+                        "device": device_name,
+                        "device_pk": device_pk,
+                        "snapshot": parsed.snapshot.pk,
+                        "parsed_config": parsed.pk,
+                        "url": f"/analysis/{parsed.pk}/",
+                        "score": score,
+                        "metadata": {
+                            "interface": iface_name,
+                            "mpls_mtu": iface.get("mpls_mtu"),
+                        },
+                        "evidence": [],
+                    }
+                )
+
+    results.sort(key=lambda r: r["score"], reverse=True)
+    return results[:20]
+
+
 def _search_circuits(
     classification: dict, filters: dict | None
 ) -> list[dict]:
@@ -1387,6 +1686,12 @@ def global_network_search(
     policies = _search_policies(
         classification, effective_filters, only_last_snapshot
     )
+    isis_results = _search_isis(
+        classification, effective_filters, only_last_snapshot
+    )
+    core_results = _search_core(
+        classification, effective_filters, only_last_snapshot
+    )
 
     summary_counts: dict[str, int] = {
         "devices": len(devices),
@@ -1398,6 +1703,8 @@ def global_network_search(
         "static_routes": len(static_routes),
         "bgp_peers": len(bgp_peers),
         "policies": len(policies),
+        "isis": len(isis_results),
+        "core": len(core_results),
         "raw_matches": len(raw_matches),
     }
 
@@ -1415,5 +1722,7 @@ def global_network_search(
         "static_routes": static_routes,
         "bgp_peers": bgp_peers,
         "policies": policies,
+        "isis": isis_results,
+        "core": core_results,
         "raw_matches": raw_matches,
     }

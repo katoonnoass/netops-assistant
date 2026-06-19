@@ -74,6 +74,9 @@ def generate_analysis_documentation(
         "has_local_users": bool(parsed_data.get("local_users", [])),
         "has_vty": bool(parsed_data.get("vty_lines", [])),
         "has_ssh_stelnet": parsed_data.get("ssh", {}).get("enabled", False),
+        "has_isis": bool(parsed_data.get("isis", [])),
+        "has_mpls": parsed_data.get("mpls", {}).get("enabled", False),
+        "has_mpls_ldp": parsed_data.get("mpls_ldp", {}).get("enabled", False),
     }
 
     # ── Detected roles ──────────────────────────────────────────────
@@ -162,6 +165,8 @@ def generate_analysis_documentation(
             "access": mgmt_access,
             "local_users": mgmt_local_users,
         },
+        # Core
+        "core": _document_core(parsed_data) or _build_core_documentation(parsed_data),
         # Policies
         "policies": _build_policy_documentation(parsed_data),
     }
@@ -399,6 +404,30 @@ def _detect_roles(
                 "confidence": "alta",
             }
         )
+
+    # Core roles - MPLS/LDP/ISIS
+    core_data = _build_core_documentation(parsed_data)
+
+    if core_data["has_mpls"] and core_data["has_mpls_ldp"] and bgp_blocks:
+        roles.append({
+            "role": "Roteador PE/P de core",
+            "evidence": "MPLS + LDP + BGP detectados",
+            "confidence": "alta",
+        })
+
+    if core_data["has_isis"]:
+        roles.append({
+            "role": "Roteador de core com ISIS",
+            "evidence": f"{len(core_data['isis'])} processo(s) ISIS detectado(s)",
+            "confidence": "alta",
+        })
+
+    if core_data["has_mpls_ldp"]:
+        roles.append({
+            "role": "Label distribution via LDP",
+            "evidence": f"{len(core_data['mpls_ldp']['remote_peers'])} peer(s) LDP remoto(s)",
+            "confidence": "alta",
+        })
 
     return roles
 
@@ -1410,6 +1439,97 @@ def _document_local_users(parsed_data: dict) -> list[dict]:
         })
 
     return doc_users
+
+
+# ── Core documentation (ISIS/MPLS/LDP) ─────────────────────────────────
+
+
+def _build_core_documentation(parsed_data: dict) -> dict:
+    isis_blocks = parsed_data.get("isis", [])
+    mpls_data = parsed_data.get("mpls", {})
+    mpls_ldp_data = parsed_data.get("mpls_ldp", {})
+    interfaces = parsed_data.get("interfaces", [])
+
+    isis_docs = []
+    for isis in isis_blocks:
+        isis_docs.append({
+            "process_id": isis.get("process_id"),
+            "network_entity": isis.get("network_entity"),
+            "is_level": isis.get("is_level"),
+            "cost_style": isis.get("cost_style"),
+            "import_routes": isis.get("import_routes", []),
+            "vpn_instance": isis.get("vpn_instance"),
+        })
+
+    isis_interfaces = []
+    for iface in interfaces:
+        if iface.get("isis_enabled"):
+            isis_interfaces.append({
+                "name": iface.get("name"),
+                "isis_process_id": iface.get("isis_process_id"),
+                "isis_circuit_type": iface.get("isis_circuit_type"),
+                "isis_cost": iface.get("isis_cost"),
+            })
+
+    mpls_interfaces = []
+    for iface in interfaces:
+        if iface.get("mpls_enabled"):
+            mpls_interfaces.append({
+                "name": iface.get("name"),
+            })
+
+    ldp_interfaces = []
+    for iface in interfaces:
+        if iface.get("mpls_ldp_enabled"):
+            ldp_interfaces.append({
+                "name": iface.get("name"),
+            })
+
+    return {
+        "isis": isis_docs,
+        "isis_interfaces": isis_interfaces,
+        "mpls": {
+            "enabled": mpls_data.get("enabled", False),
+            "lsr_id": mpls_data.get("lsr_id"),
+            "te_enabled": mpls_data.get("te_enabled", False),
+        },
+        "mpls_ldp": {
+            "enabled": mpls_ldp_data.get("enabled", False),
+            "graceful_restart": mpls_ldp_data.get("graceful_restart", False),
+            "remote_peers": mpls_ldp_data.get("remote_peers", []),
+        },
+        "mpls_interfaces": mpls_interfaces,
+        "ldp_interfaces": ldp_interfaces,
+        "has_isis": len(isis_blocks) > 0,
+        "has_mpls": mpls_data.get("enabled", False),
+        "has_mpls_ldp": mpls_ldp_data.get("enabled", False),
+    }
+
+
+def _document_core(parsed_data: dict) -> dict | None:
+    core = _build_core_documentation(parsed_data)
+    if not any([core["has_isis"], core["has_mpls"], core["has_mpls_ldp"]]):
+        return None
+
+    parts = []
+    if core["has_isis"]:
+        proc_ids = [p.get("process_id", "?") for p in core["isis"]]
+        parts.append(f"ISIS detectado: {', '.join(str(p) for p in proc_ids)} processo(s).")
+    if core["has_mpls"]:
+        lsr = core["mpls"].get("lsr_id", "")
+        te = "com TE" if core["mpls"].get("te_enabled") else "sem TE"
+        parts.append(f"MPLS habilitado (LSR-ID: {lsr or 'N/A'}, {te}).")
+    if core["has_mpls_ldp"]:
+        peers = core["mpls_ldp"].get("remote_peers", [])
+        gr = "com graceful restart" if core["mpls_ldp"].get("graceful_restart") else "sem graceful restart"
+        parts.append(f"LDP detectado ({gr}, {len(peers)} peer(s) remoto(s)).")
+
+    return {
+        **core,
+        "explanation": " ".join(parts),
+    }
+
+
     parts = ip_str.split()
     if len(parts) == 2:
         try:

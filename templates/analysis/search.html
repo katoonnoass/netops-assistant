@@ -271,6 +271,36 @@
 </div>
 {% endif %}
 
+{% if r.isis %}
+<div class="search-section">
+    <h3>ISIS <span class="badge badge-primary">{{ r.isis|length }}</span></h3>
+    {% for item in r.isis %}
+    <div class="result-item {% if item.score >= 0.9 %}score-high{% elif item.score >= 0.6 %}score-medium{% else %}score-low{% endif %}">
+        <div class="title">{{ item.title }}</div>
+        <div class="meta">{{ item.device }} — {{ item.description }}</div>
+        {% if item.evidence %}
+        <div class="evidence">{% for e in item.evidence %}{{ e }}{% if not forloop.last %}<hr style="border-color:var(--border);margin:0.2rem 0;">{% endif %}{% endfor %}</div>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if r.mpls %}
+<div class="search-section">
+    <h3>MPLS / LDP <span class="badge badge-primary">{{ r.mpls|length }}</span></h3>
+    {% for item in r.mpls %}
+    <div class="result-item {% if item.score >= 0.9 %}score-high{% elif item.score >= 0.6 %}score-medium{% else %}score-low{% endif %}">
+        <div class="title">{{ item.title }}</div>
+        <div class="meta">{{ item.device }} — {{ item.description }}</div>
+        {% if item.evidence %}
+        <div class="evidence">{% for e in item.evidence %}{{ e }}{% if not forloop.last %}<hr style="border-color:var(--border);margin:0.2rem 0;">{% endif %}{% endfor %}</div>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
 {% if r.raw_matches %}
 <div class="search-section">
     <h3>Ocorrências em texto bruto <span class="badge badge-primary">{{ r.raw_matches|length }}</span></h3>

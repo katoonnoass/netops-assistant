@@ -208,7 +208,141 @@ def detect_services(snapshot, parsed_data: dict) -> list[DetectedService]:
         ospf_svc.save()
         services.append(ospf_svc)
 
+    # ── ISIS ─────────────────────────────────────────────────────
+    isis_svc = _detect_isis(parsed_data)
+    if isis_svc:
+        isis_svc.snapshot = snapshot
+        isis_svc.save()
+        services.append(isis_svc)
+
+    # ── MPLS ─────────────────────────────────────────────────────
+    mpls_svc = _detect_mpls(parsed_data)
+    if mpls_svc:
+        mpls_svc.snapshot = snapshot
+        mpls_svc.save()
+        services.append(mpls_svc)
+
+    # ── MPLS LDP ─────────────────────────────────────────────────
+    ldp_svc = _detect_mpls_ldp(parsed_data)
+    if ldp_svc:
+        ldp_svc.snapshot = snapshot
+        ldp_svc.save()
+        services.append(ldp_svc)
+
     return services
+
+
+def _detect_isis(parsed_data: dict) -> DetectedService | None:
+    """Detecta serviço ISIS."""
+    isis_processes = parsed_data.get("isis", [])
+    interfaces = parsed_data.get("interfaces", [])
+
+    if not isis_processes:
+        return None
+
+    isis_ifaces = [i for i in interfaces if i.get("isis_enabled")]
+    processes_info = []
+    for p in isis_processes:
+        info = f"processo {p['process_id']}"
+        if p.get("network_entity"):
+            info += f", NET: {p['network_entity']}"
+        if p.get("is_level"):
+            info += f", {p['is_level']}"
+        processes_info.append(info)
+
+    return DetectedService(
+        service_type=DetectedService.ServiceType.ISIS,
+        name=f"ISIS ({len(isis_processes)} processo(s))",
+        description=(
+            f"ISIS configurado: {'; '.join(processes_info)}. "
+            f"{len(isis_ifaces)} interface(s) com ISIS habilitado."
+        ),
+        confidence=0.90,
+        metadata={
+            "process_count": len(isis_processes),
+            "interface_count": len(isis_ifaces),
+            "processes": [
+                {
+                    "process_id": p["process_id"],
+                    "network_entity": p.get("network_entity"),
+                    "is_level": p.get("is_level"),
+                }
+                for p in isis_processes
+            ],
+            "interfaces": [i["name"] for i in isis_ifaces],
+        },
+    )
+
+
+def _detect_mpls(parsed_data: dict) -> DetectedService | None:
+    """Detecta serviço MPLS global."""
+    mpls = parsed_data.get("mpls", {})
+    if not mpls.get("enabled"):
+        return None
+
+    interfaces = parsed_data.get("interfaces", [])
+    mpls_ifaces = [i for i in interfaces if i.get("mpls_enabled")]
+
+    parts = ["MPLS detectado no equipamento."]
+    if mpls.get("lsr_id"):
+        parts.append(f"LSR ID: {mpls['lsr_id']}.")
+    if mpls.get("te_enabled"):
+        parts.append("MPLS TE habilitado.")
+    if mpls_ifaces:
+        parts.append(f"{len(mpls_ifaces)} interface(s) com MPLS.")
+
+    return DetectedService(
+        service_type=DetectedService.ServiceType.MPLS,
+        name=f"MPLS ({mpls.get('lsr_id', 'sem LSR ID')})",
+        description=" ".join(parts),
+        confidence=0.90,
+        metadata={
+            "lsr_id": mpls.get("lsr_id"),
+            "te_enabled": mpls.get("te_enabled", False),
+            "interface_count": len(mpls_ifaces),
+            "interfaces": [i["name"] for i in mpls_ifaces],
+        },
+    )
+
+
+def _detect_mpls_ldp(parsed_data: dict) -> DetectedService | None:
+    """Detecta serviço MPLS LDP."""
+    ldp = parsed_data.get("mpls_ldp", {})
+    if not ldp.get("enabled"):
+        return None
+
+    interfaces = parsed_data.get("interfaces", [])
+    ldp_ifaces = [i for i in interfaces if i.get("mpls_ldp_enabled")]
+    remote_peers = ldp.get("remote_peers", [])
+
+    parts = ["LDP detectado no equipamento."]
+    if ldp.get("graceful_restart"):
+        parts.append("Graceful-restart habilitado.")
+    if ldp_ifaces:
+        parts.append(f"{len(ldp_ifaces)} interface(s) com LDP.")
+    if remote_peers:
+        peer_names = [p["name"] for p in remote_peers]
+        parts.append(f"Remote-peer(s): {', '.join(peer_names)}.")
+
+    return DetectedService(
+        service_type=DetectedService.ServiceType.MPLS_LDP,
+        name=f"LDP ({len(remote_peers)} remote-peer(s))",
+        description=" ".join(parts),
+        confidence=0.90,
+        metadata={
+            "graceful_restart": ldp.get("graceful_restart", False),
+            "interface_count": len(ldp_ifaces),
+            "interfaces": [i["name"] for i in ldp_ifaces],
+            "remote_peer_count": len(remote_peers),
+            "remote_peers": [
+                {
+                    "name": p["name"],
+                    "remote_ip": p.get("remote_ip"),
+                }
+                for p in remote_peers
+            ],
+        },
+    )
 
 
 def _detect_bng(parsed_data: dict) -> DetectedService | None:

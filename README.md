@@ -4,7 +4,7 @@
   <p>
     <img src="https://img.shields.io/badge/Python-3.12-blue?logo=python" alt="Python 3.12">
     <img src="https://img.shields.io/badge/Django-5.0+-green?logo=django" alt="Django 5.0+">
-    <img src="https://img.shields.io/badge/Tests-660_✔️-brightgreen" alt="660 testes">
+    <img src="https://img.shields.io/badge/Tests-722_✔️-brightgreen" alt="722 testes">
     <img src="https://img.shields.io/badge/License-Proprietary-red" alt="License">
     <img src="https://img.shields.io/badge/Status-Development-yellow" alt="Status">
   </p>
@@ -32,7 +32,8 @@ O sistema interpreta configurações de roteadores e switches, extrai blocos est
 | Categoria | Itens detectados |
 |-----------|-----------------|
 | **Interfaces** | Físicas, subinterfaces dot1q, VLANs, Eth-Trunk, L2 (access/trunk/hybrid) |
-| **Roteamento** | Rotas estáticas, BGP (peers, peer groups, networks), **OSPF** (processos, áreas, redes, redistribuição) |
+| **Roteamento** | Rotas estáticas, BGP (peers, peer groups, networks), **OSPF** (processos, áreas, redes, redistribuição), **ISIS** (processos, network-entity, circuit-type, cost, autenticação) |
+| **MPLS / LDP** | MPLS global (LSR-ID, TE), MPLS LDP (transporte, graceful-restart, remote-peers, interface enable) |
 | **Políticas e Filtros** | Route-policy, ip-prefix, ACL (básica/expandida), as-path-filter, community-filter, dependency map BGP → policy |
 | **Circuitos** | L3 Transit, VLAN Transport, QinQ, L2VPN/VSI |
 | **Serviços** | BNG/BAS, AAA, RADIUS, IP Pool, SNMP, NTP, Syslog, VTY/SSH, local-users, L2 Switching, STP/MSTP |
@@ -72,7 +73,7 @@ O sistema **nunca armazena** communities SNMP, senhas de usuários locais ou sec
 
 ## Testes
 
-**660 testes automatizados** — 0 falhas, 0 migrations pendentes.
+**722 testes automatizados** — 0 falhas, 0 migrations pendentes.
 
 ```bash
 # Todos os testes
@@ -168,15 +169,18 @@ Executando análise...
 ### Exemplos de busca
 
 ```bash
-python manage.py network_search "EXPORT-CLIENTE"       # Route-policy + dependência BGP
-python manage.py network_search "CLIENTE-X"             # IP prefix
-python manage.py network_search "200.200.200.0/30"      # Prefixo em rotas/policies
-python manage.py network_search "acl 3001"              # ACL
-python manage.py network_search "as-path-filter 10"     # AS-path filter
-python manage.py network_search "community-filter 20"   # Community filter
-python manage.py network_search "65000:100"             # Community value
-python manage.py network_search "vlan 1234"             # VLAN em interfaces/circuitos
-python manage.py network_search "Eth-Trunk100.1234"     # Interface específica
+python manage.py network_search "EXPORT-CLIENTE"          # Route-policy + dependência BGP
+python manage.py network_search "CLIENTE-X"                # IP prefix
+python manage.py network_search "200.200.200.0/30"         # Prefixo em rotas/policies
+python manage.py network_search "acl 3001"                 # ACL
+python manage.py network_search "as-path-filter 10"        # AS-path filter
+python manage.py network_search "community-filter 20"      # Community filter
+python manage.py network_search "65000:100"                # Community value
+python manage.py network_search "vlan 1234"                # VLAN em interfaces/circuitos
+python manage.py network_search "Eth-Trunk100.1234"        # Interface específica
+python manage.py network_search "isis"                     # ISIS configuração
+python manage.py network_search "mpls"                     # MPLS / LDP
+python manage.py network_search "network-entity"           # Network-entity ISIS
 ```
 
 ---
@@ -197,7 +201,7 @@ netops_assistant/
 │   └── analysis/              # Detecção, busca, documentação
 ├── templates/                 # Django Templates
 ├── static/css/app.css         # Estilos
-├── sample_configs/            # 30+ configurações de exemplo
+├── sample_configs/            # 36 configurações de exemplo
 └── docs/                      # Documentação do projeto
 ```
 
@@ -223,7 +227,7 @@ ConfigSnapshot (config bruta)
   ParsedConfig (JSON estruturado)
        │
        ├──► Detectores de Circuitos (L3, VLAN, QinQ, L2VPN)
-       ├──► Detectores de Serviços (BNG, AAA, RADIUS, OSPF, SNMP, NTP, STP...)
+        ├──► Detectores de Serviços (BNG, AAA, RADIUS, OSPF, ISIS, MPLS, LDP, SNMP, NTP, STP...)
        └──► Detectores de Issues/Riscos (descrição, next-hop, SNMP, switching...)
 ```
 
@@ -235,11 +239,11 @@ O fluxo é **idempotente** — reanalisar o mesmo snapshot não duplica registro
 
 | Fase | Objetivo |
 |------|----------|
-| **Fechamento Huawei MVP** | ✔ BGP, policies, ACLs, OSPF, diff, documentação, 660 testes |
+| **Fechamento Huawei MVP** | ✔ BGP, policies, ACLs, OSPF, **ISIS, MPLS/LDP**, diff, documentação, 722 testes |
 | **Inventário e Snapshots** | Cadastro de devices, upload de configs, versões |
 | **Produção** | Docker, deploy, autenticação, permissões, backup |
 | **Mapa Físico/Lógico** | PoPs, OLTs, DIOs, fibras, CTOs, clientes no mapa |
-| **Cobertura Huawei Avançada** | ISIS, MPLS/LDP, VPNv4/L3VPN, QoS, NAT, IPv6 |
+| **Cobertura Huawei Avançada** | VPNv4/L3VPN, QoS, NAT, IPv6 |
 | **Multi-vendor** | Cisco completo, ZTE, Datacom |
 | **Automação Assistida** | Pré-check, pós-check, templates com aprovação |
 

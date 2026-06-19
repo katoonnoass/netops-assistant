@@ -1,0 +1,40 @@
+#
+ sysname NE40-CORE
+#
+interface LoopBack0
+ ip address 10.255.0.1 255.255.255.255
+#
+isis 1
+ is-level level-2
+ cost-style wide
+ network-entity 49.0001.0100.0000.0001.00
+ import-route direct
+ import-route static
+#
+interface Eth-Trunk100
+ description CORE-LINK
+ ip address 10.255.1.1 255.255.255.252
+ isis enable 1
+ isis circuit-type p2p
+ isis cost 10
+ isis authentication-mode md5 cipher %^%#MASKED%^%
+ mpls
+ mpls ldp
+ mpls mtu 1500
+#
+mpls lsr-id 10.255.0.1
+mpls
+ mpls te
+#
+mpls ldp
+ graceful-restart
+#
+mpls ldp remote-peer PEER-1
+ remote-ip 10.255.0.2
+#
+bgp 64500
+ peer 10.255.0.2 as-number 64500
+#
+ip route-static 0.0.0.0 0.0.0.0 NULL0
+#
+return

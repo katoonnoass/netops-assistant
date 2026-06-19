@@ -2,6 +2,8 @@
 
 Compara dois snapshots (base e target) e gera um dicionário
 estruturado com diferenças, impactos e recomendações.
+Suporta interfaces, rotas estáticas, BGP, ISIS, MPLS, LDP,
+VLANs, STP, switching, circuitos, serviços e políticas.
 Totalmente determinístico, sem IA.
 """
 
@@ -62,6 +64,9 @@ def compare_config_snapshots(
     circuits = _compare_circuits(base_circuits, target_circuits)
     services = _compare_services(base_services, target_services)
     issues = _compare_issues(base_issues, target_issues)
+    isis = _compare_isis(base_data, target_data)
+    mpls = _compare_mpls(base_data, target_data)
+    mpls_ldp = _compare_mpls_ldp(base_data, target_data)
 
     # Build switching section
     switching = _build_switching_section(interfaces, base_data, target_data)
@@ -72,6 +77,7 @@ def compare_config_snapshots(
     # Policy impacts
     policy_impacts = _build_policy_impacts(base_data, target_data)
     switching_impacts = _build_switching_impacts(vlans, stp_comp, switching)
+    isis_mpls_impacts = _build_isis_mpls_impacts(isis, mpls, mpls_ldp)
 
     # Validation and rollback plans
     validation_plan = _build_validation_plan(interfaces, static_routes, bgp, services, issues)
@@ -152,7 +158,46 @@ def compare_config_snapshots(
                             "severity": "info",
                         })
 
-# ✦ Add switching rollback suggestions
+    # ✦ Add ISIS validation commands
+    if isis.get("added") or isis.get("removed") or isis.get("changed"):
+        validation_plan.append({
+            "category": "isis",
+            "title": "Validar ISIS",
+            "commands": [
+                "display isis peer",
+                "display isis interface",
+                "display isis route",
+            ],
+            "reason": "ISIS foi alterado. Validar adjac\u00eancias e reachability IGP.",
+            "severity": "warning",
+        })
+
+    # ✦ Add MPLS validation commands
+    if mpls.get("enabled_changed") or mpls.get("lsr_id_changed") or mpls.get("te_changed"):
+        validation_plan.append({
+            "category": "mpls",
+            "title": "Validar MPLS",
+            "commands": [
+                "display mpls lsp",
+            ],
+            "reason": "MPLS foi alterado. Validar LSP e labels.",
+            "severity": "warning",
+        })
+
+    # ✦ Add MPLS LDP validation commands
+    if mpls_ldp.get("enabled_changed") or mpls_ldp.get("interfaces_changed") or mpls_ldp.get("remote_peers_changed"):
+        validation_plan.append({
+            "category": "mpls_ldp",
+            "title": "Validar MPLS LDP",
+            "commands": [
+                "display mpls ldp session",
+                "display mpls ldp interface",
+            ],
+            "reason": "LDP foi alterado. Validar sess\u00f5es e troca de labels.",
+            "severity": "warning",
+        })
+
+    # ✦ Add switching rollback suggestions
     for v in vlans.get("added", []):
         rollback_plan.append({
             "change_type": "vlan_added",
@@ -233,6 +278,52 @@ def compare_config_snapshots(
                 "verification_commands": [f"display current-configuration | include community-filter {fname}"],
             })
 
+    # ✦ Add ISIS rollback suggestions
+    if isis.get("added") or isis.get("removed") or isis.get("changed"):
+        rollback_plan.append({
+            "change_type": "isis_changed",
+            "object": "ISIS",
+            "suggestion": "Restaurar configura\u00e7\u00e3o ISIS anterior. Revalidar adjac\u00eancias IGP e reachability de loopbacks.",
+            "risk_level": "high",
+            "verification_commands": ["display isis peer", "display isis route"],
+        })
+    if isis.get("network_entity_changed"):
+        rollback_plan.append({
+            "change_type": "isis_network_entity_changed",
+            "object": "Network-entity ISIS",
+            "suggestion": "Restaurar network-entity anterior. Isso pode derrubar adjac\u00eancias temporariamente.",
+            "risk_level": "critical",
+            "verification_commands": ["display isis peer", "display current-configuration | include isis"],
+        })
+
+    # ✦ Add MPLS rollback suggestions
+    if mpls.get("lsr_id_changed"):
+        rollback_plan.append({
+            "change_type": "mpls_lsr_id_changed",
+            "object": "MPLS LSR ID",
+            "suggestion": "Restaurar LSR ID anterior. Pode interromper labels e sess\u00f5es LDP.",
+            "risk_level": "high",
+            "verification_commands": ["display mpls lsp", "display mpls ldp session"],
+        })
+
+    # ✦ Add MPLS LDP rollback suggestions
+    if mpls_ldp.get("interfaces_changed"):
+        rollback_plan.append({
+            "change_type": "mpls_ldp_interface_changed",
+            "object": "Interface LDP",
+            "suggestion": "Restaurar interfaces LDP anteriores. Pode impactar transporte MPLS.",
+            "risk_level": "high",
+            "verification_commands": ["display mpls ldp interface", "display mpls lsp"],
+        })
+    if mpls_ldp.get("remote_peers_changed"):
+        rollback_plan.append({
+            "change_type": "mpls_ldp_remote_peer_changed",
+            "object": "Remote-peer LDP",
+            "suggestion": "Restaurar remote-peers LDP anteriores e validar sess\u00e3o remota.",
+            "risk_level": "high",
+            "verification_commands": ["display mpls ldp session"],
+        })
+
     for item in switching.get("eth_trunk_members_changed", []):
         rollback_plan.append({
             "change_type": "eth_trunk_members_changed",
@@ -247,6 +338,7 @@ def compare_config_snapshots(
     impacts.extend(service_impacts)
     impacts.extend(switching_impacts)
     impacts.extend(policy_impacts)
+    impacts.extend(isis_mpls_impacts)
     recommendations = _build_recommendations(interfaces, static_routes, bgp, circuits, issues)
 
     # Build summary
@@ -255,6 +347,9 @@ def compare_config_snapshots(
         f"Interfaces: {_fmt_summary(interfaces)}.",
         f"Rotas estáticas: {_fmt_summary(static_routes)}.",
         f"BGP: {_fmt_bgp_summary(bgp)}.",
+        f"ISIS: {_fmt_summary(isis)}.",
+        f"MPLS: {_fmt_mpls_summary(mpls)}.",
+        f"MPLS LDP: {_fmt_mpls_ldp_summary(mpls_ldp)}.",
         f"Circuitos: {_fmt_summary(circuits)}.",
         f"Serviços: {_fmt_summary(services)}.",
         f"Issues: {issues.get('new_count', 0)} nova(s), "
@@ -266,6 +361,9 @@ def compare_config_snapshots(
         "interfaces": interfaces,
         "static_routes": static_routes,
         "bgp": bgp,
+        "isis": isis,
+        "mpls": mpls,
+        "mpls_ldp": mpls_ldp,
         "vlans": vlans,
         "stp": stp_comp,
         "switching": switching,
@@ -1620,7 +1718,7 @@ def _build_rollback_plan(
         plan.append({
             "change_type": "bgp_network_changed",
             "object": "redes BGP",
-            "suggestion": "Reverter redes BGP adicionadas/removidas. Verificar anúncios com 'display bgp routing-table'.",
+            "suggestion": "Reverter redes BGP adicionadas/removidas. Verificar an\u00fancios com 'display bgp routing-table'.",
             "risk_level": "high",
             "verification_commands": [
                 "display bgp routing-table",
@@ -1628,3 +1726,223 @@ def _build_rollback_plan(
         })
 
     return plan
+
+
+# ── ISIS comparison ─────────────────────────────────────────────────────
+
+
+def _compare_isis(base_data: dict, target_data: dict) -> dict:
+    """Compare ISIS configuration between two snapshots."""
+    base_isis = base_data.get("isis", [])
+    target_isis = target_data.get("isis", [])
+
+    base = {p.get("process_id", "1"): p for p in base_isis}
+    target = {p.get("process_id", "1"): p for p in target_isis}
+
+    base_ids = set(base.keys())
+    target_ids = set(target.keys())
+
+    added = [target[pid] for pid in sorted(target_ids - base_ids)]
+    removed = [base[pid] for pid in sorted(base_ids - target_ids)]
+
+    changed = []
+    network_entity_changed = False
+    for pid in sorted(base_ids & target_ids):
+        bp = base[pid]
+        tp = target[pid]
+        changes = []
+        for field in ("network_entity", "is_level", "cost_style"):
+            bv = bp.get(field)
+            tv = tp.get(field)
+            if bv != tv:
+                changes.append({"field": field, "from": bv, "to": tv})
+                if field == "network_entity":
+                    network_entity_changed = True
+
+        b_import = set(bp.get("import_routes", []))
+        t_import = set(tp.get("import_routes", []))
+        if b_import != t_import:
+            changes.append({
+                "field": "import_routes",
+                "from": sorted(b_import),
+                "to": sorted(t_import),
+            })
+
+        if changes:
+            changed.append({"process_id": pid, "changes": changes})
+
+        # Compare ISIS on interfaces for this process
+        base_ifaces_map = {i["name"]: i for i in base_data.get("interfaces", [])}
+        target_ifaces_map = {i["name"]: i for i in target_data.get("interfaces", [])}
+        base_isis_ifaces = {n for n, i in base_ifaces_map.items() if i.get("isis_process_id") == pid}
+        target_isis_ifaces = {n for n, i in target_ifaces_map.items() if i.get("isis_process_id") == pid}
+        ifaces_added = sorted(target_isis_ifaces - base_isis_ifaces)
+        ifaces_removed = sorted(base_isis_ifaces - target_isis_ifaces)
+        ifaces_changed = []
+        for name in sorted(base_isis_ifaces & target_isis_ifaces):
+            bi = base_ifaces_map[name]
+            ti = target_ifaces_map[name]
+            i_changes = []
+            for f, key in [("isis_cost", "cost"), ("isis_circuit_type", "circuit_type")]:
+                bv = bi.get(f)
+                tv = ti.get(f)
+                if bv != tv:
+                    i_changes.append({"field": key, "from": bv, "to": tv})
+            if i_changes:
+                ifaces_changed.append({"name": name, "changes": i_changes})
+
+        if ifaces_added or ifaces_removed or ifaces_changed:
+            changes.append({
+                "field": "interfaces",
+                "interfaces_added": ifaces_added,
+                "interfaces_removed": ifaces_removed,
+                "interfaces_changed": ifaces_changed,
+            })
+
+        if changes:
+            changed.append({"process_id": pid, "changes": changes})
+
+    result = {"added": added, "removed": removed, "changed": changed}
+    if network_entity_changed:
+        result["network_entity_changed"] = True
+    return result
+
+
+# ── MPLS comparison ─────────────────────────────────────────────────────
+
+
+def _compare_mpls(base_data: dict, target_data: dict) -> dict:
+    """Compare MPLS global configuration."""
+    base_mpls = base_data.get("mpls", {})
+    target_mpls = target_data.get("mpls", {})
+
+    result = {}
+    if base_mpls.get("enabled") != target_mpls.get("enabled"):
+        result["enabled_changed"] = {"before": base_mpls.get("enabled"), "after": target_mpls.get("enabled")}
+    if base_mpls.get("lsr_id") != target_mpls.get("lsr_id"):
+        result["lsr_id_changed"] = {"before": base_mpls.get("lsr_id"), "after": target_mpls.get("lsr_id")}
+    if base_mpls.get("te_enabled") != target_mpls.get("te_enabled"):
+        result["te_changed"] = {"before": base_mpls.get("te_enabled"), "after": target_mpls.get("te_enabled")}
+    # Compare MPLS interfaces
+    base_mpls_ifaces = {i["name"] for i in base_data.get("interfaces", []) if i.get("mpls_enabled")}
+    target_mpls_ifaces = {i["name"] for i in target_data.get("interfaces", []) if i.get("mpls_enabled")}
+    ifaces_added = sorted(target_mpls_ifaces - base_mpls_ifaces)
+    ifaces_removed = sorted(base_mpls_ifaces - target_mpls_ifaces)
+    if ifaces_added or ifaces_removed:
+        result["interfaces_changed"] = {"added": ifaces_added, "removed": ifaces_removed}
+    return result
+
+
+# ── MPLS LDP comparison ─────────────────────────────────────────────────
+
+
+def _compare_mpls_ldp(base_data: dict, target_data: dict) -> dict:
+    """Compare MPLS LDP configuration."""
+    base_ldp = base_data.get("mpls_ldp", {})
+    target_ldp = target_data.get("mpls_ldp", {})
+
+    result = {}
+    if base_ldp.get("enabled") != target_ldp.get("enabled"):
+        result["enabled_changed"] = {"before": base_ldp.get("enabled"), "after": target_ldp.get("enabled")}
+    if base_ldp.get("graceful_restart") != target_ldp.get("graceful_restart"):
+        result["graceful_restart_changed"] = {"before": base_ldp.get("graceful_restart"), "after": target_ldp.get("graceful_restart")}
+
+    base_rp = {p.get("name", ""): p for p in base_ldp.get("remote_peers", [])}
+    target_rp = {p.get("name", ""): p for p in target_ldp.get("remote_peers", [])}
+    rp_added = [target_rp[name] for name in sorted(set(target_rp) - set(base_rp))]
+    rp_removed = [base_rp[name] for name in sorted(set(base_rp) - set(target_rp))]
+    rp_changed = []
+    for name in sorted(set(base_rp) & set(target_rp)):
+        if base_rp[name].get("remote_ip") != target_rp[name].get("remote_ip"):
+            rp_changed.append({"name": name, "from": base_rp[name].get("remote_ip"), "to": target_rp[name].get("remote_ip")})
+    if rp_added or rp_removed or rp_changed:
+        result["remote_peers_changed"] = {
+            "added": rp_added,
+            "removed": rp_removed,
+            "changed": rp_changed,
+        }
+
+    # Compare LDP interfaces (stored on individual interface dicts)
+    base_ldp_ifaces = {i["name"] for i in base_data.get("interfaces", []) if i.get("mpls_ldp_enabled")}
+    target_ldp_ifaces = {i["name"] for i in target_data.get("interfaces", []) if i.get("mpls_ldp_enabled")}
+    ifaces_added = sorted(target_ldp_ifaces - base_ldp_ifaces)
+    ifaces_removed = sorted(base_ldp_ifaces - target_ldp_ifaces)
+    if ifaces_added or ifaces_removed:
+        result["interfaces_changed"] = {
+            "added": ifaces_added,
+            "removed": ifaces_removed,
+        }
+
+    return result
+
+
+# ── ISIS/MPLS impact builder ────────────────────────────────────────────
+
+
+def _build_isis_mpls_impacts(isis: dict, mpls: dict, mpls_ldp: dict) -> list[dict]:
+    """Generate impact statements for ISIS/MPLS/LDP changes."""
+    impacts = []
+
+    if isis.get("added") or isis.get("removed") or isis.get("changed"):
+        impacts.append({
+            "impact": "ISIS alterado.",
+            "detail": "Pode impactar adjac\u00eancias IGP e reachability de loopbacks.",
+            "severity": "warning",
+        })
+    if isis.get("network_entity_changed"):
+        impacts.append({
+            "impact": "Network-entity ISIS alterada.",
+            "detail": "Pode derrubar adjac\u00eancias.",
+            "severity": "high",
+        })
+    if mpls.get("lsr_id_changed"):
+        impacts.append({
+            "impact": "MPLS LSR ID alterado.",
+            "detail": "Pode impactar labels e sess\u00f5es LDP.",
+            "severity": "high",
+        })
+    if mpls_ldp.get("interfaces_changed"):
+        impacts.append({
+            "impact": "Interface LDP alterada.",
+            "detail": "Pode impactar transporte MPLS.",
+            "severity": "warning",
+        })
+    if mpls_ldp.get("remote_peers_changed"):
+        impacts.append({
+            "impact": "Remote-peer LDP alterado.",
+            "detail": "Validar sess\u00e3o remota.",
+            "severity": "warning",
+        })
+
+    return impacts
+
+
+# ── Formatters for ISIS/MPLS/LDP summaries ──────────────────────────────
+
+
+def _fmt_mpls_summary(mpls: dict) -> str:
+    parts = []
+    if mpls.get("enabled_changed"):
+        parts.append("enabled alterado")
+    if mpls.get("lsr_id_changed"):
+        parts.append("LSR ID alterado")
+    if mpls.get("te_changed"):
+        parts.append("TE alterado")
+    if not parts:
+        return "sem mudan\u00e7as"
+    return ", ".join(parts)
+
+
+def _fmt_mpls_ldp_summary(ldp: dict) -> str:
+    parts = []
+    if ldp.get("enabled_changed"):
+        parts.append("enabled alterado")
+    if ldp.get("graceful_restart_changed"):
+        parts.append("graceful-restart alterado")
+    if ldp.get("interfaces_changed"):
+        parts.append("interfaces alteradas")
+    if ldp.get("remote_peers_changed"):
+        parts.append("remote-peers alterados")
+    if not parts:
+        return "sem mudan\u00e7as"
+    return ", ".join(parts)

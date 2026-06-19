@@ -71,6 +71,16 @@ def detect_issues(snapshot, parsed_data: dict) -> list[AnalysisIssue]:
     issues.extend(_detect_ospf_passive_missing(snapshot, parsed_data))
     issues.extend(_detect_ospf_redistribution_without_filter(snapshot, parsed_data))
 
+    # Core/ISIS/MPLS/LDP issues
+    issues.extend(_detect_isis_without_network_entity(snapshot, parsed_data))
+    issues.extend(_detect_isis_interface_unknown_process(snapshot, parsed_data))
+    issues.extend(_detect_isis_plain_authentication(snapshot, parsed_data))
+    issues.extend(_detect_mpls_without_lsr_id(snapshot, parsed_data))
+    issues.extend(_detect_ldp_without_mpls(snapshot, parsed_data))
+    issues.extend(_detect_interface_ldp_without_mpls(snapshot, parsed_data))
+    issues.extend(_detect_mpls_interface_without_ldp(snapshot, parsed_data))
+    issues.extend(_detect_ldp_remote_peer_without_ip(snapshot, parsed_data))
+
     return issues
 
 
@@ -981,3 +991,173 @@ def _detect_ospf_redistribution_without_filter(snapshot, parsed_data: dict) -> l
 def _looks_like_ip(value: str) -> bool:
     """Rough check if a string looks like an IP address."""
     return value.replace(".", "").isdigit() and value.count(".") == 3
+
+
+# ── Core / ISIS / MPLS / LDP issue detectors ──────────────────────────
+
+
+def _detect_isis_without_network_entity(snapshot, parsed_data: dict) -> list[AnalysisIssue]:
+    """ISIS process without network entity."""
+    issues = []
+    for isis in parsed_data.get("isis", []):
+        if not isis.get("network_entity"):
+            issues.append(
+                _make_issue(
+                    snapshot,
+                    SEVERITY_HIGH,
+                    "isis_without_network_entity",
+                    f"ISIS processo {isis['process_id']} sem network-entity",
+                    f"Processo ISIS {isis['process_id']} detectado sem "
+                    f"network-entity. O protocolo pode não formar "
+                    f"adjacência corretamente.",
+                    metadata={"process_id": isis["process_id"]},
+                )
+            )
+    return issues
+
+
+def _detect_isis_interface_unknown_process(snapshot, parsed_data: dict) -> list[AnalysisIssue]:
+    """ISIS interface references a process that doesn't exist."""
+    issues = []
+    isis_process_ids = {p["process_id"] for p in parsed_data.get("isis", [])}
+    for iface in parsed_data.get("interfaces", []):
+        proc_id = iface.get("isis_process_id")
+        if proc_id and proc_id not in isis_process_ids:
+            issues.append(
+                _make_issue(
+                    snapshot,
+                    SEVERITY_MEDIUM,
+                    "isis_interface_unknown_process",
+                    f"Interface {iface['name']} referencia processo ISIS "
+                    f"{proc_id} inexistente",
+                    f"Interface {iface['name']} possui isis enable {proc_id}, "
+                    f"mas o processo ISIS correspondente não foi encontrado.",
+                    metadata={
+                        "interface": iface["name"],
+                        "isis_process_id": proc_id,
+                    },
+                )
+            )
+    return issues
+
+
+def _detect_isis_plain_authentication(snapshot, parsed_data: dict) -> list[AnalysisIssue]:
+    """ISIS simple/plain authentication detected."""
+    issues = []
+    for iface in parsed_data.get("interfaces", []):
+        auth = iface.get("isis_authentication", {})
+        if auth.get("enabled") and auth.get("secret_type") == "simple":
+            issues.append(
+                _make_issue(
+                    snapshot,
+                    SEVERITY_MEDIUM,
+                    "isis_plain_authentication",
+                    f"ISIS com autenticação simples em {iface['name']}",
+                    f"Autenticação ISIS simples/plain foi detectada na "
+                    f"interface {iface['name']}. Validar uso de cipher/MD5 "
+                    f"conforme política de segurança.",
+                    metadata={"interface": iface["name"]},
+                )
+            )
+    return issues
+
+
+def _detect_mpls_without_lsr_id(snapshot, parsed_data: dict) -> list[AnalysisIssue]:
+    """MPLS enabled without LSR ID."""
+    issues = []
+    mpls = parsed_data.get("mpls", {})
+    if mpls.get("enabled") and not mpls.get("lsr_id"):
+        issues.append(
+            _make_issue(
+                snapshot,
+                SEVERITY_HIGH,
+                "mpls_without_lsr_id",
+                "MPLS sem LSR ID",
+                "MPLS habilitado sem lsr-id detectado. "
+                "Validar configuração de loopback/LSR ID.",
+                metadata={},
+            )
+        )
+    return issues
+
+
+def _detect_ldp_without_mpls(snapshot, parsed_data: dict) -> list[AnalysisIssue]:
+    """LDP enabled without MPLS global."""
+    issues = []
+    ldp = parsed_data.get("mpls_ldp", {})
+    mpls = parsed_data.get("mpls", {})
+    if ldp.get("enabled") and not mpls.get("enabled"):
+        issues.append(
+            _make_issue(
+                snapshot,
+                SEVERITY_HIGH,
+                "ldp_without_mpls",
+                "LDP habilitado sem MPLS global",
+                "LDP foi detectado, mas MPLS global não parece habilitado. "
+                "LDP depende de MPLS para funcionar.",
+                metadata={},
+            )
+        )
+    return issues
+
+
+def _detect_interface_ldp_without_mpls(snapshot, parsed_data: dict) -> list[AnalysisIssue]:
+    """Interface with LDP but without MPLS on the same interface."""
+    issues = []
+    for iface in parsed_data.get("interfaces", []):
+        if iface.get("mpls_ldp_enabled") and not iface.get("mpls_enabled"):
+            issues.append(
+                _make_issue(
+                    snapshot,
+                    SEVERITY_MEDIUM,
+                    "interface_ldp_without_mpls",
+                    f"Interface {iface['name']} com LDP sem MPLS",
+                    f"Interface {iface['name']} possui mpls ldp, "
+                    f"mas não possui comando mpls na própria interface.",
+                    metadata={"interface": iface["name"]},
+                )
+            )
+    return issues
+
+
+def _detect_mpls_interface_without_ldp(snapshot, parsed_data: dict) -> list[AnalysisIssue]:
+    """MPLS interface without LDP — low severity, may be intentional."""
+    issues = []
+    for iface in parsed_data.get("interfaces", []):
+        if iface.get("mpls_enabled") and not iface.get("mpls_ldp_enabled"):
+            # Skip loopback — LDP on loopback is not required
+            if iface.get("type") == "loopback":
+                continue
+            issues.append(
+                _make_issue(
+                    snapshot,
+                    SEVERITY_LOW,
+                    "mpls_interface_without_ldp",
+                    f"Interface MPLS {iface['name']} sem LDP",
+                    f"Interface {iface['name']} possui MPLS habilitado mas "
+                    f"sem LDP. Pode ser intencional (ex: transporte LSP estático "
+                    f"ou TE tunnel), mas validar se deveria formar "
+                    f"label distribution.",
+                    metadata={"interface": iface["name"]},
+                )
+            )
+    return issues
+
+
+def _detect_ldp_remote_peer_without_ip(snapshot, parsed_data: dict) -> list[AnalysisIssue]:
+    """LDP remote-peer without remote-ip."""
+    issues = []
+    ldp = parsed_data.get("mpls_ldp", {})
+    for peer in ldp.get("remote_peers", []):
+        if not peer.get("remote_ip"):
+            issues.append(
+                _make_issue(
+                    snapshot,
+                    SEVERITY_MEDIUM,
+                    "ldp_remote_peer_without_ip",
+                    f"LDP remote-peer {peer['name']} sem remote-ip",
+                    f"Remote-peer LDP {peer['name']} sem remote-ip detectado.",
+                    metadata={"peer_name": peer["name"]},
+                )
+            )
+    return issues

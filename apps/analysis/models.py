@@ -78,6 +78,9 @@ class DetectedService(models.Model):
         VLAN_SERVICE = "vlan_service", "VLAN"
         STP = "stp", "STP/RSTP/MSTP"
         OSPF = "ospf", "OSPF"
+        ISIS = "isis", "ISIS"
+        MPLS = "mpls", "MPLS"
+        MPLS_LDP = "mpls_ldp", "MPLS LDP"
 
     snapshot = models.ForeignKey(
         ConfigSnapshot,

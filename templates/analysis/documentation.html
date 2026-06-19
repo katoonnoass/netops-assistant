@@ -409,6 +409,93 @@
 </div>
 {% endif %}
 
+<!-- Core / IGP / MPLS -->
+{% if doc.core %}
+<div class="card mb-2">
+    <h3 class="section-title">Core / IGP / MPLS</h3>
+
+    {% if doc.core.has_isis %}
+    <div class="card" style="margin-bottom: 0.75rem; border-left: 4px solid #9c27b0; padding: 0.75rem;">
+        <h4 style="margin-bottom: 0.5rem;">IGP ISIS</h4>
+        {% for proc in doc.core.isis %}
+        <div style="margin-bottom: 0.5rem;">
+            <strong>Processo {{ proc.process_id }}</strong>
+            {% if proc.vpn_instance %}<span class="badge badge-warning">VPN: {{ proc.vpn_instance }}</span>{% endif %}
+            <div class="detail-grid" style="gap: 0.3rem; margin-top: 0.3rem;">
+                {% if proc.network_entity %}<div class="detail-item"><label>NET</label><span><code>{{ proc.network_entity }}</code></span></div>{% endif %}
+                {% if proc.is_level %}<div class="detail-item"><label>IS-Level</label><span>{{ proc.is_level }}</span></div>{% endif %}
+                {% if proc.cost_style %}<div class="detail-item"><label>Cost-Style</label><span>{{ proc.cost_style }}</span></div>{% endif %}
+                {% if proc.import_routes %}<div class="detail-item"><label>Import-Route</label><span>{{ proc.import_routes|join:", " }}</span></div>{% endif %}
+            </div>
+        </div>
+        {% endfor %}
+
+        {% if doc.core.isis_interfaces %}
+        <h5 style="margin-top: 0.5rem;">Interfaces ISIS</h5>
+        <table class="table">
+            <thead><tr><th>Interface</th><th>Processo</th><th>Circuit-Type</th><th>Cost</th></tr></thead>
+            <tbody>
+            {% for iface in doc.core.isis_interfaces %}
+            <tr>
+                <td>{{ iface.name }}</td>
+                <td>{{ iface.isis_process_id|default:"-" }}</td>
+                <td>{{ iface.isis_circuit_type|default:"-" }}</td>
+                <td>{{ iface.isis_cost|default:"-" }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% if doc.core.has_mpls %}
+    <div class="card" style="margin-bottom: 0.75rem; border-left: 4px solid #ff5722; padding: 0.75rem;">
+        <h4 style="margin-bottom: 0.5rem;">MPLS</h4>
+        <div class="detail-grid" style="gap: 0.3rem;">
+            <div class="detail-item"><label>Status</label><span class="badge badge-success">Habilitado</span></div>
+            {% if doc.core.mpls.lsr_id %}<div class="detail-item"><label>LSR ID</label><span><code>{{ doc.core.mpls.lsr_id }}</code></span></div>{% endif %}
+            {% if doc.core.mpls.te_enabled %}<div class="detail-item"><label>MPLS TE</label><span class="badge badge-info">Habilitado</span></div>{% endif %}
+        </div>
+        {% if doc.core.mpls_interfaces %}
+        <h5 style="margin-top: 0.5rem;">Interfaces MPLS</h5>
+        <ul>
+            {% for iface in doc.core.mpls_interfaces %}
+            <li><code>{{ iface.name }}</code>{% if iface.mpls_mtu %} (MTU: {{ iface.mpls_mtu }}){% endif %}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% if doc.core.has_mpls_ldp %}
+    <div class="card" style="border-left: 4px solid #009688; padding: 0.75rem;">
+        <h4 style="margin-bottom: 0.5rem;">LDP</h4>
+        <div class="detail-grid" style="gap: 0.3rem;">
+            <div class="detail-item"><label>Status</label><span class="badge badge-success">Habilitado</span></div>
+            {% if doc.core.mpls_ldp.graceful_restart %}<div class="detail-item"><label>Graceful-Restart</label><span class="badge badge-info">Ativado</span></div>{% endif %}
+        </div>
+        {% if doc.core.mpls_ldp.remote_peers %}
+        <h5 style="margin-top: 0.5rem;">Remote-Peers LDP</h5>
+        <ul>
+            {% for peer in doc.core.mpls_ldp.remote_peers %}
+            <li><code>{{ peer.name }}</code> → {{ peer.remote_ip|default:"(sem IP)" }}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+        {% if doc.core.ldp_interfaces %}
+        <h5 style="margin-top: 0.5rem;">Interfaces LDP</h5>
+        <ul>
+            {% for iface in doc.core.ldp_interfaces %}
+            <li><code>{{ iface.name }}</code></li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
 <!-- Circuits -->
 <div class="card mb-2">
     <h3 class="section-title">Circuitos Detectados ({{ doc.circuits|length }})</h3>

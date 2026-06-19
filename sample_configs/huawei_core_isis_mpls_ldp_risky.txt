@@ -1,0 +1,37 @@
+#
+ sysname NE40-CORE-RISK
+#
+interface LoopBack0
+ ip address 10.255.0.1 255.255.255.255
+#
+isis 1
+ is-level level-2
+ cost-style wide
+#
+interface GigabitEthernet0/0/1
+ description RISKY-LINK
+ ip address 10.255.1.5 255.255.255.252
+ isis enable 2
+ isis circuit-type p2p
+ isis cost 10
+ isis authentication-mode simple plaintext-password
+ mpls ldp
+#
+interface GigabitEthernet0/0/2
+ description NO-ISIS-LINK
+ ip address 10.255.1.9 255.255.255.252
+ mpls mtu 1500
+#
+mpls
+ mpls te
+#
+mpls ldp
+#
+mpls ldp remote-peer BAD-PEER
+#
+bgp 64500
+ peer 10.255.0.2 as-number 64500
+#
+ip route-static 0.0.0.0 0.0.0.0 NULL0
+#
+return

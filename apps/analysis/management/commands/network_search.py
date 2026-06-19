@@ -69,6 +69,8 @@ class Command(BaseCommand):
             ("circuitos", results["circuits"]),
             ("rotas estáticas", results["static_routes"]),
             ("BGP", results["bgp_peers"]),
+            ("ISIS", results["isis"]),
+            ("MPLS / LDP", results["core"]),
             ("políticas / filtros", results["policies"]),
             ("serviços", results["services"]),
             ("issues", results["issues"]),

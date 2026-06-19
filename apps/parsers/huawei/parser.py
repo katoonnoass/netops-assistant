@@ -189,6 +189,19 @@ class HuaweiVRPParser(BaseParser):
                 "raw_lines": [],
             },
             "ospf": [],
+            "isis": [],
+            "mpls": {
+                "enabled": False,
+                "lsr_id": None,
+                "te_enabled": False,
+                "raw_lines": [],
+            },
+            "mpls_ldp": {
+                "enabled": False,
+                "graceful_restart": False,
+                "remote_peers": [],
+                "raw_lines": [],
+            },
             "raw": text,
             "block_count": 0,
         }
@@ -279,6 +292,15 @@ class HuaweiVRPParser(BaseParser):
                 parsed = self._parse_ospf_block(block)
                 if parsed:
                     result["ospf"].append(parsed)
+            elif block["type"] == "isis":
+                parsed = self._parse_isis_block(block)
+                if parsed:
+                    result["isis"].append(parsed)
+            elif block["type"] == "mpls":
+                self._parse_mpls_block(block, result)
+
+        # Post-process: extract ISIS/MPLS/LDP from interfaces
+        self._enrich_interfaces_core(result)
 
         result["static_routes"] = self._extract_static_routes(text)
         result["bng_indicators"] = self._extract_bng_indicators(result)
@@ -892,6 +914,171 @@ class HuaweiVRPParser(BaseParser):
                 continue
 
         return parsed
+
+    def _parse_isis_block(self, block: dict) -> dict | None:
+        """Parse an ISIS configuration block.
+
+        Huawei VRP format:
+            isis 1
+             is-level level-2
+             cost-style wide
+             network-entity 49.0001.0100.0000.0001.00
+             import-route direct
+             import-route static
+            #
+
+        Returns:
+            dict with keys: process_id, vpn_instance, is_level,
+            cost_style, network_entity, import_routes, raw_lines.
+        """
+        header = block["header"]
+        m = re.match(r"isis\s+(\S+)", header, re.IGNORECASE)
+        if not m:
+            return None
+        process_id = m.group(1)
+
+        parsed = {
+            "process_id": process_id,
+            "vpn_instance": None,
+            "is_level": None,
+            "cost_style": None,
+            "network_entity": None,
+            "import_routes": [],
+            "raw_lines": block.get("lines", []),
+            "raw": block.get("raw", ""),
+        }
+
+        # Check for vpn-instance in the header (e.g. "isis 2 vpn-instance CLIENTE-A")
+        vpn_m = re.search(r"vpn-instance\s+(\S+)", header, re.IGNORECASE)
+        if vpn_m:
+            parsed["vpn_instance"] = vpn_m.group(1)
+
+        for line in block.get("lines", [])[1:]:
+            stripped = line.strip()
+            if not stripped or stripped == "#":
+                continue
+            sl = stripped.lower()
+
+            if sl.startswith("is-level"):
+                parsed["is_level"] = stripped[len("is-level"):].strip()
+            elif sl.startswith("cost-style"):
+                parsed["cost_style"] = stripped[len("cost-style"):].strip()
+            elif sl.startswith("network-entity"):
+                parsed["network_entity"] = stripped[len("network-entity"):].strip()
+            elif sl.startswith("import-route"):
+                route_val = stripped[len("import-route"):].strip()
+                if route_val and route_val not in parsed["import_routes"]:
+                    parsed["import_routes"].append(route_val)
+            elif sl.startswith("vpn-instance"):
+                parsed["vpn_instance"] = stripped[len("vpn-instance"):].strip()
+
+        return parsed
+
+    def _parse_mpls_block(self, block: dict, result: dict) -> None:
+        """Parse an MPLS or MPLS LDP configuration block.
+
+        Handles:
+            mpls lsr-id 10.255.0.1
+            mpls
+             mpls te
+            #
+            mpls ldp
+             graceful-restart
+            #
+            mpls ldp remote-peer PEER-1
+             remote-ip 10.255.0.2
+            #
+        """
+        header = block["header"]
+        lower = header.lower()
+
+        # MPLS LDP remote-peer
+        if "ldp remote-peer" in lower:
+            peer_m = re.match(r"mpls\s+ldp\s+remote-peer\s+(\S+)", header, re.IGNORECASE)
+            if peer_m:
+                peer_name = peer_m.group(1)
+                peer_entry = {"name": peer_name, "remote_ip": None, "raw_lines": block.get("lines", [])}
+                for line in block.get("lines", [])[1:]:
+                    stripped = line.strip()
+                    if stripped.startswith("remote-ip"):
+                        peer_entry["remote_ip"] = stripped[len("remote-ip"):].strip()
+                result["mpls_ldp"]["remote_peers"].append(peer_entry)
+                result["mpls_ldp"]["raw_lines"].append(block.get("raw", ""))
+            return
+
+        # MPLS LDP global
+        if lower.startswith("mpls ldp"):
+            result["mpls_ldp"]["enabled"] = True
+            result["mpls_ldp"]["raw_lines"].append(block.get("raw", ""))
+            for line in block.get("lines", [])[1:]:
+                stripped = line.strip()
+                if "graceful-restart" in stripped.lower():
+                    result["mpls_ldp"]["graceful_restart"] = True
+            return
+
+        # MPLS global — header is just "mpls" or "mpls lsr-id X.X.X.X"
+        result["mpls"]["enabled"] = True
+        result["mpls"]["raw_lines"].append(block.get("raw", ""))
+
+        # Check header for lsr-id
+        lsr_m = re.search(r"mpls\s+lsr-id\s+(\S+)", header, re.IGNORECASE)
+        if lsr_m:
+            result["mpls"]["lsr_id"] = lsr_m.group(1)
+
+        for line in block.get("lines", [])[1:]:
+            stripped = line.strip()
+            sl = stripped.lower()
+            if sl.startswith("mpls te"):
+                result["mpls"]["te_enabled"] = True
+            # lsr-id might also be inside the block
+            lsr_m2 = re.search(r"lsr-id\s+(\S+)", stripped, re.IGNORECASE)
+            if lsr_m2:
+                result["mpls"]["lsr_id"] = lsr_m2.group(1)
+
+    def _enrich_interfaces_core(self, result: dict) -> None:
+        """Post-process interfaces to extract ISIS and MPLS/LDP sub-commands."""
+        isis_process_ids = {p["process_id"] for p in result.get("isis", [])}
+        for iface in result.get("interfaces", []):
+            raw = iface.get("raw", "")
+            for line in raw.splitlines():
+                stripped = line.strip()
+                sl = stripped.lower()
+
+                # ISIS per-interface
+                if sl.startswith("isis enable"):
+                    rest = stripped[len("isis enable"):].strip()
+                    if rest:
+                        iface["isis_enabled"] = True
+                        iface["isis_process_id"] = rest
+                elif sl.startswith("isis circuit-type"):
+                    iface["isis_circuit_type"] = stripped[len("isis circuit-type"):].strip()
+                elif sl.startswith("isis cost"):
+                    cost_val = stripped[len("isis cost"):].strip()
+                    if cost_val and cost_val.split()[0].isdigit():
+                        iface["isis_cost"] = int(cost_val.split()[0])
+                elif sl.startswith("isis authentication-mode"):
+                    auth_mode = stripped[len("isis authentication-mode"):].strip()
+                    auth_entry = {"enabled": True, "mode": None, "has_secret": False, "secret_type": None}
+                    if auth_mode:
+                        parts = auth_mode.split()
+                        auth_entry["mode"] = parts[0]
+                        for p in parts:
+                            if p in ("md5", "simple", "hmac-sha256"):
+                                auth_entry["mode"] = p
+                            if p in ("cipher", "simple"):
+                                auth_entry["has_secret"] = True
+                                auth_entry["secret_type"] = p
+                    iface["isis_authentication"] = auth_entry
+
+                # MPLS per-interface
+                if sl == "mpls":
+                    iface["mpls_enabled"] = True
+                elif sl.startswith("mpls mtu"):
+                    mtu_val = stripped[len("mpls mtu"):].strip()
+                    if mtu_val.isdigit():
+                        iface["mpls_mtu"] = int(mtu_val)
+                elif sl == "mpls ldp":
+                    iface["mpls_ldp_enabled"] = True
 
     def _deduplicate_vlans(self, result: dict) -> None:
         """Remove batch VLANs that have individual block overrides."""

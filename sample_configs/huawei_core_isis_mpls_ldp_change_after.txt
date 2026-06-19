@@ -1,0 +1,45 @@
+#
+ sysname NE40-DIFF
+#
+interface LoopBack0
+ ip address 10.255.0.1 255.255.255.255
+#
+isis 1
+ is-level level-1-2
+ cost-style wide
+ network-entity 49.0002.0200.0000.0002.00
+ import-route direct
+ import-route static
+#
+interface Eth-Trunk100
+ description AFTER-LINK
+ ip address 10.255.1.1 255.255.255.252
+ isis enable 1
+ isis circuit-type p2p
+ isis cost 20
+ mpls
+ mpls ldp
+#
+interface GigabitEthernet0/0/0
+ description NEW-LINK
+ ip address 10.255.2.1 255.255.255.252
+ isis enable 1
+ isis circuit-type p2p
+ isis cost 10
+ mpls
+ mpls ldp
+#
+mpls lsr-id 10.255.0.3
+mpls
+ mpls te
+#
+mpls ldp
+ graceful-restart
+#
+mpls ldp remote-peer NEW-PEER
+ remote-ip 10.255.0.4
+#
+bgp 64500
+ peer 10.255.0.2 as-number 64500
+#
+return
