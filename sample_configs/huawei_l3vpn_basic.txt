@@ -1,0 +1,80 @@
+#
+sysname NE40-L3VPN
+#
+router id 10.255.0.1
+#
+interface LoopBack0
+ ip address 10.255.0.1 255.255.255.255
+#
+interface GigabitEthernet0/0/0
+ description CORE-LINK
+ ip address 172.16.0.1 255.255.255.252
+ mpls
+ mpls ldp
+#
+interface GigabitEthernet0/0/1.100
+ description CLIENTE-A-WAN
+ ip binding vpn-instance CLIENTE-A
+ ip address 10.10.10.1 255.255.255.252
+#
+interface GigabitEthernet0/0/2
+ description CLIENTE-B-LAN
+ ip binding vpn-instance CLIENTE-B
+ ip address 172.16.1.1 255.255.255.0
+#
+isis 1
+ is-level level-2
+ cost-style wide
+ network-entity 49.0001.0100.2550.0001.00
+ import-route direct
+#
+mpls lsr-id 10.255.0.1
+mpls
+ mpls te
+#
+mpls ldp
+ graceful-restart
+#
+bgp 65000
+ peer 10.255.0.2 as-number 65000
+ peer 10.255.0.2 connect-interface LoopBack0
+ #
+ ipv4-family vpnv4
+  peer 10.255.0.2 enable
+  peer 10.255.0.2 route-policy EXPORT-VPNV4 export
+ #
+ ipv4-family vpn-instance CLIENTE-A
+  import-route direct
+  import-route static
+  network 192.168.10.0 255.255.255.0
+  peer 10.10.10.2 as-number 64520
+  peer 10.10.10.2 route-policy IMPORT-CLIENTE-A import
+  peer 10.10.10.2 route-policy EXPORT-CLIENTE-A export
+#
+ip vpn-instance CLIENTE-A
+ description Cliente A - L3VPN
+ ipv4-family
+  route-distinguisher 65000:100
+  vpn-target 65000:100 export-extcommunity
+  vpn-target 65000:100 import-extcommunity
+  vpn-target 65000:200 import-extcommunity
+#
+ip vpn-instance CLIENTE-B
+ ipv4-family
+  route-distinguisher 65000:200
+  vpn-target 65000:200 both
+#
+ip route-static vpn-instance CLIENTE-A 0.0.0.0 0.0.0.0 10.10.10.2 description DEFAULT-CLIENTE-A
+ip route-static vpn-instance CLIENTE-A 192.168.10.0 255.255.255.0 10.10.10.2
+ip route-static 0.0.0.0 0.0.0.0 172.16.0.2 description DEFAULT-OUTBOUND
+#
+acl number 2001
+ rule 5 permit source 10.10.10.0 0.0.0.3
+#
+route-policy EXPORT-VPNV4 permit node 10
+ if-match ip-prefix PREFIXES-VPNV4
+ apply community 65000:999
+#
+ip ip-prefix PREFIXES-VPNV4 index 10 permit 192.168.10.0 24
+#
+return

@@ -1,0 +1,39 @@
+#
+sysname NE40-BNG-DIFF
+#
+aaa
+ authentication-scheme AUTH-PPPOE
+  authentication-mode radius local
+ #
+ accounting-scheme ACC-PPPOE
+  accounting-mode radius
+  accounting realtime 20
+ #
+ domain cliente-pppoe
+  authentication-scheme AUTH-PPPOE
+  accounting-scheme ACC-PPPOE
+  radius-server group RAD-CLIENTES-NOVO
+  ip-pool POOL-CLIENTES-NOVO
+  dns primary-ip 8.8.4.4
+#
+radius-server group RAD-CLIENTES-NOVO
+ radius-server authentication 10.10.10.20 1812 weight 100
+ radius-server accounting 10.10.10.20 1813 weight 100
+ radius-server shared-key cipher %^%#NEW-KEY%^%#
+#
+ip pool POOL-CLIENTES-NOVO bas local
+ gateway 100.64.0.1 255.255.255.0
+ section 0 100.64.0.100 100.64.0.200
+ dns-server 8.8.4.4
+ dns-server 1.1.1.1
+#
+interface Eth-Trunk100.200
+ description BNG-CLIENTES-ALTERADO
+ user-vlan 200
+ bas
+  access-type layer2-subscriber default-domain authentication cliente-pppoe
+  authentication-method bind
+  ip-trigger
+  arp-trigger
+#
+return

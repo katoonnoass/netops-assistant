@@ -1,0 +1,59 @@
+#
+sysname NE40-IPV6
+#
+interface GigabitEthernet0/0/0
+ ip address 10.255.0.1 255.255.255.252
+ ipv6 enable
+ ipv6 address 2001:db8:100::1/64
+ ipv6 address 2001:db8:100::2 64
+ ipv6 address auto link-local
+#
+interface GigabitEthernet0/1/0
+ ip address 10.255.0.5 255.255.255.252
+ ipv6 enable
+ ipv6 address 2001:db8:ffff::1/64
+#
+interface LoopBack0
+ ip address 10.255.0.1 255.255.255.255
+ ipv6 enable
+ ipv6 address 2001:db8:10::1/128
+#
+ipv6 route-static 2001:db8:200:: 64 2001:db8:100::2
+ipv6 route-static 2001:db8:210:: 64 2001:db8:100::2 description CLIENTE-V6-ROTA
+#
+ip ipv6-prefix CLIENTE-V6 index 10 permit 2001:db8:200:: 48 less-equal 64
+ip ipv6-prefix DEFAULT-V6 index 10 permit :: 0
+#
+route-policy EXPORT-V6 permit node 10
+ if-match ipv6 prefix-list CLIENTE-V6
+ apply preferred-value 10
+#
+bgp 65000
+ router-id 10.255.0.1
+ peer 2001:db8:ffff::2 as-number 64520
+ peer 2001:db8:ffff::2 description CLIENTE-V6
+ #
+ ipv6-family unicast
+  network 2001:db8:200:: 48
+  peer 2001:db8:ffff::2 enable
+  peer 2001:db8:ffff::2 route-policy EXPORT-V6 export
+#
+ospfv3 1
+ router-id 10.255.0.1
+#
+interface GigabitEthernet0/0/0
+ ospfv3 1 area 0.0.0.0
+#
+interface LoopBack0
+ ospfv3 1 area 0.0.0.0
+#
+isis 1
+ is-level level-2
+ network-entity 49.0001.0010.0255.0001.00
+#
+interface GigabitEthernet0/0/0
+ isis enable 1
+ isis ipv6 enable 1
+ isis ipv6 cost 10
+#
+return

@@ -1,0 +1,37 @@
+#
+sysname NE40-NAT
+#
+interface GigabitEthernet0/0/0
+ description WAN-UPLINK
+ ip address 200.200.200.1 255.255.255.252
+ nat outbound 3001 address-group 1
+ nat server protocol tcp global 200.200.200.200 www inside 10.0.0.200 80
+ nat alg ftp enable
+#
+interface GigabitEthernet0/0/1.100
+ description CLIENTE-A-L3VPN
+ ip binding vpn-instance CLIENTE-A
+ ip address 10.10.10.1 255.255.255.252
+ nat outbound 3002 address-group 10
+#
+interface GigabitEthernet0/0/2
+ description LINK-INTERNO
+ ip address 172.16.0.1 255.255.255.252
+#
+nat address-group 1 200.200.200.10 200.200.200.20
+nat address-group 10 203.0.113.1 203.0.113.10 vpn-instance CLIENTE-A
+#
+ip vpn-instance CLIENTE-A
+ ipv4-family
+  route-distinguisher 65000:100
+  vpn-target 65000:100 both
+#
+acl number 3001
+ rule 5 permit ip source 10.0.0.0 0.255.255.255
+#
+acl number 3002
+ rule 5 permit ip source 192.168.0.0 0.0.255.255
+#
+nat static global 200.200.200.100 inside 10.0.0.100
+#
+return

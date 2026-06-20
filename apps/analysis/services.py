@@ -229,6 +229,142 @@ def detect_services(snapshot, parsed_data: dict) -> list[DetectedService]:
         ldp_svc.save()
         services.append(ldp_svc)
 
+    # ── VRF / VPN-instance ────────────────────────────────────────
+    vrf_svc = _detect_vrf(parsed_data)
+    if vrf_svc:
+        vrf_svc.snapshot = snapshot
+        vrf_svc.save()
+        services.append(vrf_svc)
+
+    # ── L3VPN ─────────────────────────────────────────────────────
+    l3vpn_svc = _detect_l3vpn(parsed_data)
+    if l3vpn_svc:
+        l3vpn_svc.snapshot = snapshot
+        l3vpn_svc.save()
+        services.append(l3vpn_svc)
+
+    # ── BGP VPNv4 ─────────────────────────────────────────────────
+    vpnv4_svc = _detect_vpnv4(parsed_data)
+    if vpnv4_svc:
+        vpnv4_svc.snapshot = snapshot
+        vpnv4_svc.save()
+        services.append(vpnv4_svc)
+
+    # ── QoS ───────────────────────────────────────────────────────
+    qos_svc = _detect_qos(parsed_data)
+    if qos_svc:
+        qos_svc.snapshot = snapshot
+        qos_svc.save()
+        services.append(qos_svc)
+
+    # ── Traffic Policy ────────────────────────────────────────────
+    tp_svc = _detect_traffic_policy(parsed_data)
+    if tp_svc:
+        tp_svc.snapshot = snapshot
+        tp_svc.save()
+        services.append(tp_svc)
+
+    # ── CAR / Controle de Banda ───────────────────────────────────
+    car_svc = _detect_qos_car(parsed_data)
+    if car_svc:
+        car_svc.snapshot = snapshot
+        car_svc.save()
+        services.append(car_svc)
+
+    # ── NAT ───────────────────────────────────────────────────────
+    nat_svc = _detect_nat(parsed_data)
+    if nat_svc:
+        nat_svc.snapshot = snapshot
+        nat_svc.save()
+        services.append(nat_svc)
+
+    nat_ob_svc = _detect_nat_outbound(parsed_data)
+    if nat_ob_svc:
+        nat_ob_svc.snapshot = snapshot
+        nat_ob_svc.save()
+        services.append(nat_ob_svc)
+
+    nat_st_svc = _detect_nat_static(parsed_data)
+    if nat_st_svc:
+        nat_st_svc.snapshot = snapshot
+        nat_st_svc.save()
+        services.append(nat_st_svc)
+
+    nat_sv_svc = _detect_nat_server(parsed_data)
+    if nat_sv_svc:
+        nat_sv_svc.snapshot = snapshot
+        nat_sv_svc.save()
+        services.append(nat_sv_svc)
+
+    # ── IPv4 services ───────────────────────────────────────────────
+    from apps.analysis.detectors.services import _detect_ipv6
+    ipv6_svc = _detect_ipv6(parsed_data)
+    if ipv6_svc:
+        ipv6_svc.snapshot = snapshot
+        ipv6_svc.save()
+        services.append(ipv6_svc)
+
+    from apps.analysis.detectors.services import _detect_bgp_ipv6
+    bgp_ipv6_svc = _detect_bgp_ipv6(parsed_data)
+    if bgp_ipv6_svc:
+        bgp_ipv6_svc.snapshot = snapshot
+        bgp_ipv6_svc.save()
+        services.append(bgp_ipv6_svc)
+
+    from apps.analysis.detectors.services import _detect_vpnv6
+    vpnv6_svc = _detect_vpnv6(parsed_data)
+    if vpnv6_svc:
+        vpnv6_svc.snapshot = snapshot
+        vpnv6_svc.save()
+        services.append(vpnv6_svc)
+
+    from apps.analysis.detectors.services import _detect_ospfv3
+    ospfv3_svc = _detect_ospfv3(parsed_data)
+    if ospfv3_svc:
+        ospfv3_svc.snapshot = snapshot
+        ospfv3_svc.save()
+        services.append(ospfv3_svc)
+
+    from apps.analysis.detectors.services import _detect_isis_ipv6
+    isis_ipv6_svc = _detect_isis_ipv6(parsed_data)
+    if isis_ipv6_svc:
+        isis_ipv6_svc.snapshot = snapshot
+        isis_ipv6_svc.save()
+        services.append(isis_ipv6_svc)
+
+    # ── BNG Advanced ───────────────────────────────────────────────
+    from apps.analysis.detectors.services import _detect_bng_advanced, _detect_bas_interfaces, _detect_subscriber_domains, _detect_aaa_scheme, _detect_radius_groups
+
+    bng_adv_svc = _detect_bng_advanced(parsed_data)
+    if bng_adv_svc:
+        bng_adv_svc.snapshot = snapshot
+        bng_adv_svc.save()
+        services.append(bng_adv_svc)
+
+    bas_iface_svcs = _detect_bas_interfaces(parsed_data)
+    for svc in bas_iface_svcs:
+        svc.snapshot = snapshot
+        svc.save()
+        services.append(svc)
+
+    domain_svcs = _detect_subscriber_domains(parsed_data)
+    for svc in domain_svcs:
+        svc.snapshot = snapshot
+        svc.save()
+        services.append(svc)
+
+    aaa_scheme_svc = _detect_aaa_scheme(parsed_data)
+    if aaa_scheme_svc:
+        aaa_scheme_svc.snapshot = snapshot
+        aaa_scheme_svc.save()
+        services.append(aaa_scheme_svc)
+
+    radius_group_svcs = _detect_radius_groups(parsed_data)
+    for svc in radius_group_svcs:
+        svc.snapshot = snapshot
+        svc.save()
+        services.append(svc)
+
     return services
 
 
@@ -862,3 +998,357 @@ def _detect_local_users(parsed_data: dict) -> list[DetectedService]:
         )
 
     return services
+
+
+# ── VRF / VPN-instance ────────────────────────────────────────────────
+
+
+def _detect_vrf(parsed_data: dict) -> DetectedService | None:
+    """Detecta serviço VRF/VPN-instance."""
+    vpn_instances = parsed_data.get("vpn_instances", [])
+    if not vpn_instances:
+        return None
+
+    interface_count = sum(
+        1 for iface in parsed_data.get("interfaces", [])
+        if iface.get("is_vrf_interface")
+    )
+    total_routes = sum(
+        1 for r in parsed_data.get("static_routes", [])
+        if r.get("vpn_instance")
+    )
+
+    names = [v["name"] for v in vpn_instances]
+    rds = []
+    for v in vpn_instances:
+        for af in v.get("address_families", {}).values():
+            if af.get("route_distinguisher"):
+                rds.append(af["route_distinguisher"])
+
+    desc = (
+        f"{len(vpn_instances)} VPN-instance(s) detectada(s): "
+        f"{', '.join(names)}. "
+        f"{interface_count} interface(s) em VRF, "
+        f"{total_routes} rota(s) estatica(s) VRF."
+    )
+
+    return DetectedService(
+        service_type=DetectedService.ServiceType.VRF,
+        name=f"VRF ({len(vpn_instances)})",
+        description=desc,
+        confidence=0.90 if rds else 0.70,
+        metadata={
+            "vrf_count": len(vpn_instances),
+            "vrf_names": names,
+            "route_distinguishers": rds,
+            "interface_count": interface_count,
+            "static_route_count": total_routes,
+        },
+    )
+
+
+# ── L3VPN ─────────────────────────────────────────────────────────────
+
+
+def _detect_l3vpn(parsed_data: dict) -> DetectedService | None:
+    """Detecta serviço L3VPN MPLS."""
+    vpn_instances = parsed_data.get("vpn_instances", [])
+    bgp_blocks = parsed_data.get("bgp", [])
+
+    if not vpn_instances:
+        return None
+
+    has_vpnv4 = any(
+        bool(bgp.get("vpnv4", {}).get("peers"))
+        for bgp in bgp_blocks
+    )
+    has_bgp_vpn = any(
+        bool(bgp.get("vpn_instances"))
+        for bgp in bgp_blocks
+    )
+    complete = has_bgp_vpn and has_vpnv4
+
+    complete_vrfs = 0
+    vrf_names_with_bgp = set()
+    for bgp in bgp_blocks:
+        for vi in bgp.get("vpn_instances", []):
+            vrf_names_with_bgp.add(vi["name"])
+            if vi.get("peers") or vi.get("networks") or vi.get("import_routes"):
+                complete_vrfs += 1
+
+    has_rd = any(
+        vi.get("address_families", {}).get("ipv4", {}).get("route_distinguisher")
+        for vi in vpn_instances
+    )
+
+    total_rt = sum(
+        len(af.get("vpn_targets", []))
+        for vi in vpn_instances
+        for af in vi.get("address_families", {}).values()
+    )
+
+    names = [v["name"] for v in vpn_instances]
+
+    if complete:
+        confidence = 0.90
+        desc = (
+            "L3VPN MPLS completo detectado: "
+            f"{len(vpn_instances)} VPN-instance(s), "
+            "BGP VPNv4 ativo, BGP ipv4-family vpn-instance configurado."
+        )
+    elif has_rd:
+        confidence = 0.80
+        desc = (
+            "L3VPN MPLS parcial: "
+            f"{len(vpn_instances)} VPN-instance(s) com RD, "
+            "mas sem BGP vpn-instance ou VPNv4 completo."
+        )
+    else:
+        confidence = 0.60
+        desc = "VRF/VPN-instance(s) detectada(s) sem configuracao L3VPN MPLS completa."
+
+    return DetectedService(
+        service_type=DetectedService.ServiceType.L3VPN,
+        name=f"L3VPN ({len(vpn_instances)})",
+        description=desc,
+        confidence=confidence,
+        metadata={
+            "vrf_count": len(vpn_instances),
+            "vrf_names": names,
+            "has_rd": has_rd,
+            "total_route_targets": total_rt,
+            "has_vpnv4": has_vpnv4,
+            "has_bgp_vpn_instance": has_bgp_vpn,
+            "complete_vrfs": complete_vrfs,
+            "vrf_names_with_bgp": list(vrf_names_with_bgp),
+        },
+    )
+
+
+# ── BGP VPNv4 ─────────────────────────────────────────────────────────
+
+
+def _detect_vpnv4(parsed_data: dict) -> DetectedService | None:
+    """Detecta serviço BGP VPNv4."""
+    bgp_blocks = parsed_data.get("bgp", [])
+    all_vpnv4_peers = []
+    for bgp in bgp_blocks:
+        vpnv4 = bgp.get("vpnv4", {})
+        all_vpnv4_peers.extend(vpnv4.get("peers", []))
+
+    if not all_vpnv4_peers:
+        return None
+
+    enabled_count = sum(1 for p in all_vpnv4_peers if p.get("enabled"))
+    peer_ips = [p["peer"] for p in all_vpnv4_peers if p.get("peer")]
+
+    desc = (
+        f"BGP VPNv4 detectado com {len(all_vpnv4_peers)} peer(s) "
+        f"({enabled_count} habilitado(s)). "
+        f"Peers: {', '.join(peer_ips)}."
+    )
+
+    return DetectedService(
+        service_type=DetectedService.ServiceType.VPNV4,
+        name=f"BGP VPNv4 ({len(all_vpnv4_peers)})",
+        description=desc,
+        confidence=0.85 if enabled_count else 0.50,
+        metadata={
+            "total_peers": len(all_vpnv4_peers),
+            "enabled_peers": enabled_count,
+            "peer_ips": peer_ips,
+        },
+    )
+
+
+# ── QoS / Traffic Policy ──────────────────────────────────────────────
+
+
+def _detect_qos(parsed_data: dict) -> DetectedService | None:
+    """Detecta serviço QoS geral."""
+    qos = parsed_data.get("qos", {})
+    classifiers = qos.get("traffic_classifiers", [])
+    behaviors = qos.get("traffic_behaviors", [])
+    policies = qos.get("traffic_policies", [])
+
+    if not any([classifiers, behaviors, policies]):
+        return None
+
+    ifaces_with_qos = [
+        i["name"] for i in parsed_data.get("interfaces", [])
+        if i.get("traffic_policies_applied") or i.get("qos_profiles_applied") or i.get("qos_car")
+    ]
+
+    desc = (
+        f"QoS detectado: {len(classifiers)} classifier(es), "
+        f"{len(behaviors)} behavior(s), {len(policies)} policy(ies)."
+    )
+    if ifaces_with_qos:
+        desc += f" Aplicado em {len(ifaces_with_qos)} interface(s)."
+
+    return DetectedService(
+        service_type=DetectedService.ServiceType.QOS,
+        name=f"QoS ({len(policies)} politica(s))",
+        description=desc,
+        confidence=0.85 if policies else 0.70,
+        metadata={
+            "classifier_count": len(classifiers),
+            "behavior_count": len(behaviors),
+            "policy_count": len(policies),
+            "interfaces_with_qos": ifaces_with_qos,
+        },
+    )
+
+
+def _detect_traffic_policy(parsed_data: dict) -> DetectedService | None:
+    """Detecta serviço Traffic Policy."""
+    policies = parsed_data.get("qos", {}).get("traffic_policies", [])
+    if not policies:
+        return None
+
+    applied = sum(
+        1 for i in parsed_data.get("interfaces", [])
+        if i.get("traffic_policies_applied")
+    )
+
+    desc = (
+        f"{len(policies)} traffic-policy(ies) configurada(s), "
+        f"{applied} aplicada(s) em interface."
+    )
+
+    return DetectedService(
+        service_type=DetectedService.ServiceType.TRAFFIC_POLICY,
+        name=f"Traffic Policy ({len(policies)})",
+        description=desc,
+        confidence=0.85 if applied else 0.70,
+        metadata={
+            "policy_count": len(policies),
+            "applied_count": applied,
+            "policy_names": [p["name"] for p in policies],
+        },
+    )
+
+
+def _detect_qos_car(parsed_data: dict) -> DetectedService | None:
+    """Detecta serviço CAR / Controle de Banda."""
+    behaviors = parsed_data.get("qos", {}).get("traffic_behaviors", [])
+    iface_cars = [
+        i for i in parsed_data.get("interfaces", [])
+        if i.get("qos_car")
+    ]
+
+    car_behaviors = [b for b in behaviors if b.get("car")]
+    if not car_behaviors and not iface_cars:
+        return None
+
+    total_car = len(car_behaviors) + len(iface_cars)
+    cirs = []
+    for b in car_behaviors:
+        if b["car"] and b["car"].get("cir"):
+            cirs.append(b["car"]["cir"])
+    for i in iface_cars:
+        for c in i.get("qos_car", []):
+            if c.get("cir"):
+                cirs.append(c["cir"])
+
+    desc = (
+        f"CAR / Controle de Banda detectado: {total_car} regra(s). "
+        f"{len(car_behaviors)} em traffic-behavior, "
+        f"{len(iface_cars)} interface(s) com qos car."
+    )
+
+    return DetectedService(
+        service_type=DetectedService.ServiceType.QOS_CAR,
+        name=f"CAR ({total_car})",
+        description=desc,
+        confidence=0.85,
+        metadata={
+            "total_car_rules": total_car,
+            "behavior_car_count": len(car_behaviors),
+            "interface_car_count": len(iface_cars),
+            "cir_rates": cirs,
+        },
+    )
+
+
+# ── NAT / PAT ──────────────────────────────────────────────────────────
+
+
+def _detect_nat(parsed_data: dict) -> DetectedService | None:
+    """Detecta serviço NAT geral."""
+    nat = parsed_data.get("nat", {})
+    if not any([nat.get("address_groups"), nat.get("outbound_rules"),
+                nat.get("static_rules"), nat.get("server_rules")]):
+        return None
+
+    ifaces_with_nat = [
+        i["name"] for i in parsed_data.get("interfaces", []) if i.get("has_nat")
+    ]
+
+    ob_count = len(nat.get("outbound_rules", []))
+    st_count = len(nat.get("static_rules", []))
+    sv_count = len(nat.get("server_rules", []))
+    total = ob_count + st_count + sv_count
+
+    desc = (
+        f"NAT detectado: {total} regra(s) "
+        f"({ob_count} outbound, {st_count} static, {sv_count} server)."
+    )
+    if ifaces_with_nat:
+        desc += f" Aplicado em {len(ifaces_with_nat)} interface(s)."
+
+    return DetectedService(
+        service_type=DetectedService.ServiceType.NAT,
+        name=f"NAT ({total})",
+        description=desc,
+        confidence=0.90 if total > 0 else 0.70,
+        metadata={
+            "outbound_count": ob_count,
+            "static_count": st_count,
+            "server_count": sv_count,
+            "address_group_count": len(nat.get("address_groups", [])),
+            "interfaces_with_nat": ifaces_with_nat,
+        },
+    )
+
+
+def _detect_nat_outbound(parsed_data: dict) -> DetectedService | None:
+    """Detecta serviço NAT Outbound (PAT)."""
+    rules = parsed_data.get("nat", {}).get("outbound_rules", [])
+    if not rules:
+        return None
+    return DetectedService(
+        service_type=DetectedService.ServiceType.NAT_OUTBOUND,
+        name=f"NAT Outbound ({len(rules)})",
+        description=f"{len(rules)} regra(s) de NAT outbound configurada(s).",
+        confidence=0.85,
+        metadata={"rule_count": len(rules), "rules": rules},
+    )
+
+
+def _detect_nat_static(parsed_data: dict) -> DetectedService | None:
+    """Detecta serviço NAT Estático."""
+    rules = parsed_data.get("nat", {}).get("static_rules", [])
+    if not rules:
+        return None
+    return DetectedService(
+        service_type=DetectedService.ServiceType.NAT_STATIC,
+        name=f"NAT Estático ({len(rules)})",
+        description=f"{len(rules)} regra(s) de NAT static configurada(s).",
+        confidence=0.85,
+        metadata={"rule_count": len(rules), "rules": rules},
+    )
+
+
+def _detect_nat_server(parsed_data: dict) -> DetectedService | None:
+    """Detecta serviço NAT Server (Port Forward)."""
+    rules = parsed_data.get("nat", {}).get("server_rules", [])
+    if not rules:
+        return None
+    return DetectedService(
+        service_type=DetectedService.ServiceType.NAT_SERVER,
+        name=f"NAT Server ({len(rules)})",
+        description=f"{len(rules)} regra(s) de NAT server configurada(s).",
+        confidence=0.85,
+        metadata={"rule_count": len(rules), "rules": rules},
+    )

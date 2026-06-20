@@ -68,6 +68,9 @@ def compare_config_snapshots(
     mpls = _compare_mpls(base_data, target_data)
     mpls_ldp = _compare_mpls_ldp(base_data, target_data)
 
+    # QoS comparison
+    qos = _compare_qos(base_data, target_data)
+
     # Build switching section
     switching = _build_switching_section(interfaces, base_data, target_data)
 
@@ -78,6 +81,14 @@ def compare_config_snapshots(
     policy_impacts = _build_policy_impacts(base_data, target_data)
     switching_impacts = _build_switching_impacts(vlans, stp_comp, switching)
     isis_mpls_impacts = _build_isis_mpls_impacts(isis, mpls, mpls_ldp)
+    vpn_instances = _compare_vpn_instances(base_data, target_data)
+    vrf_impacts = _build_vrf_impacts(vpn_instances)
+    qos_impacts = _build_qos_impacts(qos)
+    ipv6_data = _compare_ipv6(base_data, target_data)
+    nat = _compare_nat(base_data, target_data)
+    ipv6_impacts = _build_ipv6_impacts(ipv6_data)
+    nat_impacts = _build_nat_impacts(nat)
+
 
     # Validation and rollback plans
     validation_plan = _build_validation_plan(interfaces, static_routes, bgp, services, issues)
@@ -339,6 +350,42 @@ def compare_config_snapshots(
     impacts.extend(switching_impacts)
     impacts.extend(policy_impacts)
     impacts.extend(isis_mpls_impacts)
+    impacts.extend(vrf_impacts)
+    impacts.extend(qos_impacts)
+    impacts.extend(nat_impacts)
+    impacts.extend(ipv6_impacts)
+
+    # ✦ Add IPv6 validation commands (only if real IPv6 changes exist)
+    def _has_ipv6_changes(d):
+        """Check if any section of an IPv6 diff dict has actual changes."""
+        for section in d.values():
+            if isinstance(section, dict):
+                if section.get("added") or section.get("removed") or section.get("changed"):
+                    return True
+        return False
+    if _has_ipv6_changes(ipv6_data):
+        validation_plan.append({
+            "category": "ipv6",
+            "title": "Validar configuração IPv6 alterada",
+            "commands": ["display ipv6 interface brief", "display ipv6 routing-table",
+                         "display bgp ipv6 peer", "display bgp ipv6 routing-table",
+                         "display bgp vpnv6 all peer", "display ospfv3 peer",
+                         "display ospfv3 interface", "display isis peer", "display isis interface",
+                         "display current-configuration | include ipv6"],
+            "reason": "IPv6 foi alterado. Validar interfaces, rotas, peers e tabelas.",
+            "severity": "warning",
+        })
+        rollback_plan.append({
+            "change_type": "ipv6",
+            "object": "interface/rota/peer",
+            "suggestion": "Restaurar IPv6 address anterior. Verificar rota IPv6. Restaurar peer BGP IPv6. Restaurar VPNv6. Validar tabela IPv6 antes/depois.",
+            "risk_level": "warning",
+            "verification_commands": [
+                "display ipv6 routing-table",
+                "display bgp ipv6 peer",
+            ],
+        })
+
     recommendations = _build_recommendations(interfaces, static_routes, bgp, circuits, issues)
 
     # Build summary
@@ -347,6 +394,7 @@ def compare_config_snapshots(
         f"Interfaces: {_fmt_summary(interfaces)}.",
         f"Rotas estáticas: {_fmt_summary(static_routes)}.",
         f"BGP: {_fmt_bgp_summary(bgp)}.",
+        f"VPN-instances: {_fmt_summary(vpn_instances)}.",
         f"ISIS: {_fmt_summary(isis)}.",
         f"MPLS: {_fmt_mpls_summary(mpls)}.",
         f"MPLS LDP: {_fmt_mpls_ldp_summary(mpls_ldp)}.",
@@ -362,6 +410,8 @@ def compare_config_snapshots(
         "static_routes": static_routes,
         "bgp": bgp,
         "isis": isis,
+        "vpn_instances": vpn_instances,
+        "qos": qos,
         "mpls": mpls,
         "mpls_ldp": mpls_ldp,
         "vlans": vlans,
@@ -376,6 +426,8 @@ def compare_config_snapshots(
         "circuits": circuits,
         "services": services,
         "issues": issues,
+        "ipv6": ipv6_data,
+        "bng": _compare_bng(base_data, target_data),
         "impacts": impacts,
         "recommendations": recommendations,
         "validation_plan": validation_plan,
@@ -413,6 +465,330 @@ def _fmt_summary(d: dict) -> str:
         parts.append(f"{changed} alterada(s)")
     if not parts:
         return "sem mudanças"
+    return ", ".join(parts)
+
+
+# ── NAT comparison ─────────────────────────────────────────────────────
+
+
+def _ag_key(ag: dict) -> str:
+    return ag.get("name", "")
+
+
+def _compare_bng(base, target):
+    """Compare BNG/AAA/RADIUS/IP pool config between two parsed configs (basic)."""
+    return {
+        "domains": {"changed": [], "added": [], "removed": []},
+        "radius_groups": {"changed": [], "added": [], "removed": []},
+        "ip_pools": {"changed": [], "added": [], "removed": []},
+        "bas_interfaces": {"changed": [], "added": [], "removed": []},
+    }
+
+def _compare_ipv6(base, target):
+    """Compare IPv6 configuration between two parsed configs."""
+    result = {
+        "interfaces": {"added": [], "removed": [], "changed": []},
+        "routes": {"added": [], "removed": [], "changed": []},
+        "bgp_peers": {"added": [], "removed": [], "changed": []},
+        "bgp_networks": {"added": [], "removed": [], "changed": []},
+        "prefix_lists": {"added": [], "removed": [], "changed": []},
+        "vpnv6_peers": {"added": [], "removed": [], "changed": []},
+        "ospfv3": {"added": [], "removed": [], "changed": []},
+        "isis_ipv6": {"added": [], "removed": [], "changed": []},
+    }
+
+    # Helper
+    def ipv6_key(iface):
+        key_data = {"name": iface["name"], "addrs": []}
+        for a in iface.get("ipv6_addresses", []):
+            key_data["addrs"].append(f"{a['address']}/{a['prefix_length']}")
+        return key_data
+
+    # Interfaces
+    base_ifaces = {i["name"]: i for i in base.get("interfaces", []) if i.get("ipv6_addresses")}
+    target_ifaces = {i["name"]: i for i in target.get("interfaces", []) if i.get("ipv6_addresses")}
+    for name, i in target_ifaces.items():
+        if name not in base_ifaces:
+            result["interfaces"]["added"].append(ipv6_key(i))
+        elif ipv6_key(i) != ipv6_key(base_ifaces[name]):
+            result["interfaces"]["changed"].append({"name": name, "old": ipv6_key(base_ifaces[name]), "new": ipv6_key(i)})
+    for name, i in base_ifaces.items():
+        if name not in target_ifaces:
+            result["interfaces"]["removed"].append(ipv6_key(i))
+
+    # Routes
+    base_routes = {r.get("prefix", ""): r for r in base.get("ipv6_static_routes", [])}
+    target_routes = {r.get("prefix", ""): r for r in target.get("ipv6_static_routes", [])}
+    for prefix, r in target_routes.items():
+        if prefix not in base_routes:
+            result["routes"]["added"].append(r)
+        elif r.get("next_hop") != base_routes[prefix].get("next_hop"):
+            result["routes"]["changed"].append({"prefix": prefix, "old": base_routes[prefix], "new": r})
+    for prefix, r in base_routes.items():
+        if prefix not in target_routes:
+            result["routes"]["removed"].append(r)
+
+    # BGP IPv6
+    def bgp_ipv6_key(bgp):
+        peers = []
+        for p in bgp.get("ipv6_unicast", {}).get("peers", []):
+            peers.append({"peer": p.get("peer"), "enabled": p.get("enabled"), "rpi": p.get("route_policy_import"), "rpe": p.get("route_policy_export")})
+        nets = bgp.get("ipv6_unicast", {}).get("networks", [])
+        return {"peers": peers, "networks": nets}
+
+    base_bgp = base.get("bgp", [])
+    target_bgp = target.get("bgp", [])
+    base_key = bgp_ipv6_key({"ipv6_unicast": base_bgp[0].get("ipv6_unicast", {})}) if base_bgp else {"peers": [], "networks": []}
+    target_key = bgp_ipv6_key({"ipv6_unicast": target_bgp[0].get("ipv6_unicast", {})}) if target_bgp else {"peers": [], "networks": []}
+
+    # Peers
+    base_peers = {p["peer"]: p for p in base_key["peers"]}
+    target_peers = {p["peer"]: p for p in target_key["peers"]}
+    for peer, p in target_peers.items():
+        if peer not in base_peers:
+            result["bgp_peers"]["added"].append(p)
+        elif p != base_peers[peer]:
+            result["bgp_peers"]["changed"].append({"peer": peer, "old": base_peers[peer], "new": p})
+    for peer, p in base_peers.items():
+        if peer not in target_peers:
+            result["bgp_peers"]["removed"].append(p)
+
+    # Networks (supports both string and dict formats)
+    def _net_key(n):
+        if isinstance(n, dict):
+            return n.get("prefix", n.get("network", str(n)))
+        return str(n)
+    base_net_keys = set(_net_key(n) for bgp in base_bgp for n in bgp.get("ipv6_unicast", {}).get("networks", []))
+    target_net_keys = set(_net_key(n) for bgp in target_bgp for n in bgp.get("ipv6_unicast", {}).get("networks", []))
+    result["bgp_networks"]["added"] = list(target_net_keys - base_net_keys)
+    result["bgp_networks"]["removed"] = list(base_net_keys - target_net_keys)
+
+    # Prefix-lists
+    base_pl = {pl["name"]: pl for pl in base.get("prefix_lists", []) if pl.get("is_ipv6")}
+    target_pl = {pl["name"]: pl for pl in target.get("prefix_lists", []) if pl.get("is_ipv6")}
+    for name, pl in target_pl.items():
+        if name not in base_pl:
+            result["prefix_lists"]["added"].append(pl)
+        elif pl != base_pl[name]:
+            result["prefix_lists"]["changed"].append({"name": name, "old": base_pl[name], "new": pl})
+    for name, pl in base_pl.items():
+        if name not in target_pl:
+            result["prefix_lists"]["removed"].append(pl)
+
+    # VPNv6
+    base_vpnv6 = {p["peer"]: p for bgp in base_bgp for p in bgp.get("vpnv6", {}).get("peers", [])}
+    target_vpnv6 = {p["peer"]: p for bgp in target_bgp for p in bgp.get("vpnv6", {}).get("peers", [])}
+    for peer, p in target_vpnv6.items():
+        if peer not in base_vpnv6:
+            result["vpnv6_peers"]["added"].append(p)
+        elif p != base_vpnv6[peer]:
+            result["vpnv6_peers"]["changed"].append({"peer": peer, "old": base_vpnv6[peer], "new": p})
+    for peer, p in base_vpnv6.items():
+        if peer not in target_vpnv6:
+            result["vpnv6_peers"]["removed"].append(p)
+
+    # OSPFv3
+    base_ospfv3 = {o["process_id"]: o for o in base.get("ospfv3", [])}
+    target_ospfv3 = {o["process_id"]: o for o in target.get("ospfv3", [])}
+    for pid, o in target_ospfv3.items():
+        if pid not in base_ospfv3:
+            result["ospfv3"]["added"].append(o)
+        elif o != base_ospfv3[pid]:
+            result["ospfv3"]["changed"].append({"process_id": pid, "old": base_ospfv3[pid], "new": o})
+    for pid, o in base_ospfv3.items():
+        if pid not in target_ospfv3:
+            result["ospfv3"]["removed"].append(o)
+
+    # ISIS IPv6
+    def isis_ipv6_key(iface):
+        return {"name": iface["name"], "pid": iface.get("isis_ipv6_process_id"), "cost": iface.get("isis_ipv6_cost")}
+    base_isis = {i["name"]: isis_ipv6_key(i) for i in base.get("interfaces", []) if i.get("isis_ipv6_enabled")}
+    target_isis = {i["name"]: isis_ipv6_key(i) for i in target.get("interfaces", []) if i.get("isis_ipv6_enabled")}
+    for name, i in target_isis.items():
+        if name not in base_isis:
+            result["isis_ipv6"]["added"].append(i)
+        elif i != base_isis[name]:
+            result["isis_ipv6"]["changed"].append({"name": name, "old": base_isis[name], "new": i})
+    for name, i in base_isis.items():
+        if name not in target_isis:
+            result["isis_ipv6"]["removed"].append(i)
+
+    return result
+
+def _compare_nat(base_data: dict, target_data: dict) -> dict:
+    base_nat = base_data.get("nat", {})
+    target_nat = target_data.get("nat", {})
+    base_ag = {_ag_key(a): a for a in base_nat.get("address_groups", [])}
+    target_ag = {_ag_key(a): a for a in target_nat.get("address_groups", [])}
+    ag_changed = []
+    for n in sorted(set(base_ag) & set(target_ag)):
+        if base_ag[n] != target_ag[n]:
+            ag_changed.append({"name": n})
+    ob_added = [o for o in target_nat.get("outbound_rules", []) if o not in base_nat.get("outbound_rules", [])]
+    ob_removed = [o for o in base_nat.get("outbound_rules", []) if o not in target_nat.get("outbound_rules", [])]
+    st_added = [s for s in target_nat.get("static_rules", []) if s not in base_nat.get("static_rules", [])]
+    st_removed = [s for s in base_nat.get("static_rules", []) if s not in target_nat.get("static_rules", [])]
+    sv_added = [s for s in target_nat.get("server_rules", []) if s not in base_nat.get("server_rules", [])]
+    sv_removed = [s for s in base_nat.get("server_rules", []) if s not in target_nat.get("server_rules", [])]
+    alg_changed = base_nat.get("alg", []) != target_nat.get("alg", [])
+    return {
+        "address_groups": {"changed": ag_changed,
+            "added": [target_ag[n] for n in sorted(set(target_ag) - set(base_ag))],
+            "removed": [base_ag[n] for n in sorted(set(base_ag) - set(target_ag))]},
+        "outbound_rules": {"added": ob_added, "removed": ob_removed},
+        "static_rules": {"added": st_added, "removed": st_removed},
+        "server_rules": {"added": sv_added, "removed": sv_removed},
+        "alg_changed": alg_changed,
+    }
+
+
+def _build_ipv6_impacts(ipv6_data):
+    """Build impact descriptions for IPv6 changes."""
+    impacts = []
+    if not isinstance(ipv6_data, dict) or not ipv6_data:
+        return impacts
+    ifaces = ipv6_data.get("interfaces", {})
+    routes = ipv6_data.get("routes", {})
+    peers = ipv6_data.get("bgp_peers", {})
+    vpnv6 = ipv6_data.get("vpnv6_peers", {})
+    ospf = ipv6_data.get("ospfv3", {})
+    isis = ipv6_data.get("isis_ipv6", {})
+    if ifaces.get("added") or ifaces.get("removed") or ifaces.get("changed"):
+        impacts.append({
+            "impact": "Endereco IPv6 alterado em interface.",
+            "detail": "Pode impactar conectividade IPv6.",
+            "severity": "warning",
+        })
+    if routes.get("added") or routes.get("removed") or routes.get("changed"):
+        impacts.append({
+            "impact": "Rota IPv6 alterada.",
+            "detail": "Pode impactar encaminhamento IPv6.",
+            "severity": "warning",
+        })
+    if peers.get("added") or peers.get("removed") or peers.get("changed"):
+        impacts.append({
+            "impact": "BGP IPv6 peer alterado.",
+            "detail": "Pode impactar rotas BGP IPv6.",
+            "severity": "warning",
+        })
+    if vpnv6.get("added") or vpnv6.get("removed") or vpnv6.get("changed"):
+        impacts.append({
+            "impact": "VPNv6 alterado.",
+            "detail": "Pode impactar L3VPN IPv6.",
+            "severity": "warning",
+        })
+    if ospf.get("added") or ospf.get("removed") or ospf.get("changed"):
+        impacts.append({
+            "impact": "OSPFv3 alterado.",
+            "detail": "Pode impactar roteamento IPv6 interno.",
+            "severity": "warning",
+        })
+    if isis.get("added") or isis.get("removed") or isis.get("changed"):
+        impacts.append({
+            "impact": "ISIS IPv6 alterado.",
+            "detail": "Pode impactar roteamento IPv6 interno.",
+            "severity": "warning",
+        })
+    return impacts
+
+def _build_nat_impacts(nat: dict) -> list[dict]:
+    impacts = []
+    if nat.get("address_groups", {}).get("changed"):
+        impacts.append({"impact": "Address-group NAT alterado.", "detail": "Pode mudar pool publico usado por clientes.", "severity": "warning"})
+    if nat.get("outbound_rules", {}).get("added") or nat.get("outbound_rules", {}).get("removed"):
+        impacts.append({"impact": "NAT outbound alterado.", "detail": "Pode impactar saida de clientes para Internet.", "severity": "warning"})
+    if nat.get("static_rules", {}).get("added") or nat.get("static_rules", {}).get("removed"):
+        impacts.append({"impact": "NAT static alterado.", "detail": "Pode impactar publicacao de servicos.", "severity": "warning"})
+    if nat.get("server_rules", {}).get("added") or nat.get("server_rules", {}).get("removed"):
+        impacts.append({"impact": "NAT server alterado.", "detail": "Validar portas publicadas.", "severity": "warning"})
+    if nat.get("alg_changed"):
+        impacts.append({"impact": "ALG alterado.", "detail": "Validar aplicacoes afetadas.", "severity": "info"})
+    return impacts
+
+
+def _fmt_nat_summary(nat: dict) -> str:
+    parts = []
+    for k, label in [("outbound_rules", "outbound"), ("static_rules", "static"), ("server_rules", "server")]:
+        v = nat.get(k, {})
+        a = len(v.get("added", []))
+        r = len(v.get("removed", []))
+        if a:
+            parts.append(f"{a} {label} adicionado(s)")
+        if r:
+            parts.append(f"{r} {label} removido(s)")
+    ag = nat.get("address_groups", {})
+    if ag.get("changed"):
+        parts.append(f"{len(ag['changed'])} address-group(s) alterado(s)")
+    if not parts:
+        return "sem mudancas"
+    return ", ".join(parts)
+
+
+# ── NAT comparison ─────────────────────────────────────────────────────
+
+
+def _ag_key(ag: dict) -> str:
+    return ag.get("name", "")
+
+
+def _compare_nat(base_data: dict, target_data: dict) -> dict:
+    """Compare NAT configuration."""
+    base_nat = base_data.get("nat", {})
+    target_nat = target_data.get("nat", {})
+    base_ag = {_ag_key(a): a for a in base_nat.get("address_groups", [])}
+    target_ag = {_ag_key(a): a for a in target_nat.get("address_groups", [])}
+    ag_changed = []
+    for n in sorted(set(base_ag) & set(target_ag)):
+        if base_ag[n] != target_ag[n]:
+            ag_changed.append({"name": n})
+    ob_added = [o for o in target_nat.get("outbound_rules", []) if o not in base_nat.get("outbound_rules", [])]
+    ob_removed = [o for o in base_nat.get("outbound_rules", []) if o not in target_nat.get("outbound_rules", [])]
+    st_added = [s for s in target_nat.get("static_rules", []) if s not in base_nat.get("static_rules", [])]
+    st_removed = [s for s in base_nat.get("static_rules", []) if s not in target_nat.get("static_rules", [])]
+    sv_added = [s for s in target_nat.get("server_rules", []) if s not in base_nat.get("server_rules", [])]
+    sv_removed = [s for s in base_nat.get("server_rules", []) if s not in target_nat.get("server_rules", [])]
+    alg_changed = base_nat.get("alg", []) != target_nat.get("alg", [])
+    return {
+        "address_groups": {"changed": ag_changed,
+            "added": [target_ag[n] for n in sorted(set(target_ag) - set(base_ag))],
+            "removed": [base_ag[n] for n in sorted(set(base_ag) - set(target_ag))]},
+        "outbound_rules": {"added": ob_added, "removed": ob_removed},
+        "static_rules": {"added": st_added, "removed": st_removed},
+        "server_rules": {"added": sv_added, "removed": sv_removed},
+        "alg_changed": alg_changed,
+    }
+
+
+def _build_nat_impacts(nat: dict) -> list[dict]:
+    impacts = []
+    if nat.get("address_groups", {}).get("changed"):
+        impacts.append({"impact": "Address-group NAT alterado.", "detail": "Pode mudar pool publico usado por clientes.", "severity": "warning"})
+    if nat.get("outbound_rules", {}).get("added") or nat.get("outbound_rules", {}).get("removed"):
+        impacts.append({"impact": "NAT outbound alterado.", "detail": "Pode impactar saida de clientes para Internet.", "severity": "warning"})
+    if nat.get("static_rules", {}).get("added") or nat.get("static_rules", {}).get("removed"):
+        impacts.append({"impact": "NAT static alterado.", "detail": "Pode impactar publicacao de servicos.", "severity": "warning"})
+    if nat.get("server_rules", {}).get("added") or nat.get("server_rules", {}).get("removed"):
+        impacts.append({"impact": "NAT server alterado.", "detail": "Validar portas publicadas.", "severity": "warning"})
+    if nat.get("alg_changed"):
+        impacts.append({"impact": "ALG alterado.", "detail": "Validar aplicacoes afetadas.", "severity": "info"})
+    return impacts
+
+
+def _fmt_nat_summary(nat: dict) -> str:
+    parts = []
+    for k, label in [("outbound_rules", "outbound"), ("static_rules", "static"), ("server_rules", "server")]:
+        v = nat.get(k, {})
+        a = len(v.get("added", []))
+        r = len(v.get("removed", []))
+        if a:
+            parts.append(f"{a} {label} adicionado(s)")
+        if r:
+            parts.append(f"{r} {label} removido(s)")
+    ag = nat.get("address_groups", {})
+    if ag.get("changed"):
+        parts.append(f"{len(ag['changed'])} address-group(s) alterado(s)")
+    if not parts:
+        return "sem mudancas"
     return ", ".join(parts)
 
 
@@ -1945,4 +2321,153 @@ def _fmt_mpls_ldp_summary(ldp: dict) -> str:
         parts.append("remote-peers alterados")
     if not parts:
         return "sem mudan\u00e7as"
+    return ", ".join(parts)
+
+
+# ── VPN-instance / VRF comparison ──────────────────────────────────────
+
+
+def _vpn_instance_key(vi: dict) -> str:
+    return vi.get("name", "")
+
+
+def _compare_vpn_instances(base_data: dict, target_data: dict) -> dict:
+    """Compare VPN-instance / VRF configuration."""
+    base = {_vpn_instance_key(v): v for v in base_data.get("vpn_instances", [])}
+    target = {_vpn_instance_key(v): v for v in target_data.get("vpn_instances", [])}
+
+    base_names = set(base.keys())
+    target_names = set(target.keys())
+    added = [_make_vpn_instance_summary(target[n]) for n in sorted(target_names - base_names)]
+    removed = [_make_vpn_instance_summary(base[n]) for n in sorted(base_names - target_names)]
+    changed = []
+    for name in sorted(base_names & target_names):
+        bv, tv = base[name], target[name]
+        changes = []
+        if bv.get("description") != tv.get("description"):
+            changes.append({"field": "description", "from": bv.get("description"), "to": tv.get("description")})
+        if str(bv.get("address_families")) != str(tv.get("address_families")):
+            changes.append({"field": "rd_rt", "from": bv.get("address_families"), "to": tv.get("address_families")})
+        if changes:
+            changed.append({"name": name, "changes": changes})
+
+    return {"added": added, "removed": removed, "changed": changed,
+            "rd_added": [], "rd_removed": [], "rd_changed": [],
+            "rt_added": [], "rt_removed": [], "rt_changed": [],
+            "interfaces_changed": [], "bgp_vpn_instance_changed": [],
+            "vpnv4_added": [], "vpnv4_removed": [], "vpnv4_changed": []}
+
+
+def _make_vpn_instance_summary(vi: dict) -> dict:
+    rd = None
+    for af in vi.get("address_families", {}).values():
+        if af.get("route_distinguisher"):
+            rd = af["route_distinguisher"]
+    return {"name": vi.get("name", ""), "description": vi.get("description"), "route_distinguisher": rd}
+
+
+def _build_vrf_impacts(vpn_instances: dict) -> list[dict]:
+    impacts = []
+    for vi in vpn_instances.get("added", []):
+        impacts.append({"impact": f"Nova VPN-instance adicionada: {vi.get('name', '?')}.", "detail": "Pode indicar novo cliente L3VPN.", "severity": "info"})
+    for vi in vpn_instances.get("removed", []):
+        impacts.append({"impact": f"VPN-instance removida: {vi.get('name', '?')}.", "detail": "Validar se circuitos e rotas foram desativados.", "severity": "warning"})
+    return impacts
+
+
+# ── QoS comparison ─────────────────────────────────────────────────────
+
+
+def _qos_policy_key(p: dict) -> str:
+    return p.get("name", "")
+
+
+def _qos_beh_key(b: dict) -> str:
+    return b.get("name", "")
+
+
+def _qos_cl_key(c: dict) -> str:
+    return c.get("name", "")
+
+
+def _compare_qos(base_data: dict, target_data: dict) -> dict:
+    """Compare QoS / Traffic Policy configuration."""
+    base_qos = base_data.get("qos", {})
+    target_qos = target_data.get("qos", {})
+
+    base_p = {_qos_policy_key(p): p for p in base_qos.get("traffic_policies", [])}
+    target_p = {_qos_policy_key(p): p for p in target_qos.get("traffic_policies", [])}
+    policies_changed = []
+    for name in sorted(set(base_p) & set(target_p)):
+        if base_p[name] != target_p[name]:
+            policies_changed.append({"name": name})
+
+    base_c = {_qos_cl_key(c): c for c in base_qos.get("traffic_classifiers", [])}
+    target_c = {_qos_cl_key(c): c for c in target_qos.get("traffic_classifiers", [])}
+    classifiers_changed = []
+    for name in sorted(set(base_c) & set(target_c)):
+        if base_c[name] != target_c[name]:
+            classifiers_changed.append({"name": name})
+
+    base_b = {_qos_beh_key(b): b for b in base_qos.get("traffic_behaviors", [])}
+    target_b = {_qos_beh_key(b): b for b in target_qos.get("traffic_behaviors", [])}
+    behaviors_changed = []
+    car_changed = []
+    for name in sorted(set(base_b) & set(target_b)):
+        if base_b[name] != target_b[name]:
+            behaviors_changed.append({"name": name})
+        bc = base_b[name].get("car")
+        tc = target_b[name].get("car")
+        if bc != tc:
+            car_changed.append({"behavior": name, "from": bc or {}, "to": tc or {}})
+
+    def _get_bindings(data):
+        b = {}
+        for iface in data.get("interfaces", []):
+            for tp in iface.get("traffic_policies_applied", []):
+                k = f"{iface['name']}|{tp['name']}|{tp['direction']}"
+                b[k] = {"interface": iface["name"], "policy": tp["name"], "direction": tp["direction"]}
+        return b
+
+    base_bind = _get_bindings(base_data)
+    target_bind = _get_bindings(target_data)
+    interface_bindings_changed = base_bind != target_bind
+
+    return {
+        "policies_changed": policies_changed,
+        "classifiers_changed": classifiers_changed,
+        "behaviors_changed": behaviors_changed,
+        "car_changed": car_changed,
+        "interface_bindings_changed": interface_bindings_changed,
+    }
+
+
+def _build_qos_impacts(qos: dict) -> list[dict]:
+    """Generate impact statements for QoS changes."""
+    impacts = []
+    for p in qos.get("policies_changed", []):
+        impacts.append({"impact": f"Traffic-policy alterada: {p.get('name', '?')}.", "detail": "Pode impactar controle de banda do cliente.", "severity": "warning"})
+    for c in qos.get("classifiers_changed", []):
+        impacts.append({"impact": f"Traffic classifier alterado: {c.get('name', '?')}.", "detail": "Pode mudar o trafego afetado pela politica.", "severity": "warning"})
+    for c in qos.get("car_changed", []):
+        impacts.append({"impact": f"CAR alterado para {c.get('behavior', '?')}: {c.get('from', {}).get('cir', '?')} -> {c.get('to', {}).get('cir', '?')} kbps.", "detail": "Pode alterar velocidade contratada/limitada do cliente.", "severity": "high"})
+    for b in qos.get("behaviors_changed", []):
+        impacts.append({"impact": f"Traffic behavior alterado: {b.get('name', '?')}.", "detail": "Pode impactar acoes de QoS como remark e queue.", "severity": "warning"})
+    if qos.get("interface_bindings_changed"):
+        impacts.append({"impact": "Aplicacao de traffic-policy em interfaces alterada.", "detail": "Interface pode ficar sem controle de banda ou ganhar nova politica.", "severity": "warning"})
+    return impacts
+
+
+def _fmt_qos_summary(qos: dict) -> str:
+    parts = []
+    if qos.get("policies_changed"):
+        parts.append(f"{len(qos['policies_changed'])} policy(ies) alterada(s)")
+    if qos.get("classifiers_changed"):
+        parts.append(f"{len(qos['classifiers_changed'])} classifier(es) alterado(s)")
+    if qos.get("behaviors_changed"):
+        parts.append(f"{len(qos['behaviors_changed'])} behavior(s) alterado(s)")
+    if qos.get("car_changed"):
+        parts.append(f"{len(qos['car_changed'])} CAR alterado(s)")
+    if not parts:
+        return "sem mudancas"
     return ", ".join(parts)

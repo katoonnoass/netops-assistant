@@ -1,0 +1,17 @@
+#
+sysname NE40-NAT-DIFF
+#
+interface GigabitEthernet0/0/0
+ description WAN-UPLINK-OLD
+ ip address 200.200.200.1 255.255.255.252
+ nat outbound 3001 address-group 1
+ nat server protocol tcp global 200.200.200.200 www inside 10.0.0.200 80
+#
+nat address-group 1 200.200.200.10 200.200.200.20
+#
+nat static global 200.200.200.100 inside 10.0.0.100
+#
+acl number 3001
+ rule 5 permit ip source 10.0.0.0 0.255.255.255
+#
+return

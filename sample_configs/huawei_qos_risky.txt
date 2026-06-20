@@ -1,0 +1,28 @@
+#
+sysname NE40-QOS-RISK
+#
+interface LoopBack0
+ ip address 10.255.0.1 255.255.255.255
+#
+interface GigabitEthernet0/0/1.100
+ description CLIENTE-C-L3VPN
+ ip binding vpn-instance CLIENTE-C
+ ip address 10.30.30.1 255.255.255.252
+ traffic-policy NONEXISTENT-POLICY inbound
+ qos-profile NONEXISTENT-PROFILE inbound
+#
+interface GigabitEthernet0/0/2
+ description CLIENTE-SEM-QOS
+ ip binding vpn-instance CLIENTE-D
+ ip address 10.40.40.1 255.255.255.252
+#
+traffic classifier ORPHAN-CLASSIFIER operator or
+ if-match dscp af41
+#
+traffic behavior ORPHAN-BEHAVIOR
+ car cir 51200 pir 51200 cbs 1000000 pbs 1000000 green pass yellow discard red discard
+#
+traffic policy BROKEN-POLICY
+ classifier BROKEN-CLASSIFIER behavior BROKEN-BEHAVIOR precedence 5
+#
+return

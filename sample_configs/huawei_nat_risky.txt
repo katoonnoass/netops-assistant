@@ -1,0 +1,31 @@
+#
+sysname NE40-NAT-RISK
+#
+interface GigabitEthernet0/0/0
+ description WAN-UPLINK
+ ip address 200.200.200.1 255.255.255.252
+ nat outbound 9999 address-group 99
+ nat server protocol tcp global 200.200.200.100 22 inside 10.0.0.100 22
+ nat server protocol tcp global 200.200.200.101 3389 inside 10.0.0.101 3389
+ nat server protocol tcp global 200.200.200.102 23 inside 10.0.0.102 23
+ nat server global 200.200.200.200 inside 10.0.0.200
+ nat alg sip enable
+#
+interface GigabitEthernet0/0/1
+ ip address 192.168.1.1 255.255.255.0
+ nat outbound 3001
+ nat static global 10.0.0.1 inside 192.168.0.1
+#
+interface GigabitEthernet0/0/2.100
+ description CLIENTE-FAKE
+ ip binding vpn-instance CLIENTE-FAKE
+ ip address 10.20.20.1 255.255.255.252
+ nat outbound 3002 address-group 10
+#
+nat address-group 1 200.200.200.10 200.200.200.20
+nat address-group 10 10.0.0.1 10.0.0.10
+#
+acl number 3001
+ rule 5 permit ip source 10.0.0.0 0.255.255.255
+#
+return

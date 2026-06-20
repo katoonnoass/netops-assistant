@@ -1,0 +1,23 @@
+#
+sysname NE40-QOS-DIFF
+#
+interface GigabitEthernet0/0/1.100
+ description CLIENTE-A-L3VPN-NEW
+ ip binding vpn-instance CLIENTE-A
+ ip address 10.10.10.1 255.255.255.252
+ traffic-policy CLIENTE-A-QOS inbound
+ traffic-policy CLIENTE-A-QOS outbound
+#
+acl number 3002
+ rule 5 permit ip source 10.10.10.0 0.0.0.3
+#
+traffic classifier CLIENTE-A operator or
+ if-match acl 3002
+#
+traffic behavior LIMIT-200M
+ car cir 204800 pir 204800
+#
+traffic policy CLIENTE-A-QOS
+ classifier CLIENTE-A behavior LIMIT-200M precedence 5
+#
+return

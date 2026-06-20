@@ -144,6 +144,13 @@ def generate_analysis_documentation(
     mgmt_access = _document_management_access(parsed_data)
     mgmt_local_users = _document_local_users(parsed_data)
 
+    # ── VRF / L3VPN documentation ───────────────────────────────────
+    vrf_doc = _document_vrf_section(parsed_data)
+    # ── QoS documentation ──────────────────────────────────────────
+    qos_doc = _document_qos_section(parsed_data)
+    # ── NAT documentation ──────────────────────────────────────────
+    nat_doc = _document_nat_section(parsed_data)
+
     return {
         "summary": summary,
         "detected_roles": detected_roles,
@@ -157,6 +164,8 @@ def generate_analysis_documentation(
         "issues": documented_issues,
         "logical_map": logical_map,
         "recommendations": recommendations,
+        "ipv6": _document_ipv6_section(parsed_data),
+        "bng": _document_bng_section(parsed_data),
         # Management
         "management": {
             "snmp": mgmt_snmp,
@@ -169,6 +178,12 @@ def generate_analysis_documentation(
         "core": _document_core(parsed_data) or _build_core_documentation(parsed_data),
         # Policies
         "policies": _build_policy_documentation(parsed_data),
+        # VRF / L3VPN
+        "vrf": vrf_doc,
+        # QoS
+        "qos": qos_doc,
+        # NAT
+        "nat": nat_doc,
     }
 
 
@@ -1277,6 +1292,410 @@ def _build_policy_documentation(parsed_data: dict) -> dict | None:
 
     data["summary"] = ", ".join(parts)
     return data
+
+
+# ── VRF / L3VPN documentation ───────────────────────────────────────────
+
+
+def _document_vrf_section(parsed_data: dict) -> dict | None:
+    """Gera documentação estruturada para VRF / VPN-instance / L3VPN."""
+    vpn_instances = parsed_data.get("vpn_instances", [])
+    if not vpn_instances:
+        return None
+
+    vrf_entries = []
+    for vi in vpn_instances:
+        name = vi.get("name", "")
+        desc = vi.get("description")
+        af_data = vi.get("address_families", {})
+
+        # Collect RD and RTs
+        rd = None
+        rt_import: list[str] = []
+        rt_export: list[str] = []
+        for af_name, af in af_data.items():
+            if af.get("route_distinguisher"):
+                rd = af["route_distinguisher"]
+            for vt in af.get("vpn_targets", []):
+                if vt["direction"] == "import" and vt["value"] not in rt_import:
+                    rt_import.append(vt["value"])
+                if vt["direction"] == "export" and vt["value"] not in rt_export:
+                    rt_export.append(vt["value"])
+
+        # Find interfaces
+        interfaces_in_vrf = [
+            iface["name"]
+            for iface in parsed_data.get("interfaces", [])
+            if iface.get("vpn_instance") == name
+        ]
+
+        # Find static routes
+        static_routes_in_vrf = [
+            f"{r.get('network', '?')}/{r.get('netmask', '?')} via {r.get('next_hop', '?')}"
+            for r in parsed_data.get("static_routes", [])
+            if r.get("vpn_instance") == name
+        ]
+
+        # Find BGP vpn-instance info
+        bgp_vpn_info = None
+        route_policies = []
+        ce_peers = []
+        for bgp in parsed_data.get("bgp", []):
+            for bvi in bgp.get("vpn_instances", []):
+                if bvi["name"] == name:
+                    bgp_vpn_info = {
+                        "import_routes": bvi.get("import_routes", []),
+                        "networks": bvi.get("networks", []),
+                        "peers": bvi.get("peers", []),
+                    }
+                    for p in bvi.get("peers", []):
+                        ce_peers.append({
+                            "ip": p["ip"],
+                            "as": p.get("remote_as"),
+                            "route_policy_import": p.get("route_policy_import"),
+                            "route_policy_export": p.get("route_policy_export"),
+                        })
+                        if p.get("route_policy_import"):
+                            route_policies.append(p["route_policy_import"])
+                        if p.get("route_policy_export"):
+                            route_policies.append(p["route_policy_export"])
+
+        entry = {
+            "name": name,
+            "description": desc,
+            "route_distinguisher": rd,
+            "route_targets_import": rt_import,
+            "route_targets_export": rt_export,
+            "interfaces": interfaces_in_vrf,
+            "static_routes": static_routes_in_vrf,
+            "bgp_ipv4_family": bgp_vpn_info,
+            "ce_peers": ce_peers,
+            "route_policies": list(set(route_policies)),
+        }
+        vrf_entries.append(entry)
+
+    # VPNv4 peers
+    vpnv4_peers = []
+    for bgp in parsed_data.get("bgp", []):
+        for vp in bgp.get("vpnv4", {}).get("peers", []):
+            vpnv4_peers.append({
+                "peer": vp["peer"],
+                "enabled": vp.get("enabled", False),
+                "route_policy_import": vp.get("route_policy_import"),
+                "route_policy_export": vp.get("route_policy_export"),
+            })
+
+    # Build explanation
+    total_vrfs = len(vpn_instances)
+    total_ifaces = sum(len(e["interfaces"]) for e in vrf_entries)
+    total_ce_peers = sum(len(e["ce_peers"]) for e in vrf_entries)
+    has_rd = any(e["route_distinguisher"] for e in vrf_entries)
+    has_rt = any(e["route_targets_import"] or e["route_targets_export"] for e in vrf_entries)
+
+    parts = [f"{total_vrfs} VPN-instance(s) configurada(s)."]
+    if total_ifaces:
+        parts.append(f"{total_ifaces} interface(s) em VRF.")
+    if total_ce_peers:
+        parts.append(f"{total_ce_peers} peer(s) CE configurado(s).")
+    if has_rd:
+        parts.append("RD(s) configurado(s).")
+    if has_rt:
+        parts.append("Route-target(s) import/export configurado(s).")
+    if vpnv4_peers:
+        enabled = sum(1 for vp in vpnv4_peers if vp["enabled"])
+        parts.append(f"{len(vpnv4_peers)} peer(s) VPNv4 ({enabled} habilitado(s)).")
+
+    return {
+        "vrfs": vrf_entries,
+        "vpnv4_peers": vpnv4_peers,
+        "explanation": " ".join(parts),
+        "total_vrfs": total_vrfs,
+        "total_interfaces_in_vrf": total_ifaces,
+        "total_ce_peers": total_ce_peers,
+        "has_rd": has_rd,
+        "has_rt": has_rt,
+    }
+
+
+# ── QoS documentation ──────────────────────────────────────────────────
+
+
+def _document_qos_section(parsed_data: dict) -> dict | None:
+    """Gera documentação estruturada para QoS / Traffic Policy / CAR."""
+    qos = parsed_data.get("qos", {})
+    classifiers = qos.get("traffic_classifiers", [])
+    behaviors = qos.get("traffic_behaviors", [])
+    policies = qos.get("traffic_policies", [])
+    profiles = qos.get("qos_profiles", [])
+
+    if not any([classifiers, behaviors, policies, profiles]):
+        return None
+
+    # Build classifier docs
+    classifier_docs = []
+    for cl in classifiers:
+        classifier_docs.append({
+            "name": cl["name"],
+            "operator": cl.get("operator", "or"),
+            "if_match": cl.get("if_match", []),
+        })
+
+    # Build behavior docs
+    behavior_docs = []
+    for bh in behaviors:
+        beh = {
+            "name": bh["name"],
+            "car": bh.get("car"),
+            "statistics_enabled": bh.get("statistics_enabled", False),
+            "actions": bh.get("actions", []),
+        }
+        behavior_docs.append(beh)
+
+    # Build policy docs with bindings
+    policy_docs = []
+    for p in policies:
+        bindings = []
+        for iface in parsed_data.get("interfaces", []):
+            for tp in iface.get("traffic_policies_applied", []):
+                if tp["name"] == p["name"]:
+                    vpn = iface.get("vpn_instance")
+                    bindings.append({
+                        "interface": iface["name"],
+                        "direction": tp["direction"],
+                        "vpn_instance": vpn,
+                    })
+
+        policy_docs.append({
+            "name": p["name"],
+            "classifiers": [
+                {"classifier": ce["classifier"], "behavior": ce["behavior"],
+                 "precedence": ce.get("precedence")}
+                for ce in p.get("classifiers", [])
+            ],
+            "bindings": bindings,
+        })
+
+    # Build profile docs
+    profile_docs = []
+    for qp in profiles:
+        bindings = []
+        for iface in parsed_data.get("interfaces", []):
+            for aqp in iface.get("qos_profiles_applied", []):
+                if aqp["name"] == qp["name"]:
+                    bindings.append({
+                        "interface": iface["name"],
+                        "direction": aqp["direction"],
+                    })
+        profile_docs.append({
+            "name": qp["name"],
+            "car": qp.get("car"),
+            "bindings": bindings,
+        })
+
+    # Build per-interface QoS car entries
+    interface_cars = []
+    for iface in parsed_data.get("interfaces", []):
+        for qc in iface.get("qos_car", []):
+            interface_cars.append({
+                "interface": iface["name"],
+                "direction": qc["direction"],
+                "cir": qc.get("cir"),
+                "pir": qc.get("pir"),
+            })
+
+    # Build explanation
+    parts = [f"QoS detectado: {len(policies)} politica(s), {len(classifiers)} classifier(es), {len(behaviors)} behavior(s)."]
+    if profiles:
+        parts.append(f"{len(profiles)} qos-profile(s).")
+    total_bindings = sum(len(p["bindings"]) for p in policy_docs)
+    if total_bindings:
+        parts.append(f"{total_bindings} aplicacao(oes) em interface.")
+
+    return {
+        "classifiers": classifier_docs,
+        "behaviors": behavior_docs,
+        "policies": policy_docs,
+        "profiles": profile_docs,
+        "interface_cars": interface_cars,
+        "explanation": " ".join(parts),
+        "total_classifiers": len(classifiers),
+        "total_behaviors": len(behaviors),
+        "total_policies": len(policies),
+        "total_profiles": len(profiles),
+        "total_interface_bindings": total_bindings,
+    }
+
+
+# ── BNG documentation ─────────────────────────────────────────────────
+
+
+def _document_bng_section(parsed_data: dict) -> dict | None:
+    """Gera documentação estruturada para BNG Avançado / AAA / RADIUS / IP pools."""
+    aaa_blocks = parsed_data.get("aaa", [])
+    domains = parsed_data.get("aaa_domains", [])
+    radius_blocks = parsed_data.get("radius_servers", [])
+    pools = parsed_data.get("ip_pools", [])
+    bas_ifaces = [i for i in parsed_data.get("interfaces", []) if i.get("bas") and i["bas"].get("enabled")]
+
+    if not aaa_blocks and not domains and not bas_ifaces:
+        return None
+
+    # AAA schemes
+    auth_schemes = []
+    acct_schemes = []
+    authz_schemes = []
+    for ab in aaa_blocks:
+        auth_schemes.extend(ab.get("authentication_schemes", []))
+        acct_schemes.extend(ab.get("accounting_schemes", []))
+        authz_schemes.extend(ab.get("authorization_schemes", []))
+
+    # Domain entries (deduplicated)
+    domain_entries = {d["name"]: d for d in domains}
+    for ab in aaa_blocks:
+        for d in ab.get("domains", []):
+            if d["name"] not in domain_entries:
+                domain_entries[d["name"]] = d
+    all_domains = list(domain_entries.values())
+
+    return {
+        "aaa_present": bool(aaa_blocks),
+        "bas_interfaces": bas_ifaces,
+        "domains": all_domains,
+        "auth_schemes": auth_schemes,
+        "acct_schemes": acct_schemes,
+        "authz_schemes": authz_schemes,
+        "radius_groups": radius_blocks,
+        "ip_pools": pools,
+    }
+
+
+# ── IPv6 documentation ─────────────────────────────────────────────────
+
+
+def _document_ipv6_section(parsed_data: dict) -> dict | None:
+    """Gera documentação estruturada para IPv6 / BGP IPv6 / VPNv6."""
+    ifaces = [i for i in parsed_data.get("interfaces", []) if i.get("ipv6_enabled")]
+    routes = parsed_data.get("ipv6_static_routes", [])
+    if not ifaces and not routes:
+        return None
+
+    bgp_blocks = parsed_data.get("bgp", [])
+    ipv6_peers = []
+    ipv6_networks = []
+    vpnv6_peers = []
+    ipv6_vpn_instances = []
+    for bgp in bgp_blocks:
+        ipv6 = bgp.get("ipv6_unicast", {})
+        ipv6_peers.extend(ipv6.get("peers", []))
+        ipv6_networks.extend(ipv6.get("networks", []))
+        vpnv6_peers.extend(bgp.get("vpnv6", {}).get("peers", []))
+        ipv6_vpn_instances.extend(bgp.get("vpn_instances_ipv6", []))
+
+    v6_pl = [pl for pl in parsed_data.get("prefix_lists", []) if pl.get("is_ipv6")]
+    ospfv3 = parsed_data.get("ospfv3", [])
+    isis_ipv6_ifaces = [i for i in parsed_data.get("interfaces", []) if i.get("isis_ipv6_enabled")]
+
+    return {
+        "interfaces": ifaces,
+        "routes": routes,
+        "bgp_peers": ipv6_peers,
+        "bgp_networks": ipv6_networks,
+        "vpnv6_peers": vpnv6_peers,
+        "vpn_instances_ipv6": ipv6_vpn_instances,
+        "prefix_lists": v6_pl,
+        "ospfv3": ospfv3,
+        "isis_ipv6_interfaces": isis_ipv6_ifaces,
+    }
+
+
+# ── NAT documentation ──────────────────────────────────────────────────
+
+
+def _document_nat_section(parsed_data: dict) -> dict | None:
+    """Gera documentação estruturada para NAT / PAT / Port Forward."""
+    nat = parsed_data.get("nat", {})
+    if not any([nat.get("address_groups"), nat.get("outbound_rules"),
+                nat.get("static_rules"), nat.get("server_rules")]):
+        return None
+
+    ag_docs = []
+    for ag in nat.get("address_groups", []):
+        ifaces_using = []
+        for iface in parsed_data.get("interfaces", []):
+            for raw_line in iface.get("nat_outbound", []):
+                if ag["name"] in raw_line:
+                    ifaces_using.append(iface["name"])
+        ag_docs.append({
+            "name": ag["name"],
+            "start_ip": ag["start_ip"],
+            "end_ip": ag["end_ip"],
+            "vpn_instance": ag.get("vpn_instance"),
+            "interfaces_using": list(set(ifaces_using)),
+        })
+
+    ob_docs = []
+    for ob in nat.get("outbound_rules", []):
+        iface_name = None
+        for iface in parsed_data.get("interfaces", []):
+            for raw_line in iface.get("nat_outbound", []):
+                if ob.get("acl", "") in raw_line:
+                    iface_name = iface["name"]
+                    break
+        ob_docs.append({
+            "acl": ob["acl"],
+            "address_group": ob.get("address_group"),
+            "no_pat": ob.get("no_pat", False),
+            "vpn_instance": ob.get("vpn_instance"),
+            "interface": iface_name,
+        })
+
+    st_docs = []
+    for sr in nat.get("static_rules", []):
+        st_docs.append({
+            "protocol": sr.get("protocol"),
+            "global_ip": sr["global_ip"],
+            "global_port": sr.get("global_port"),
+            "inside_ip": sr["inside_ip"],
+            "inside_port": sr.get("inside_port"),
+            "vpn_instance": sr.get("vpn_instance"),
+        })
+
+    sv_docs = []
+    for sv in nat.get("server_rules", []):
+        sv_docs.append({
+            "protocol": sv.get("protocol"),
+            "global_ip": sv["global_ip"],
+            "global_port": sv.get("global_port"),
+            "inside_ip": sv["inside_ip"],
+            "inside_port": sv.get("inside_port"),
+        })
+
+    alg_docs = []
+    for alg in nat.get("alg", []):
+        alg_docs.append({
+            "protocol": alg["protocol"],
+            "enabled": alg["enabled"],
+        })
+
+    ifaces_with_nat = [i["name"] for i in parsed_data.get("interfaces", []) if i.get("has_nat")]
+
+    parts = [f"NAT detectado: {len(ob_docs)} outbound, {len(st_docs)} static, {len(sv_docs)} server."]
+    if ifaces_with_nat:
+        parts.append(f"Aplicado em {len(ifaces_with_nat)} interface(s).")
+    if ag_docs:
+        parts.append(f"{len(ag_docs)} address-group(s).")
+    if alg_docs:
+        parts.append(f"ALG: {', '.join(a['protocol'] for a in alg_docs)}.")
+
+    return {
+        "address_groups": ag_docs,
+        "outbound_rules": ob_docs,
+        "static_rules": st_docs,
+        "server_rules": sv_docs,
+        "alg": alg_docs,
+        "interfaces_with_nat": ifaces_with_nat,
+        "explanation": " ".join(parts),
+    }
 
 
 # ── Management documentation ────────────────────────────────────────────

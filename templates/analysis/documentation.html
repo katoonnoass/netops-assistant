@@ -496,6 +496,457 @@
 </div>
 {% endif %}
 
+<!-- VRF / L3VPN -->
+{% if doc.qos %}
+<div class="card mb-2">
+    <h3 class="section-title">QoS / Traffic Policy / Controle de Banda</h3>
+    <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 0.75rem;">
+        {{ doc.qos.explanation }}
+    </p>
+
+    {% if doc.qos.policies %}
+    <h4 style="margin-bottom: 0.5rem;">Traffic Policies ({{ doc.qos.policies|length }})</h4>
+    {% for p in doc.qos.policies %}
+    <div class="card" style="margin-bottom: 0.75rem; border-left: 4px solid #e91e63; padding: 0.75rem;">
+        <strong>{{ p.name }}</strong>
+        {% if p.bindings %}
+        <div style="font-size:0.85rem;margin-top:0.3rem;">
+            <strong>Aplicada em:</strong>
+            {% for b in p.bindings %}
+            <div><code>{{ b.interface }}</code> ({{ b.direction }}){% if b.vpn_instance %} — VPN: <code>{{ b.vpn_instance }}</code>{% endif %}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% if p.classifiers %}
+        <table class="table" style="font-size:0.85rem;margin-top:0.5rem;">
+            <thead><tr><th>Classifier</th><th>Behavior</th><th>Precedence</th></tr></thead>
+            <tbody>
+                {% for ce in p.classifiers %}
+                <tr>
+                    <td><code>{{ ce.classifier }}</code></td>
+                    <td><code>{{ ce.behavior }}</code></td>
+                    <td>{{ ce.precedence|default:"—" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if doc.qos.classifiers %}
+    <h4 style="margin-top: 1rem; margin-bottom: 0.5rem;">Traffic Classifiers ({{ doc.qos.classifiers|length }})</h4>
+    {% for cl in doc.qos.classifiers %}
+    <div class="card" style="margin-bottom: 0.5rem; border-left: 4px solid #9c27b0; padding: 0.5rem;">
+        <strong>{{ cl.name }}</strong> (operator: {{ cl.operator }})
+        {% if cl.if_match %}
+        <ul style="font-size:0.85rem;margin-top:0.3rem;">
+            {% for im in cl.if_match %}
+            <li><code>{{ im.raw }}</code></li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if doc.qos.behaviors %}
+    <h4 style="margin-top: 1rem; margin-bottom: 0.5rem;">Traffic Behaviors ({{ doc.qos.behaviors|length }})</h4>
+    {% for bh in doc.qos.behaviors %}
+    <div class="card" style="margin-bottom: 0.5rem; border-left: 4px solid #ff5722; padding: 0.5rem;">
+        <strong>{{ bh.name }}</strong>
+        {% if bh.car %}
+        <div style="font-size:0.85rem;margin-top:0.3rem;">
+            <strong>CAR:</strong> CIR {{ bh.car.cir }} kbps{% if bh.car.pir %}, PIR {{ bh.car.pir }} kbps{% endif %}
+            {% if bh.car.cbs %}, CBS {{ bh.car.cbs }}{% endif %}
+            {% if bh.car.pbs %}, PBS {{ bh.car.pbs }}{% endif %}
+            {% if bh.car.green_action %}, green: {{ bh.car.green_action }}{% endif %}
+            {% if bh.car.yellow_action %}, yellow: {{ bh.car.yellow_action }}{% endif %}
+            {% if bh.car.red_action %}, red: {{ bh.car.red_action }}{% endif %}
+        </div>
+        {% endif %}
+        {% if bh.statistics_enabled %}<span class="badge badge-primary" style="margin-top:0.3rem;">statistic enable</span>{% endif %}
+        {% if bh.actions %}
+        <ul style="font-size:0.85rem;margin-top:0.3rem;">
+            {% for act in bh.actions %}
+            {% if act.type != 'car' and act.type != 'statistic_enable' %}
+            <li><code>{{ act.raw }}</code></li>
+            {% endif %}
+            {% endfor %}
+        </ul>
+        {% endif %}
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if doc.qos.profiles %}
+    <h4 style="margin-top: 1rem; margin-bottom: 0.5rem;">QoS-Profiles ({{ doc.qos.profiles|length }})</h4>
+    {% for qp in doc.qos.profiles %}
+    <div class="card" style="margin-bottom: 0.5rem; border-left: 4px solid #009688; padding: 0.5rem;">
+        <strong>{{ qp.name }}</strong>
+        {% if qp.car %}
+        <div style="font-size:0.85rem;">CIR {{ qp.car.cir }}{% if qp.car.pir %}}, PIR {{ qp.car.pir }}{% endif %} kbps</div>
+        {% endif %}
+        {% if qp.bindings %}
+        <div style="font-size:0.85rem;margin-top:0.3rem;">
+            Aplicado em:
+            {% for b in qp.bindings %}
+            <div><code>{{ b.interface }}</code> ({{ b.direction }})</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if doc.qos.interface_cars %}
+    <h4 style="margin-top: 1rem; margin-bottom: 0.5rem;">QoS CAR por Interface</h4>
+    <table class="table" style="font-size:0.85rem;">
+        <thead><tr><th>Interface</th><th>Direction</th><th>CIR (kbps)</th><th>PIR (kbps)</th></tr></thead>
+        <tbody>
+            {% for ic in doc.qos.interface_cars %}
+            <tr>
+                <td><code>{{ ic.interface }}</code></td>
+                <td>{{ ic.direction }}</td>
+                <td>{{ ic.cir }}</td>
+                <td>{{ ic.pir|default:"—" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+</div>
+{% endif %}
+
+{% if doc.ipv6 %}
+    <h2>IPv6 / BGP IPv6 / VPNv6</h2>
+
+    {% if doc.ipv6.interfaces %}
+    <h3>Interfaces IPv6</h3>
+    <table class="table">
+        <thead><tr><th>Interface</th><th>Endereços IPv6</th><th>Link-local</th><th>OSPFv3</th><th>ISIS IPv6</th></tr></thead>
+        <tbody>
+        {% for iface in doc.ipv6.interfaces %}
+            <tr>
+                <td>{{ iface.name }}</td>
+                <td>
+                    {% for addr in iface.ipv6_addresses %}
+                        {{ addr.address }}/{{ addr.prefix_length }}<br>
+                    {% endfor %}
+                </td>
+                <td>{{ iface.ipv6_link_local_auto|yesno:"Sim,Não" }}</td>
+                <td>{% if iface.ospfv3_enabled %}Processo {{ iface.ospfv3_process_id }}/{{ iface.ospfv3_area }}{% else %}-{% endif %}</td>
+                <td>{% if iface.isis_ipv6_enabled %}Processo {{ iface.isis_ipv6_process_id }}{% if iface.isis_ipv6_cost %} (custo {{ iface.isis_ipv6_cost }}){% endif %}{% else %}-{% endif %}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+
+    {% if doc.ipv6.routes %}
+    <h3>Rotas Estáticas IPv6</h3>
+    <table class="table">
+        <thead><tr><th>Prefixo</th><th>Next-hop</th><th>VPN-instance</th><th>Descrição</th></tr></thead>
+        <tbody>
+        {% for route in doc.ipv6.routes %}
+            <tr>
+                <td>{{ route.prefix }}</td>
+                <td>{{ route.next_hop }}</td>
+                <td>{{ route.vpn_instance|default:"-" }}</td>
+                <td>{{ route.description|default:"-" }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+
+    {% if doc.ipv6.bgp_peers %}
+    <h3>BGP IPv6 Unicast</h3>
+    <table class="table">
+        <thead><tr><th>Peer</th><th>Habilitado</th><th>Route-Policy Import</th><th>Route-Policy Export</th></tr></thead>
+        <tbody>
+        {% for peer in doc.ipv6.bgp_peers %}
+            <tr>
+                <td>{{ peer.peer }}</td>
+                <td>{{ peer.enabled|yesno:"Sim,Não" }}</td>
+                <td>{{ peer.route_policy_import|default:"-" }}</td>
+                <td>{{ peer.route_policy_export|default:"-" }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+
+    {% if doc.ipv6.bgp_networks %}
+    <h3>Redes BGP IPv6 Anunciadas</h3>
+    <ul>
+        {% for net in doc.ipv6.bgp_networks %}
+        <li><code>{% if net.prefix %}{{ net.prefix }}{% else %}{{ net }}{% endif %}</code></li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+
+    {% if doc.ipv6.vpnv6_peers %}
+    <h3>BGP VPNv6</h3>
+    <table class="table">
+        <thead><tr><th>Peer</th><th>Habilitado</th><th>Route-Policy Import</th><th>Route-Policy Export</th></tr></thead>
+        <tbody>
+        {% for peer in doc.ipv6.vpnv6_peers %}
+            <tr>
+                <td>{{ peer.peer }}</td>
+                <td>{{ peer.enabled|yesno:"Sim,Não" }}</td>
+                <td>{{ peer.route_policy_import|default:"-" }}</td>
+                <td>{{ peer.route_policy_export|default:"-" }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+
+    {% if doc.ipv6.vpn_instances_ipv6 %}
+    <h3>VPN-instance IPv6</h3>
+    <ul>
+        {% for vi in doc.ipv6.vpn_instances_ipv6 %}<li><code>{{ vi.name }}</code> ({{ vi.peers|length }} peers, {{ vi.networks|length }} networks)</li>{% endfor %}
+    </ul>
+    {% endif %}
+
+    {% if doc.ipv6.prefix_lists %}
+    <h3>IPv6 Prefix-Lists</h3>
+    {% for pl in doc.ipv6.prefix_lists %}
+        <h4>{{ pl.name }}</h4>
+        <table class="table">
+            <thead><tr><th>Index</th><th>Ação</th><th>Prefixo</th><th>Máscara</th><th>Ge</th><th>Le</th></tr></thead>
+            <tbody>
+            {% for rule in pl.rules %}
+                <tr>
+                    <td>{{ rule.index }}</td>
+                    <td>{{ rule.action }}</td>
+                    <td>{{ rule.prefix }}</td>
+                    <td>{{ rule.mask_length }}</td>
+                    <td>{{ rule.greater_equal|default:"-" }}</td>
+                    <td>{{ rule.less_equal|default:"-" }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    {% endfor %}
+    {% endif %}
+
+    {% if doc.ipv6.ospfv3 %}
+    <h3>OSPFv3</h3>
+    <table class="table">
+        <thead><tr><th>Processo</th><th>Router-ID</th></tr></thead>
+        <tbody>
+        {% for ospf in doc.ipv6.ospfv3 %}
+            <tr><td>{{ ospf.process_id }}</td><td>{{ ospf.router_id|default:"-" }}</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+
+    {% if doc.ipv6.isis_ipv6_interfaces %}
+    <h3>ISIS IPv6</h3>
+    <table class="table">
+        <thead><tr><th>Interface</th><th>Processo</th><th>Custo</th></tr></thead>
+        <tbody>
+        {% for iface in doc.ipv6.isis_ipv6_interfaces %}
+            <tr><td>{{ iface.name }}</td><td>{{ iface.isis_ipv6_process_id }}</td><td>{{ iface.isis_ipv6_cost|default:"-" }}</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+{% endif %}
+
+{% if doc.nat %}
+<div class="card mb-2">
+    <h3 class="section-title">NAT / PAT / Port Forward</h3>
+    <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 0.75rem;">{{ doc.nat.explanation }}</p>
+
+    {% if doc.nat.address_groups %}
+    <h4 style="margin-bottom: 0.5rem;">Address-Groups ({{ doc.nat.address_groups|length }})</h4>
+    <table class="table" style="font-size:0.85rem;">
+        <thead><tr><th>Nome</th><th>IP Inicial</th><th>IP Final</th><th>VPN</th><th>Interfaces</th></tr></thead>
+        <tbody>
+            {% for ag in doc.nat.address_groups %}
+            <tr>
+                <td><code>{{ ag.name }}</code></td>
+                <td>{{ ag.start_ip }}</td>
+                <td>{{ ag.end_ip }}</td>
+                <td>{% if ag.vpn_instance %}<code>{{ ag.vpn_instance }}</code>{% else %}—{% endif %}</td>
+                <td>{% if ag.interfaces_using %}{{ ag.interfaces_using|join:", " }}{% else %}—{% endif %}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+
+    {% if doc.nat.outbound_rules %}
+    <h4 style="margin-top: 1rem; margin-bottom: 0.5rem;">NAT Outbound / PAT ({{ doc.nat.outbound_rules|length }})</h4>
+    <table class="table" style="font-size:0.85rem;">
+        <thead><tr><th>ACL</th><th>Address-Group</th><th>No-PAT</th><th>Interface</th><th>VPN</th></tr></thead>
+        <tbody>
+            {% for ob in doc.nat.outbound_rules %}
+            <tr>
+                <td>{{ ob.acl }}</td>
+                <td>{{ ob.address_group|default:"—" }}</td>
+                <td>{% if ob.no_pat %}Sim{% else %}Não{% endif %}</td>
+                <td>{{ ob.interface|default:"—" }}</td>
+                <td>{% if ob.vpn_instance %}<code>{{ ob.vpn_instance }}</code>{% else %}—{% endif %}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+
+    {% if doc.nat.static_rules %}
+    <h4 style="margin-top: 1rem; margin-bottom: 0.5rem;">NAT Estático ({{ doc.nat.static_rules|length }})</h4>
+    <table class="table" style="font-size:0.85rem;">
+        <thead><tr><th>Protocolo</th><th>Global IP</th><th>Porta</th><th>Inside IP</th><th>Porta</th><th>VPN</th></tr></thead>
+        <tbody>
+            {% for sr in doc.nat.static_rules %}
+            <tr>
+                <td>{{ sr.protocol|default:"—" }}</td>
+                <td>{{ sr.global_ip }}</td>
+                <td>{{ sr.global_port|default:"—" }}</td>
+                <td>{{ sr.inside_ip }}</td>
+                <td>{{ sr.inside_port|default:"—" }}</td>
+                <td>{% if sr.vpn_instance %}<code>{{ sr.vpn_instance }}</code>{% else %}—{% endif %}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+
+    {% if doc.nat.server_rules %}
+    <h4 style="margin-top: 1rem; margin-bottom: 0.5rem;">NAT Server / Port Forward ({{ doc.nat.server_rules|length }})</h4>
+    <table class="table" style="font-size:0.85rem;">
+        <thead><tr><th>Protocolo</th><th>Global (IP:Porta)</th><th>Inside (IP:Porta)</th></tr></thead>
+        <tbody>
+            {% for sv in doc.nat.server_rules %}
+            <tr>
+                <td>{{ sv.protocol|default:"*" }}</td>
+                <td>{{ sv.global_ip }}:{{ sv.global_port|default:"*" }}</td>
+                <td>{{ sv.inside_ip }}:{{ sv.inside_port|default:"*" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+
+    {% if doc.nat.alg %}
+    <h4 style="margin-top: 1rem; margin-bottom: 0.5rem;">ALG ({{ doc.nat.alg|length }})</h4>
+    <ul style="font-size:0.85rem;">
+        {% for a in doc.nat.alg %}
+        <li>{{ a.protocol }}: {% if a.enabled %}Habilitado{% else %}Desabilitado{% endif %}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+</div>
+{% endif %}
+
+{% if doc.vrf %}
+<div class="card mb-2">
+    <h3 class="section-title">VRF / VPN-instance / L3VPN</h3>
+    <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 0.75rem;">
+        {{ doc.vrf.explanation }}
+    </p>
+
+    {% for vrf in doc.vrf.vrfs %}
+    <div class="card" style="margin-bottom: 0.75rem; border-left: 4px solid #7c4dff; padding: 0.75rem;">
+        <div class="flex justify-between items-center mb-1">
+            <strong>{{ vrf.name }}</strong>
+            {% if vrf.description %}<span style="font-size:0.85rem;color:var(--text-secondary);">{{ vrf.description }}</span>{% endif %}
+        </div>
+
+        <div class="detail-grid" style="gap: 0.3rem; margin-top: 0.3rem;">
+            {% if vrf.route_distinguisher %}
+            <div class="detail-item"><label>Route-Distinguisher</label><span><code>{{ vrf.route_distinguisher }}</code></span></div>
+            {% endif %}
+            {% if vrf.route_targets_import %}
+            <div class="detail-item"><label>RT Import</label><span>{% for rt in vrf.route_targets_import %}<code>{{ rt }}</code> {% endfor %}</span></div>
+            {% endif %}
+            {% if vrf.route_targets_export %}
+            <div class="detail-item"><label>RT Export</label><span>{% for rt in vrf.route_targets_export %}<code>{{ rt }}</code> {% endfor %}</span></div>
+            {% endif %}
+        </div>
+
+        {% if vrf.interfaces %}
+        <h5 style="margin-top: 0.5rem; font-size:0.85rem;">Interfaces vinculadas</h5>
+        <ul style="font-size:0.85rem;">
+            {% for iface in vrf.interfaces %}
+            <li><code>{{ iface }}</code></li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+
+        {% if vrf.static_routes %}
+        <h5 style="margin-top: 0.5rem; font-size:0.85rem;">Rotas estáticas VRF</h5>
+        <ul style="font-size:0.85rem;">
+            {% for route in vrf.static_routes %}
+            <li><code>{{ route }}</code></li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+
+        {% if vrf.bgp_ipv4_family %}
+        <h5 style="margin-top: 0.5rem; font-size:0.85rem;">BGP ipv4-family vpn-instance</h5>
+        <div style="font-size:0.85rem;">
+            {% if vrf.bgp_ipv4_family.import_routes %}
+            <div>Import-Route: {{ vrf.bgp_ipv4_family.import_routes|join:", " }}</div>
+            {% endif %}
+            {% if vrf.bgp_ipv4_family.networks %}
+            <div>Networks: {{ vrf.bgp_ipv4_family.networks|join:", " }}</div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {% if vrf.ce_peers %}
+        <h5 style="margin-top: 0.5rem; font-size:0.85rem;">Peers CE</h5>
+        <table class="table" style="font-size:0.85rem;">
+            <thead><tr><th>Peer</th><th>AS</th><th>Route-Policy Import</th><th>Route-Policy Export</th></tr></thead>
+            <tbody>
+                {% for peer in vrf.ce_peers %}
+                <tr>
+                    <td><code>{{ peer.ip }}</code></td>
+                    <td>{{ peer.as }}</td>
+                    <td>{% if peer.route_policy_import %}<code>{{ peer.route_policy_import }}</code>{% else %}—{% endif %}</td>
+                    <td>{% if peer.route_policy_export %}<code>{{ peer.route_policy_export }}</code>{% else %}—{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+
+        {% if vrf.route_policies %}
+        <div style="margin-top:0.3rem;font-size:0.85rem;">
+            Route-policies associadas: {% for rp in vrf.route_policies %}<code>{{ rp }}</code> {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+
+    {% if doc.vrf.vpnv4_peers %}
+    <div class="card" style="margin-bottom: 0.75rem; border-left: 4px solid #00bcd4; padding: 0.75rem;">
+        <h4 style="margin-bottom: 0.5rem;">BGP VPNv4 Peers</h4>
+        <table class="table">
+            <thead><tr><th>Peer</th><th>Status</th><th>Route-Policy Import</th><th>Route-Policy Export</th></tr></thead>
+            <tbody>
+                {% for vp in doc.vrf.vpnv4_peers %}
+                <tr>
+                    <td><code>{{ vp.peer }}</code></td>
+                    <td>{% if vp.enabled %}<span style="color:var(--success);">Habilitado</span>{% else %}<span style="color:var(--danger);">Desabilitado</span>{% endif %}</td>
+                    <td>{% if vp.route_policy_import %}<code>{{ vp.route_policy_import }}</code>{% else %}—{% endif %}</td>
+                    <td>{% if vp.route_policy_export %}<code>{{ vp.route_policy_export }}</code>{% else %}—{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
 <!-- Circuits -->
 <div class="card mb-2">
     <h3 class="section-title">Circuitos Detectados ({{ doc.circuits|length }})</h3>

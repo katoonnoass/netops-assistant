@@ -1,0 +1,45 @@
+#
+sysname NE40-BNG-RISKY
+#
+aaa
+ authentication-scheme AUTH-EXISTE
+  authentication-mode radius
+ #
+ accounting-scheme ACC-EXISTE
+  accounting-mode radius
+ #
+ domain cliente-risco
+  authentication-scheme AUTH-INEXISTENTE
+  accounting-scheme ACC-EXISTE
+  authorization-scheme AUTHZ-INEXISTENTE
+  radius-server group RAD-EXISTE
+  ip-pool POOL-EXISTE
+#
+domain DOMINIO-SEM-AAA
+ radius-server group GRUPO-INEXISTENTE
+ ip-pool POOL-INEXISTENTE
+#
+radius-server group RAD-EXISTE
+ radius-server accounting 10.10.10.10 1813 weight 80
+ radius-server shared-key simple S3nh4F4c1l
+ radius-server retransmit 3
+#
+ip pool POOL-EXISTE bas local
+ dns-server 8.8.8.8
+#
+ip pool POOL-REMOTO bas remote
+ radius-server group RAD-EXISTE
+#
+interface Eth-Trunk100.100
+ bas
+  access-type layer2-subscriber default-domain authentication DOMINIO-INEXISTENTE
+  accounting-copy radius-server group GRUPO-INEXISTENTE
+#
+interface Eth-Trunk100.200
+ user-vlan 200
+ bas
+  access-type layer2-subscriber default-domain authentication DOMINIO-SEM-AAA
+  authentication-method pppoe
+  ip-trigger
+#
+return

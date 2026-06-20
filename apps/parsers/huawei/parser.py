@@ -24,6 +24,7 @@ class HuaweiVRPParser(BaseParser):
     RE_INTERFACE = re.compile(r"^interface\s+(\S+)", re.MULTILINE)
     RE_BGP = re.compile(r"^bgp\s+(\d+)", re.MULTILINE)
     RE_ROUTE_STATIC = re.compile(r"^ip\s+route-static\s+(.+?)$", re.MULTILINE)
+    RE_IPV6_ROUTE_STATIC = re.compile(r"^ipv6\s+route-static\s+(.+?)$", re.MULTILINE)
     RE_SYSNAME = re.compile(r"^sysname\s+(.+)", re.MULTILINE)
     RE_HEADER_COMMANDS = re.compile(
         r"^(sysname|undo\s+terminal|device-id|info-center|clock|user-interface"
@@ -80,6 +81,15 @@ class HuaweiVRPParser(BaseParser):
         "info-center",
         "stelnet",
         "ssh",
+        # VPN/VRF blocks
+        "ip vpn-instance",
+        # QoS / Traffic Policy blocks
+        "traffic classifier",
+        "traffic behavior",
+        "traffic policy",
+        "ospfv3",
+        "ip ipv6-prefix",
+        "qos-profile",
     )
 
     # BNG indicator keywords
@@ -202,6 +212,26 @@ class HuaweiVRPParser(BaseParser):
                 "remote_peers": [],
                 "raw_lines": [],
             },
+            "vpn_instances": [],
+            "qos": {
+                "traffic_classifiers": [],
+                "traffic_behaviors": [],
+                "traffic_policies": [],
+                "qos_profiles": [],
+            },
+            "nat": {
+                "address_groups": [],
+                "outbound_rules": [],
+                "static_rules": [],
+                "server_rules": [],
+                "alg": [],
+            },
+            "ipv6_static_routes": [],
+            "ipv6_prefix_lists": [],
+            "ospfv3": [],
+            "bgp_ipv6": [],
+            "vpnv6": [],
+            "vpn_instances_ipv6": [],
             "raw": text,
             "block_count": 0,
         }
@@ -256,6 +286,28 @@ class HuaweiVRPParser(BaseParser):
                 result["vty_lines"].append(parsed)
             elif block["type"] == "ssh":
                 self._parse_ssh_line(block["header"], result["ssh"])
+            elif block["type"] == "vpn_instance":
+                parsed = self._parse_vpn_instance_block(block)
+                if parsed:
+                    result["vpn_instances"].append(parsed)
+            elif block["type"] == "nat":
+                self._parse_nat_line(block["header"], result)
+            elif block["type"] == "traffic_classifier":
+                parsed = self._parse_traffic_classifier_block(block)
+                if parsed:
+                    result["qos"]["traffic_classifiers"].append(parsed)
+            elif block["type"] == "traffic_behavior":
+                parsed = self._parse_traffic_behavior_block(block)
+                if parsed:
+                    result["qos"]["traffic_behaviors"].append(parsed)
+            elif block["type"] == "traffic_policy":
+                parsed = self._parse_traffic_policy_block(block)
+                if parsed:
+                    result["qos"]["traffic_policies"].append(parsed)
+            elif block["type"] == "qos_profile":
+                parsed = self._parse_qos_profile_block(block)
+                if parsed:
+                    result["qos"]["qos_profiles"].append(parsed)
             elif block["type"] == "local_user":
                 self._parse_local_user_line(block["header"], result)
             elif block["type"] == "acl":
@@ -296,6 +348,10 @@ class HuaweiVRPParser(BaseParser):
                 parsed = self._parse_isis_block(block)
                 if parsed:
                     result["isis"].append(parsed)
+            elif block["type"] == "ospfv3":
+                parsed = self._parse_ospfv3_block(block)
+                if parsed:
+                    result["ospfv3"].append(parsed)
             elif block["type"] == "mpls":
                 self._parse_mpls_block(block, result)
 
@@ -303,6 +359,7 @@ class HuaweiVRPParser(BaseParser):
         self._enrich_interfaces_core(result)
 
         result["static_routes"] = self._extract_static_routes(text)
+        result["ipv6_static_routes"] = self._extract_ipv6_static_routes(text)
         result["bng_indicators"] = self._extract_bng_indicators(result)
 
         # Post-process: extract local-users from raw text
@@ -316,6 +373,12 @@ class HuaweiVRPParser(BaseParser):
 
         # Post-process: tie ACL references to definitions in SNMP data
         self._enrich_acl_references(result)
+
+        # Post-process: extract NAT from interfaces into global NAT dict
+        self._extract_interface_nat(result)
+
+        # Merge duplicate interfaces by name (same name in multiple blocks)
+        self._merge_interfaces_by_name(result)
 
         # Deduplicate VLANs: individual blocks override batch entries
         self._deduplicate_vlans(result)
@@ -363,6 +426,13 @@ class HuaweiVRPParser(BaseParser):
 
             # Check for line-level commands (not part of a block)
             is_line_command = self._is_line_command(stripped)
+
+            # Handle non-indented '#' as block separator
+            if stripped == "#" and not is_indented:
+                if current_block:
+                    blocks.append(self._finalize_block(current_block))
+                    current_block = None
+                continue
 
             if is_block_starter:
                 # Save previous block
@@ -454,12 +524,16 @@ class HuaweiVRPParser(BaseParser):
             return "route-policy"
         if header_lower.startswith("ip prefix-list"):
             return "prefix-list"
+        if header_lower.startswith("ip ipv6-prefix"):
+            return "prefix-list"
         if header_lower.startswith("ip ip-prefix"):
             return "prefix-list"
         if header_lower.startswith("ip as-path-filter"):
             return "as-path-filter"
         if header_lower.startswith("ip community-filter"):
             return "community-filter"
+        if header_lower.startswith("ospfv3"):
+            return "ospfv3"
         if header_lower.startswith("ospf"):
             return "ospf"
         if header_lower.startswith("isis"):
@@ -506,6 +580,18 @@ class HuaweiVRPParser(BaseParser):
             return "vlan_batch"
         if header_lower.startswith("router id"):
             return "router_id"
+        if header_lower.startswith("ip vpn-instance"):
+            return "vpn_instance"
+        if header_lower.startswith("nat "):
+            return "nat"
+        if header_lower.startswith("traffic classifier"):
+            return "traffic_classifier"
+        if header_lower.startswith("traffic behavior"):
+            return "traffic_behavior"
+        if header_lower.startswith("traffic policy"):
+            return "traffic_policy"
+        if header_lower.startswith("qos-profile"):
+            return "qos_profile"
         if header_lower.startswith("info-center"):
             return "syslog"
         if header_lower.startswith("stelnet"):
@@ -561,6 +647,11 @@ class HuaweiVRPParser(BaseParser):
             "pe_vid": None,
             "ce_vid": None,
             "vsi_name": None,
+            "vpn_instance": None,
+            "is_vrf_interface": False,
+            "traffic_policies_applied": [],
+            "qos_profiles_applied": [],
+            "qos_car": [],
             "shutdown": False,
             "raw": block["raw"],
         }
@@ -576,6 +667,11 @@ class HuaweiVRPParser(BaseParser):
             elif stripped.startswith("ip address "):
                 ip_part = stripped[len("ip address "):].strip()
                 parsed["ip_address"] = ip_part
+
+            elif stripped.startswith("ip binding vpn-instance "):
+                vpn_name = stripped[len("ip binding vpn-instance "):].strip()
+                parsed["vpn_instance"] = vpn_name
+                parsed["is_vrf_interface"] = True
 
             elif stripped == "shutdown":
                 parsed["shutdown"] = True
@@ -657,6 +753,170 @@ class HuaweiVRPParser(BaseParser):
                 parsed["loopback_detection"] = True
             elif stripped == "lldp enable":
                 parsed["lldp_enabled"] = True
+
+            # ── NAT per-interface ──────────────────────────────────
+            if stripped.startswith("nat outbound"):
+                parsed.setdefault("nat_outbound", []).append(stripped)
+                parsed["has_nat"] = True
+                continue
+            if stripped.startswith("nat server"):
+                parsed.setdefault("nat_server", []).append(stripped)
+                parsed["has_nat"] = True
+                continue
+            if stripped.startswith("nat static"):
+                parsed.setdefault("nat_static", []).append(stripped)
+                parsed["has_nat"] = True
+                continue
+            if stripped.startswith("nat alg"):
+                parsed.setdefault("nat_alg", []).append(stripped)
+                parsed["has_nat"] = True
+                continue
+
+            # ── BAS per-interface ──────────────────────────────────
+            if stripped.startswith("user-vlan "):
+                uv = stripped[len("user-vlan "):].strip()
+                qm = re.match(r"(\d+)\s+qinq\s+(\d+)", uv)
+                if qm:
+                    parsed["user_vlan"] = qm.group(1)
+                    parsed["qinq_vlan"] = qm.group(2)
+                else:
+                    parsed["user_vlan"] = uv.split()[0] if uv else uv
+            if stripped.startswith("bas"):
+                parsed["bas"] = {"enabled": True}
+            # BAS sub-commands (only relevant if bas is enabled)
+            if parsed.get("bas") and parsed["bas"].get("enabled"):
+                if stripped.startswith("access-type "):
+                    at = stripped[len("access-type "):].strip()
+                    parsed["bas"]["access_type"] = at.split()[0]
+                    # Check for default-domain on the same line
+                    dd = re.match(r".*default-domain\s+authentication\s+(\S+)", stripped, re.I)
+                    if dd:
+                        parsed["bas"]["default_domain"] = dd.group(1)
+                    pd = re.match(r".*default-domain\s+pre-authentication\s+(\S+)", stripped, re.I)
+                    if pd:
+                        parsed["bas"]["pre_authentication_domain"] = pd.group(1)
+                elif stripped.startswith("authentication-method "):
+                    parsed["bas"]["authentication_method"] = stripped[len("authentication-method "):].strip()
+                elif stripped.startswith("default-domain"):
+                    dd = re.match(r"default-domain\s+authentication\s+(\S+)", stripped, re.I)
+                    if dd:
+                        parsed["bas"]["default_domain"] = dd.group(1)
+                    pd = re.match(r"default-domain\s+pre-authentication\s+(\S+)", stripped, re.I)
+                    if pd:
+                        parsed["bas"]["pre_authentication_domain"] = pd.group(1)
+                elif stripped.startswith("accounting-copy"):
+                    ac = re.match(r"accounting-copy\s+radius-server\s+group\s+(\S+)", stripped, re.I)
+                    if ac:
+                        parsed["bas"]["accounting_copy_radius_group"] = ac.group(1)
+                elif stripped == "ip-trigger":
+                    parsed["bas"]["ip_trigger"] = True
+                elif stripped == "arp-trigger":
+                    parsed["bas"]["arp_trigger"] = True
+                elif stripped == "ipv6-trigger":
+                    parsed["bas"]["ipv6_trigger"] = True
+            # Backward compat: also set top-level triggers (for non-BAS interfaces)
+            if stripped == "ip-trigger":
+                parsed["ip_trigger"] = True
+            if stripped == "arp-trigger":
+                parsed["arp_trigger"] = True
+            if stripped == "ipv6-trigger":
+                parsed["ipv6_trigger"] = True
+
+            # ── QoS / Traffic Policy per-interface ─────────────────
+            tp_match = re.match(
+                r"^traffic-policy\s+(\S+)\s+(inbound|outbound)",
+                stripped, re.IGNORECASE
+            )
+            if tp_match:
+                parsed["traffic_policies_applied"].append({
+                    "name": tp_match.group(1),
+                    "direction": tp_match.group(2),
+                })
+                continue
+
+            qp_match = re.match(
+                r"^qos-profile\s+(\S+)\s+(inbound|outbound)",
+                stripped, re.IGNORECASE
+            )
+            if qp_match:
+                parsed["qos_profiles_applied"].append({
+                    "name": qp_match.group(1),
+                    "direction": qp_match.group(2),
+                })
+                continue
+
+            # ── IPv6 per-interface ───────────────────────────────────
+            if stripped == "ipv6 enable":
+                parsed["ipv6_enabled"] = True
+                continue
+            if stripped.startswith("ipv6 address auto link-local"):
+                parsed["ipv6_link_local_auto"] = True
+                continue
+            if stripped.startswith("ipv6 address auto global"):
+                parsed["ipv6_global_auto"] = True
+                continue
+            v6_ll = re.match(r"^ipv6 address (\S+?)(?:/(\d+))?\s+link-local", stripped)
+            if v6_ll:
+                addr = v6_ll.group(1)
+                pl = int(v6_ll.group(2)) if v6_ll.group(2) else None
+                parsed.setdefault("ipv6_link_local_addresses", []).append({
+                    "address": addr,
+                    "prefix_length": pl,
+                    "raw": stripped,
+                })
+                continue
+            v6_addr = re.match(r"^ipv6 address (\S+)/(\d+)", stripped)
+            if v6_addr:
+                parsed.setdefault("ipv6_addresses", []).append({
+                    "address": v6_addr.group(1),
+                    "prefix_length": int(v6_addr.group(2)),
+                    "raw": stripped,
+                })
+                continue
+            v6_addr_sep = re.match(r"^ipv6 address (\S+)\s+(\d+)", stripped)
+            if v6_addr_sep and "auto" not in stripped and "link-local" not in stripped:
+                parsed.setdefault("ipv6_addresses", []).append({
+                    "address": v6_addr_sep.group(1),
+                    "prefix_length": int(v6_addr_sep.group(2)),
+                    "raw": stripped,
+                })
+                continue
+
+            # ── OSPFv3 per-interface ──────────────────────────────
+            ov3 = re.match(r"^ospfv3\s+(\S+)\s+area\s+(\S+)", stripped)
+            if ov3:
+                parsed["ospfv3_enabled"] = True
+                parsed["ospfv3_process_id"] = ov3.group(1)
+                parsed["ospfv3_area"] = ov3.group(2)
+                continue
+
+            # ── ISIS IPv6 per-interface ───────────────────────────
+            v6_isis = re.match(r"^isis\s+ipv6\s+enable\s+(\S+)", stripped)
+            if v6_isis:
+                parsed["isis_ipv6_enabled"] = True
+                parsed["isis_ipv6_process_id"] = v6_isis.group(1)
+                continue
+            v6_isis_cost = re.match(r"^isis\s+ipv6\s+cost\s+(\d+)", stripped)
+            if v6_isis_cost:
+                parsed["isis_ipv6_cost"] = int(v6_isis_cost.group(1))
+                continue
+
+            qcar_match = re.match(
+                r"^qos\s+car\s+(inbound|outbound)\s+cir\s+(\d+)(.*)",
+                stripped, re.IGNORECASE
+            )
+            if qcar_match:
+                qcar = {
+                    "direction": qcar_match.group(1),
+                    "cir": int(qcar_match.group(2)),
+                }
+                rest = qcar_match.group(3)
+                pir_m = re.search(r"pir\s+(\d+)", rest, re.IGNORECASE)
+                if pir_m:
+                    qcar["pir"] = int(pir_m.group(1))
+                qcar["raw"] = stripped
+                parsed["qos_car"].append(qcar)
+                continue
 
             # ── L2 interface flag ──────────────────────────────────
             if parsed.get("port_mode") in ("access", "trunk", "hybrid"):
@@ -915,6 +1175,25 @@ class HuaweiVRPParser(BaseParser):
 
         return parsed
 
+    def _parse_ospfv3_block(self, block: dict) -> dict | None:
+        """Parse an OSPFv3 block."""
+        header = block["header"]
+        m = re.match(r"^ospfv3\s+(\S+)", header)
+        if not m:
+            return None
+        parsed = {
+            "process_id": m.group(1),
+            "router_id": None,
+            "raw_lines": block["lines"],
+        }
+        for line in block["lines"][1:]:
+            stripped = line.strip()
+            if not stripped or stripped == "#":
+                continue
+            if stripped.startswith("router-id"):
+                parsed["router_id"] = stripped[len("router-id "):].strip()
+        return parsed
+
     def _parse_isis_block(self, block: dict) -> dict | None:
         """Parse an ISIS configuration block.
 
@@ -1080,6 +1359,93 @@ class HuaweiVRPParser(BaseParser):
                 elif sl == "mpls ldp":
                     iface["mpls_ldp_enabled"] = True
 
+    def _extract_interface_nat(self, result: dict) -> None:
+        """Extract NAT rules from interfaces into the global nat dict."""
+        for iface in result.get("interfaces", []):
+            for raw_line in iface.get("nat_outbound", []):
+                m = re.match(
+                    r"^nat\s+outbound\s+(?:acl\s+)?(\S+)"
+                    r"(?:\s+address-group\s+(\S+))?(?:\s+no-pat)?",
+                    raw_line, re.IGNORECASE
+                )
+                if m:
+                    result["nat"]["outbound_rules"].append({
+                        "acl": m.group(1),
+                        "address_group": m.group(2),
+                        "no_pat": "no-pat" in raw_line.lower(),
+                        "vpn_instance": iface.get("vpn_instance"),
+                        "raw": raw_line,
+                    })
+                # Note: 'interface' context is lost here; utils need to re-match
+            for raw_line in iface.get("nat_server", []):
+                sv_m = re.match(
+                    r"^nat\s+server\s+(?:protocol\s+(\S+)\s+)?"
+                    r"global\s+(\S+)(?:\s+(\S+))?\s+inside\s+(\S+)(?:\s+(\S+))?",
+                    raw_line, re.IGNORECASE
+                )
+                if sv_m:
+                    result["nat"]["server_rules"].append({
+                        "protocol": sv_m.group(1),
+                        "global_ip": sv_m.group(2),
+                        "global_port": sv_m.group(3),
+                        "inside_ip": sv_m.group(4),
+                        "inside_port": sv_m.group(5),
+                        "raw": raw_line,
+                    })
+
+    def _merge_interfaces_by_name(self, result: dict) -> None:
+        """Merge duplicate interfaces with the same name.
+
+        If the same interface name appears in multiple parsed blocks,
+        merge fields safely without data loss.
+        """
+        ifaces = result.get("interfaces", [])
+        merged: dict[str, dict] = {}
+        merge_order: list[str] = []
+        for iface in ifaces:
+            name = iface.get("name", "")
+            if name not in merged:
+                merged[name] = dict(iface)
+                merge_order.append(name)
+            else:
+                existing = merged[name]
+                # Merge all fields from new iface into existing
+                for key, value in iface.items():
+                    if key == "name":
+                        continue
+                    existing_val = existing.get(key)
+                    if value is None:
+                        continue
+                    if existing_val is None or existing_val == "" or existing_val == [] or existing_val == {}:
+                        existing[key] = value
+                        continue
+                    # Lists: extend without duplicates
+                    if isinstance(value, list) and isinstance(existing_val, list):
+                        for item in value:
+                            if item not in existing_val:
+                                existing_val.append(item)
+                        continue
+                    # Dicts: deep merge
+                    if isinstance(value, dict) and isinstance(existing_val, dict):
+                        for k, v in value.items():
+                            if v is not None:
+                                existing_val[k] = v
+                        continue
+                    # Booleans: True wins
+                    if isinstance(value, bool) and isinstance(existing_val, bool):
+                        existing[key] = existing_val or value
+                        continue
+                    # Scalars: keep first non-empty
+                    if value and not existing_val:
+                        existing[key] = value
+                    # Keep existing_val if already set
+                # Merge raw text
+                iface_raw = iface.get("raw", "")
+                existing_raw = existing.get("raw", "")
+                if iface_raw and iface_raw not in existing_raw:
+                    existing["raw"] = existing_raw + "\n" + iface_raw
+        result["interfaces"] = [merged[name] for name in merge_order]
+
     def _deduplicate_vlans(self, result: dict) -> None:
         """Remove batch VLANs that have individual block overrides."""
         seen: dict[int, int] = {}  # vlan_id -> index in list
@@ -1132,7 +1498,7 @@ class HuaweiVRPParser(BaseParser):
         result[key] = list(merged.values())
 
     def _parse_bgp_block(self, block: dict) -> dict:
-        """Extract structured data from a BGP block."""
+        """Extract structured data from a BGP block, including IPv6 unicast, VPNv6, and IPv6 vpn-instance."""
         header = block["header"]
         as_number = header[len("bgp "):].strip()
 
@@ -1141,29 +1507,111 @@ class HuaweiVRPParser(BaseParser):
             "peers": [],
             "networks": [],
             "has_ipv4_family": False,
+            "vpnv4": {
+                "peers": [],
+            },
+            "vpn_instances": [],
+            # IPv6 sections
+            "ipv6_unicast": {
+                "peers": [],
+                "networks": [],
+            },
+            "vpnv6": {
+                "peers": [],
+            },
+            "vpn_instances_ipv6": [],
             "raw": block["raw"],
         }
 
-        # Track current peer and whether we're inside ipv4-family
         peers_by_ip: dict[str, dict] = {}
         in_ipv4_family = False
+        in_vpnv4_family = False
+        in_ipv6_family = False
+        in_vpnv6_family = False
+        current_vpn_instance = None
+        current_vpn_instance_ipv6 = None
 
         for line in block["lines"][1:]:
             stripped = line.strip()
             if not stripped or stripped == "#":
                 continue
 
-            # Track ipv4-family unicast section
+            # Family section tracking
+            if stripped.startswith("ipv4-family vpnv4"):
+                in_ipv4_family = False
+                in_vpnv4_family = True
+                in_ipv6_family = False
+                in_vpnv6_family = False
+                current_vpn_instance = None
+                current_vpn_instance_ipv6 = None
+                continue
+
+            if stripped.startswith("ipv4-family vpn-instance "):
+                in_ipv4_family = False
+                in_vpnv4_family = False
+                in_ipv6_family = False
+                in_vpnv6_family = False
+                current_vpn_instance_ipv6 = None
+                vpn_name = stripped[len("ipv4-family vpn-instance "):].strip()
+                current_vpn_instance = {
+                    "name": vpn_name,
+                    "import_routes": [],
+                    "networks": [],
+                    "peers": [],
+                }
+                parsed["vpn_instances"].append(current_vpn_instance)
+                continue
+
+            if stripped.startswith("ipv6-family vpn-instance "):
+                in_ipv4_family = False
+                in_vpnv4_family = False
+                in_ipv6_family = False
+                in_vpnv6_family = False
+                current_vpn_instance = None
+                vpn_name = stripped[len("ipv6-family vpn-instance "):].strip()
+                current_vpn_instance_ipv6 = {
+                    "name": vpn_name,
+                    "import_routes": [],
+                    "networks": [],
+                    "peers": [],
+                }
+                parsed["vpn_instances_ipv6"].append(current_vpn_instance_ipv6)
+                continue
+
+            if stripped.startswith("ipv6-family vpnv6"):
+                in_ipv4_family = False
+                in_vpnv4_family = False
+                in_ipv6_family = False
+                in_vpnv6_family = True
+                current_vpn_instance = None
+                current_vpn_instance_ipv6 = None
+                continue
+
+            if stripped.startswith("ipv6-family unicast"):
+                in_ipv4_family = False
+                in_vpnv4_family = False
+                in_ipv6_family = True
+                in_vpnv6_family = False
+                current_vpn_instance = None
+                current_vpn_instance_ipv6 = None
+                continue
+
             if stripped.startswith("ipv4-family"):
                 in_ipv4_family = True
+                in_vpnv4_family = False
+                in_ipv6_family = False
+                in_vpnv6_family = False
+                current_vpn_instance = None
+                current_vpn_instance_ipv6 = None
                 parsed["has_ipv4_family"] = True
                 continue
 
-            # Peer definition
+            # Global peer definition
             peer_match = re.match(
                 r"^peer\s+(\S+)\s+as-number\s+(\d+)", stripped
             )
-            if peer_match:
+            vpn_context = current_vpn_instance is None and current_vpn_instance_ipv6 is None
+            if peer_match and not in_vpnv4_family and not in_vpnv6_family and vpn_context:
                 peer_ip = peer_match.group(1)
                 if peer_ip not in peers_by_ip:
                     peer = {
@@ -1181,18 +1629,239 @@ class HuaweiVRPParser(BaseParser):
                     parsed["peers"].append(peer)
                 continue
 
-            # Network advertisement
-            net = self._parse_bgp_network(stripped)
-            if net:
-                parsed["networks"].append(net)
+            # Peer inside vpn-instance (IPv4)
+            if peer_match and current_vpn_instance is not None:
+                peer_ip = peer_match.group(1)
+                peer = {
+                    "ip": peer_ip,
+                    "remote_as": peer_match.group(2),
+                    "route_policy_import": None,
+                    "route_policy_export": None,
+                }
+                current_vpn_instance["peers"].append(peer)
                 continue
 
-            # Lines starting with "peer " — handle various attributes
+            # Peer inside vpn-instance IPv6
+            if peer_match and current_vpn_instance_ipv6 is not None:
+                peer_ip = peer_match.group(1)
+                peer = {
+                    "ip": peer_ip,
+                    "remote_as": peer_match.group(2),
+                    "route_policy_import": None,
+                    "route_policy_export": None,
+                }
+                current_vpn_instance_ipv6["peers"].append(peer)
+                continue
+
+            # Network
+            net = self._parse_bgp_network(stripped)
+            if net and in_ipv6_family:
+                # Parse IPv6 network with prefix length
+                v6net = self._parse_bgp_ipv6_network(stripped)
+                if v6net:
+                    parsed["ipv6_unicast"]["networks"].append(v6net)
+                else:
+                    parsed["ipv6_unicast"]["networks"].append(net)
+                continue
+            if net and current_vpn_instance_ipv6 is not None:
+                v6net = self._parse_bgp_ipv6_network(stripped)
+                if v6net:
+                    current_vpn_instance_ipv6["networks"].append(v6net)
+                else:
+                    current_vpn_instance_ipv6["networks"].append(net)
+                continue
+            if net and current_vpn_instance is None:
+                parsed["networks"].append(net)
+                continue
+            if net and current_vpn_instance is not None:
+                current_vpn_instance["networks"].append(net)
+                continue
+
+            # import-route inside vpn-instance
+            ir_match = re.match(r"^import-route\s+(\S+)", stripped)
+            if ir_match and current_vpn_instance is not None:
+                current_vpn_instance["import_routes"].append(ir_match.group(1))
+                continue
+            if ir_match and current_vpn_instance_ipv6 is not None:
+                current_vpn_instance_ipv6["import_routes"].append(ir_match.group(1))
+                continue
+
+            # Peer sub-commands
             if stripped.startswith("peer "):
-                self._parse_bgp_peer_line(stripped, peers_by_ip, in_ipv4_family)
+                if current_vpn_instance is not None:
+                    self._parse_bgp_vpn_peer_line(stripped, current_vpn_instance["peers"])
+                elif current_vpn_instance_ipv6 is not None:
+                    self._parse_bgp_vpn_peer_line(stripped, current_vpn_instance_ipv6["peers"])
+                elif in_vpnv6_family:
+                    self._parse_bgp_vpnv6_peer_line(stripped, parsed["vpnv6"]["peers"])
+                elif in_vpnv4_family:
+                    self._parse_bgp_vpnv4_peer_line(stripped, parsed["vpnv4"]["peers"])
+                elif in_ipv6_family:
+                    self._parse_bgp_ipv6_peer_line(stripped, parsed["ipv6_unicast"]["peers"])
+                else:
+                    self._parse_bgp_peer_line(stripped, peers_by_ip, in_ipv4_family)
                 continue
 
         return parsed
+        return parsed
+
+    def _parse_bgp_vpnv4_peer_line(
+        self, stripped: str, vpnv4_peers: list[dict]
+    ) -> None:
+        """Parse a VPNv4 peer sub-command."""
+        ip_match = re.match(r"^peer\s+(\S+)", stripped)
+        if not ip_match:
+            return
+        peer_ip = ip_match.group(1)
+
+        rest = stripped[len(f"peer {peer_ip}"):].strip()
+        if rest == "enable":
+            # Add or update peer
+            for p in vpnv4_peers:
+                if p["peer"] == peer_ip:
+                    p["enabled"] = True
+                    return
+            vpnv4_peers.append({
+                "peer": peer_ip,
+                "enabled": True,
+                "route_policy_import": None,
+                "route_policy_export": None,
+            })
+            return
+
+        # Check if peer already exists or create new entry
+        peer_entry = None
+        for p in vpnv4_peers:
+            if p["peer"] == peer_ip:
+                peer_entry = p
+                break
+        if peer_entry is None:
+            peer_entry = {
+                "peer": peer_ip,
+                "enabled": False,
+                "route_policy_import": None,
+                "route_policy_export": None,
+            }
+            vpnv4_peers.append(peer_entry)
+
+        # route-policy import/export
+        rp_match = re.match(r"^route-policy\s+(\S+)\s+(import|export)", rest)
+        if rp_match:
+            policy_name = rp_match.group(1)
+            direction = rp_match.group(2)
+            if direction == "import":
+                peer_entry["route_policy_import"] = policy_name
+            else:
+                peer_entry["route_policy_export"] = policy_name
+
+    def _parse_bgp_vpnv6_peer_line(
+        self, stripped: str, vpnv6_peers: list[dict]
+    ) -> None:
+        """Parse a VPNv6 peer sub-command."""
+        ip_match = re.match(r"^peer\s+(\S+)", stripped)
+        if not ip_match:
+            return
+        peer_ip = ip_match.group(1)
+        rest = stripped[len(f"peer {peer_ip}"):].strip()
+        if rest == "enable":
+            for p in vpnv6_peers:
+                if p["peer"] == peer_ip:
+                    p["enabled"] = True
+                    return
+            vpnv6_peers.append({
+                "peer": peer_ip,
+                "enabled": True,
+                "route_policy_import": None,
+                "route_policy_export": None,
+            })
+            return
+        peer_entry = None
+        for p in vpnv6_peers:
+            if p["peer"] == peer_ip:
+                peer_entry = p
+                break
+        if peer_entry is None:
+            peer_entry = {
+                "peer": peer_ip,
+                "enabled": False,
+                "route_policy_import": None,
+                "route_policy_export": None,
+            }
+            vpnv6_peers.append(peer_entry)
+        rp_match = re.match(r"^route-policy\s+(\S+)\s+(import|export)", rest)
+        if rp_match:
+            policy_name = rp_match.group(1)
+            direction = rp_match.group(2)
+            if direction == "import":
+                peer_entry["route_policy_import"] = policy_name
+            else:
+                peer_entry["route_policy_export"] = policy_name
+
+    def _parse_bgp_ipv6_peer_line(
+        self, stripped: str, ipv6_peers: list[dict]
+    ) -> None:
+        """Parse an IPv6 unicast peer sub-command."""
+        ip_match = re.match(r"^peer\s+(\S+)", stripped)
+        if not ip_match:
+            return
+        peer_ip = ip_match.group(1)
+        rest = stripped[len(f"peer {peer_ip}"):].strip()
+        if rest == "enable":
+            for p in ipv6_peers:
+                if p["peer"] == peer_ip:
+                    p["enabled"] = True
+                    return
+            ipv6_peers.append({
+                "peer": peer_ip,
+                "enabled": True,
+                "route_policy_import": None,
+                "route_policy_export": None,
+            })
+            return
+        peer_entry = None
+        for p in ipv6_peers:
+            if p["peer"] == peer_ip:
+                peer_entry = p
+                break
+        if peer_entry is None:
+            ipv6_peers.append({
+                "peer": peer_ip,
+                "enabled": False,
+                "route_policy_import": None,
+                "route_policy_export": None,
+            })
+            return
+        rp_match = re.match(r"^route-policy\s+(\S+)\s+(import|export)", rest)
+        if rp_match:
+            policy_name = rp_match.group(1)
+            direction = rp_match.group(2)
+            if direction == "import":
+                peer_entry["route_policy_import"] = policy_name
+            else:
+                peer_entry["route_policy_export"] = policy_name
+
+    def _parse_bgp_vpn_peer_line(
+        self, stripped: str, ce_peers: list[dict]
+    ) -> None:
+        """Parse a CE peer sub-command inside vpn-instance."""
+        ip_match = re.match(r"^peer\s+(\S+)", stripped)
+        if not ip_match:
+            return
+        peer_ip = ip_match.group(1)
+        rest = stripped[len(f"peer {peer_ip}"):].strip()
+
+        # route-policy import/export
+        rp_match = re.match(r"^route-policy\s+(\S+)\s+(import|export)", rest)
+        if rp_match:
+            policy_name = rp_match.group(1)
+            direction = rp_match.group(2)
+            for p in ce_peers:
+                if p["ip"] == peer_ip:
+                    if direction == "import":
+                        p["route_policy_import"] = policy_name
+                    else:
+                        p["route_policy_export"] = policy_name
+                    return
 
     def _parse_bgp_network(self, stripped: str) -> str | None:
         """Extract a network advertisement from a BGP sub-command."""
@@ -1201,6 +1870,21 @@ class HuaweiVRPParser(BaseParser):
             stripped,
         )
         return match.group(1).strip() if match else None
+
+    def _parse_bgp_ipv6_network(self, stripped: str) -> dict | None:
+        """Parse an IPv6 BGP network with prefix length.
+
+        Formats:
+            network 2001:db8:200:: 48
+            network 2001:db8:200::/48
+        """
+        m = re.match(r"^network\s+(\S+?)\s+(\d+)$", stripped)
+        if m:
+            return {"prefix": f"{m.group(1)}/{m.group(2)}", "network": m.group(1), "prefix_length": int(m.group(2)), "raw": stripped}
+        m = re.match(r"^network\s+(\S+?)/(\d+)$", stripped)
+        if m:
+            return {"prefix": f"{m.group(1)}/{m.group(2)}", "network": m.group(1), "prefix_length": int(m.group(2)), "raw": stripped}
+        return None
 
     def _parse_bgp_peer_line(
         self, stripped: str, peers_by_ip: dict, in_ipv4_family: bool
@@ -1314,6 +1998,478 @@ class HuaweiVRPParser(BaseParser):
 
         return routes
 
+    # ── IPv6 static routes ────────────────────────────────────────────────
+
+    def _extract_ipv6_static_routes(self, text: str) -> list:
+        """Extract all ipv6 route-static lines."""
+        routes = []
+        for match in self.RE_IPV6_ROUTE_STATIC.finditer(text):
+            route_text = match.group(1).strip()
+            route = {
+                "raw": f"ipv6 route-static {route_text}",
+                "vpn_instance": None,
+                "destination": None,
+                "prefix_length": None,
+                "prefix": None,
+                "next_hop": None,
+                "description": None,
+            }
+            tokens = route_text.split()
+            pos = 0
+            if pos < len(tokens) and tokens[pos].lower() == "vpn-instance":
+                pos += 1
+                if pos < len(tokens):
+                    route["vpn_instance"] = tokens[pos]
+                    pos += 1
+            if len(tokens) > pos:
+                route["destination"] = tokens[pos]
+                pos += 1
+            if len(tokens) > pos:
+                try:
+                    route["prefix_length"] = int(tokens[pos])
+                    pos += 1
+                except ValueError:
+                    pass
+            if len(tokens) > pos and tokens[pos] != "description":
+                route["next_hop"] = tokens[pos]
+                pos += 1
+            while pos < len(tokens):
+                kw = tokens[pos].lower()
+                if kw == "description" and pos + 1 < len(tokens):
+                    pos += 1
+                    route["description"] = tokens[pos]
+                pos += 1
+            if route["destination"] and route["prefix_length"] is not None:
+                route["prefix"] = f"{route['destination']}/{route['prefix_length']}"
+            routes.append(route)
+        return routes
+
+    # ── NAT parser methods ───────────────────────────────────────────────
+
+    RE_NAT_ADDRESS_GROUP = re.compile(
+        r"^nat\s+address-group\s+(\S+)\s+(\S+)\s+(\S+)(?:\s+vpn-instance\s+(\S+))?",
+        re.IGNORECASE,
+    )
+
+    def _parse_nat_line(self, header: str, result: dict) -> None:
+        """Parse a standalone NAT command line."""
+        header_lower = header.lower()
+
+        # nat address-group <name> <start> <end> [vpn-instance <name>]
+        ag_m = self.RE_NAT_ADDRESS_GROUP.match(header)
+        if ag_m:
+            result["nat"]["address_groups"].append({
+                "name": ag_m.group(1),
+                "start_ip": ag_m.group(2),
+                "end_ip": ag_m.group(3),
+                "vpn_instance": ag_m.group(4),
+                "raw": header,
+            })
+            return
+        # nat address-group might also appear inside a block (but typically standalone)
+        # Fallback: try simpler regex
+        ag_simple = re.match(
+            r"^nat\s+address-group\s+(\S+)\s+(\S+)\s+(\S+)",
+            header, re.IGNORECASE
+        )
+        if ag_simple:
+            result["nat"]["address_groups"].append({
+                "name": ag_simple.group(1),
+                "start_ip": ag_simple.group(2),
+                "end_ip": ag_simple.group(3),
+                "vpn_instance": None,
+                "raw": header,
+            })
+            return
+
+        # nat outbound <acl> [address-group <name>] [no-pat]
+        ob_m = re.match(
+            r"^nat\s+outbound\s+(?:acl\s+)?(\S+)"
+            r"(?:\s+address-group\s+(\S+))?(?:\s+no-pat)?"
+            r"(?:\s+vpn-instance\s+(\S+))?",
+            header, re.IGNORECASE
+        )
+        if ob_m and header_lower.startswith("nat outbound"):
+            result["nat"]["outbound_rules"].append({
+                "acl": ob_m.group(1),
+                "address_group": ob_m.group(2),
+                "no_pat": "no-pat" in header_lower,
+                "vpn_instance": ob_m.group(3),
+                "raw": header,
+            })
+            return
+
+        # nat static [protocol <proto>] global <ip> [port] inside <ip> [port] [vpn-instance <name>]
+        st_m = re.match(
+            r"^nat\s+static\s+(?:protocol\s+(\S+)\s+)?"
+            r"global\s+(\S+)(?:\s+(\S+))?\s+inside\s+(\S+)(?:\s+(\S+))?"
+            r"(?:\s+vpn-instance\s+(\S+))?",
+            header, re.IGNORECASE
+        )
+        if st_m and header_lower.startswith("nat static"):
+            result["nat"]["static_rules"].append({
+                "protocol": st_m.group(1),
+                "global_ip": st_m.group(2),
+                "global_port": st_m.group(3),
+                "inside_ip": st_m.group(4),
+                "inside_port": st_m.group(5),
+                "vpn_instance": st_m.group(6),
+                "raw": header,
+            })
+            return
+
+        # nat server [protocol <proto>] global <ip> [port] inside <ip> [port]
+        sv_m = re.match(
+            r"^nat\s+server\s+(?:protocol\s+(\S+)\s+)?"
+            r"global\s+(\S+)(?:\s+(\S+))?\s+inside\s+(\S+)(?:\s+(\S+))?",
+            header, re.IGNORECASE
+        )
+        if sv_m and header_lower.startswith("nat server"):
+            result["nat"]["server_rules"].append({
+                "protocol": sv_m.group(1),
+                "global_ip": sv_m.group(2),
+                "global_port": sv_m.group(3),
+                "inside_ip": sv_m.group(4),
+                "inside_port": sv_m.group(5),
+                "raw": header,
+            })
+            return
+
+        # nat alg <protocol> enable|disable
+        alg_m = re.match(
+            r"^nat\s+alg\s+(\S+)\s+(enable|disable)",
+            header, re.IGNORECASE
+        )
+        if alg_m:
+            result["nat"]["alg"].append({
+                "protocol": alg_m.group(1),
+                "enabled": alg_m.group(2).lower() == "enable",
+                "raw": header,
+            })
+            return
+
+    # ── QoS parser methods ──────────────────────────────────────────────
+
+    def _parse_traffic_classifier_block(self, block: dict) -> dict | None:
+        """Parse a traffic classifier block.
+
+        VRP format:
+            traffic classifier NAME operator or/and
+             if-match acl <id>
+             if-match any
+             if-match dscp <value>
+             if-match 8021p <value>
+            #
+        """
+        header = block["header"]
+        m = re.match(
+            r"^traffic\s+classifier\s+(\S+)(?:\s+operator\s+(or|and))?",
+            header, re.IGNORECASE
+        )
+        if not m:
+            return None
+
+        parsed = {
+            "name": m.group(1),
+            "operator": m.group(2) or "or",
+            "if_match": [],
+            "raw_lines": block.get("lines", []),
+            "raw": block.get("raw", ""),
+        }
+
+        for line in block.get("lines", [])[1:]:
+            stripped = line.strip()
+            if not stripped or stripped == "#":
+                continue
+
+            m_acl = re.match(r"^if-match\s+acl\s+(\S+)", stripped, re.IGNORECASE)
+            if m_acl:
+                parsed["if_match"].append({
+                    "type": "acl", "value": m_acl.group(1), "raw": stripped
+                })
+                continue
+
+            m_any = re.match(r"^if-match\s+any$", stripped, re.IGNORECASE)
+            if m_any:
+                parsed["if_match"].append({
+                    "type": "any", "value": None, "raw": stripped
+                })
+                continue
+
+            m_dscp = re.match(r"^if-match\s+dscp\s+(\S+)", stripped, re.IGNORECASE)
+            if m_dscp:
+                parsed["if_match"].append({
+                    "type": "dscp", "value": m_dscp.group(1), "raw": stripped
+                })
+                continue
+
+            m_8021p = re.match(r"^if-match\s+8021p\s+(\S+)", stripped, re.IGNORECASE)
+            if m_8021p:
+                parsed["if_match"].append({
+                    "type": "8021p", "value": m_8021p.group(1), "raw": stripped
+                })
+                continue
+
+            # Preserve unknown if-match lines
+            if stripped.startswith("if-match "):
+                parsed["if_match"].append({
+                    "type": "unknown", "value": stripped[len("if-match "):], "raw": stripped
+                })
+
+        return parsed
+
+    def _parse_traffic_behavior_block(self, block: dict) -> dict | None:
+        """Parse a traffic behavior block.
+
+        VRP format:
+            traffic behavior NAME
+             car cir <rate> pir <rate> [cbs <size>] [pbs <size>]
+                 [green <action>] [yellow <action>] [red <action>]
+             statistic enable
+             remark dscp <value>
+             queue <type> bandwidth pct <pct>
+            #
+        """
+        header = block["header"]
+        m = re.match(r"^traffic\s+behavior\s+(\S+)", header, re.IGNORECASE)
+        if not m:
+            return None
+
+        parsed = {
+            "name": m.group(1),
+            "car": None,
+            "statistics_enabled": False,
+            "actions": [],
+            "raw_lines": block.get("lines", []),
+            "raw": block.get("raw", ""),
+        }
+
+        for line in block.get("lines", [])[1:]:
+            stripped = line.strip()
+            if not stripped or stripped == "#":
+                continue
+
+            # CAR (Committed Access Rate)
+            car_m = re.match(
+                r"^car\s+cir\s+(\d+)(.*)",
+                stripped, re.IGNORECASE
+            )
+            if car_m:
+                car_data = {"cir": int(car_m.group(1))}
+                rest = car_m.group(2)
+                pir_m = re.search(r"pir\s+(\d+)", rest, re.IGNORECASE)
+                if pir_m:
+                    car_data["pir"] = int(pir_m.group(1))
+                cbs_m = re.search(r"cbs\s+(\d+)", rest, re.IGNORECASE)
+                if cbs_m:
+                    car_data["cbs"] = int(cbs_m.group(1))
+                pbs_m = re.search(r"pbs\s+(\d+)", rest, re.IGNORECASE)
+                if pbs_m:
+                    car_data["pbs"] = int(pbs_m.group(1))
+                for color in ("green", "yellow", "red"):
+                    cm = re.search(rf"{color}\s+(\S+)", rest, re.IGNORECASE)
+                    if cm:
+                        car_data[f"{color}_action"] = cm.group(1)
+                parsed["car"] = car_data
+                parsed["actions"].append({"type": "car", "raw": stripped})
+                continue
+
+            # statistic enable
+            if re.match(r"^statistic\s+enable$", stripped, re.IGNORECASE):
+                parsed["statistics_enabled"] = True
+                parsed["actions"].append({"type": "statistic_enable", "raw": stripped})
+                continue
+
+            # remark dscp
+            rd_m = re.match(r"^remark\s+dscp\s+(\S+)", stripped, re.IGNORECASE)
+            if rd_m:
+                parsed["actions"].append({
+                    "type": "remark_dscp", "value": rd_m.group(1), "raw": stripped
+                })
+                continue
+
+            # queue
+            q_m = re.match(r"^queue\s+(\S+)", stripped, re.IGNORECASE)
+            if q_m:
+                parsed["actions"].append({
+                    "type": "queue", "value": q_m.group(1),
+                    "details": stripped[len(f"queue {q_m.group(1)}"):].strip(),
+                    "raw": stripped,
+                })
+                continue
+
+            # Unknown actions - preserve raw
+            parsed["actions"].append({"type": "unknown", "raw": stripped})
+
+        return parsed
+
+    def _parse_traffic_policy_block(self, block: dict) -> dict | None:
+        """Parse a traffic policy block.
+
+        VRP format:
+            traffic policy NAME
+             classifier NAME behavior NAME precedence <N>
+            #
+        """
+        header = block["header"]
+        m = re.match(r"^traffic\s+policy\s+(\S+)", header, re.IGNORECASE)
+        if not m:
+            return None
+
+        parsed = {
+            "name": m.group(1),
+            "classifiers": [],
+            "raw_lines": block.get("lines", []),
+            "raw": block.get("raw", ""),
+        }
+
+        for line in block.get("lines", [])[1:]:
+            stripped = line.strip()
+            if not stripped or stripped == "#":
+                continue
+
+            cm = re.match(
+                r"^classifier\s+(\S+)\s+behavior\s+(\S+)(?:\s+precedence\s+(\d+))?",
+                stripped, re.IGNORECASE
+            )
+            if cm:
+                entry = {
+                    "classifier": cm.group(1),
+                    "behavior": cm.group(2),
+                }
+                if cm.group(3):
+                    entry["precedence"] = int(cm.group(3))
+                parsed["classifiers"].append(entry)
+
+        return parsed
+
+    def _parse_qos_profile_block(self, block: dict) -> dict | None:
+        """Parse a qos-profile block.
+
+        VRP format:
+            qos-profile NAME
+             car cir <rate> pir <rate>
+            #
+        """
+        header = block["header"]
+        m = re.match(r"^qos-profile\s+(\S+)", header, re.IGNORECASE)
+        if not m:
+            return None
+
+        parsed = {
+            "name": m.group(1),
+            "car": None,
+            "raw_lines": block.get("lines", []),
+            "raw": block.get("raw", ""),
+        }
+
+        for line in block.get("lines", [])[1:]:
+            stripped = line.strip()
+            if not stripped or stripped == "#":
+                continue
+
+            car_m = re.match(
+                r"^car\s+cir\s+(\d+)(.*)", stripped, re.IGNORECASE
+            )
+            if car_m:
+                car_data = {"cir": int(car_m.group(1))}
+                rest = car_m.group(2)
+                pir_m = re.search(r"pir\s+(\d+)", rest, re.IGNORECASE)
+                if pir_m:
+                    car_data["pir"] = int(pir_m.group(1))
+                parsed["car"] = car_data
+
+        return parsed
+
+    def _parse_vpn_instance_block(self, block: dict) -> dict | None:
+        """Extract structured data from a VPN-instance block.
+
+        VRP format:
+            ip vpn-instance CLIENTE-A
+             description Cliente A - L3VPN
+             ipv4-family
+              route-distinguisher 65000:100
+              vpn-target 65000:100 export-extcommunity
+              vpn-target 65000:100 import-extcommunity
+            #
+
+        Returns:
+            dict with keys: name, description, address_families, vpn_targets, raw_lines
+            or None if parsing fails.
+        """
+        header = block["header"]
+        m = re.match(r"ip vpn-instance\s+(\S+)", header, re.IGNORECASE)
+        if not m:
+            return None
+
+        name = m.group(1)
+        parsed = {
+            "name": name,
+            "description": None,
+            "address_families": {},
+            "raw_lines": block.get("lines", []),
+            "raw": block.get("raw", ""),
+        }
+
+        current_af = None
+        for line in block.get("lines", [])[1:]:
+            stripped = line.strip()
+            if not stripped or stripped == "#":
+                continue
+
+            # Description (before any ipv4-family block)
+            if stripped.lower().startswith("description ") and current_af is None:
+                parsed["description"] = stripped[len("description "):].strip().strip('"')
+                continue
+
+            # Address family
+            af_match = re.match(r"^(\S+-family)\s*$", stripped, re.IGNORECASE)
+            if af_match:
+                current_af = af_match.group(1).lower().replace("-family", "")
+                if current_af not in parsed["address_families"]:
+                    parsed["address_families"][current_af] = {
+                        "route_distinguisher": None,
+                        "vpn_targets": [],
+                    }
+                continue
+
+            # route-distinguisher
+            rd_match = re.match(r"^route-distinguisher\s+(\S+)", stripped, re.IGNORECASE)
+            if rd_match and current_af:
+                parsed["address_families"][current_af]["route_distinguisher"] = rd_match.group(1)
+                continue
+
+            # vpn-target
+            vt_match = re.match(
+                r"^vpn-target\s+(\S+)\s+(export-extcommunity|import-extcommunity|both)",
+                stripped,
+                re.IGNORECASE,
+            )
+            if vt_match and current_af:
+                value = vt_match.group(1)
+                direction = vt_match.group(2).lower()
+                if direction == "both":
+                    parsed["address_families"][current_af]["vpn_targets"].append(
+                        {"value": value, "direction": "export"}
+                    )
+                    parsed["address_families"][current_af]["vpn_targets"].append(
+                        {"value": value, "direction": "import"}
+                    )
+                else:
+                    dir_clean = direction.replace("-extcommunity", "")
+                    parsed["address_families"][current_af]["vpn_targets"].append(
+                        {"value": value, "direction": dir_clean}
+                    )
+                continue
+
+            # Description inside an address-family section
+            if stripped.lower().startswith("description ") and current_af:
+                if not parsed["description"]:
+                    parsed["description"] = stripped[len("description "):].strip().strip('"')
+                continue
+
+        return parsed
+
     def _parse_vsi_block(self, block: dict) -> dict:
         """Extract structured data from a VSI block.
 
@@ -1356,35 +2512,76 @@ class HuaweiVRPParser(BaseParser):
         return parsed
 
     def _parse_aaa_block(self, block: dict) -> dict:
-        """Parse an AAA configuration block."""
+        """Parse an AAA configuration block with structured schemes and domains."""
         parsed = {
             "type": "aaa",
+            "authentication_schemes": [],
+            "accounting_schemes": [],
+            "authorization_schemes": [],
+            "domains": [],
             "raw": block["raw"],
         }
+        current_section = None
+        current_item = None
         for line in block["lines"][1:]:
             stripped = line.strip()
             if not stripped or stripped == "#":
+                current_section = None
+                current_item = None
                 continue
-            # Track schemes and domains referenced
-            if "authentication-scheme" in stripped:
-                parsed.setdefault("authentication_schemes", []).append(stripped)
-            elif "authorization-scheme" in stripped:
-                parsed.setdefault("authorization_schemes", []).append(stripped)
-            elif "accounting-scheme" in stripped:
-                parsed.setdefault("accounting_schemes", []).append(stripped)
-            elif "domain" in stripped:
-                parsed.setdefault("domains", []).append(stripped)
+            if stripped.startswith("authentication-scheme ") and current_section != "domain":
+                current_section = "auth"
+                current_item = {"name": stripped[len("authentication-scheme "):].strip(), "authentication_mode": [], "raw_lines": []}
+                parsed["authentication_schemes"].append(current_item)
+            elif stripped.startswith("authorization-scheme ") and current_section != "domain":
+                current_section = "author"
+                current_item = {"name": stripped[len("authorization-scheme "):].strip(), "authorization_mode": [], "raw_lines": []}
+                parsed["authorization_schemes"].append(current_item)
+            elif stripped.startswith("accounting-scheme ") and current_section != "domain":
+                current_section = "acct"
+                current_item = {"name": stripped[len("accounting-scheme "):].strip(), "accounting_mode": [], "accounting_realtime": None, "raw_lines": []}
+                parsed["accounting_schemes"].append(current_item)
+            elif stripped.startswith("domain "):
+                current_section = "domain"
+                current_item = {"name": stripped[len("domain "):].strip(), "authentication_scheme": None, "accounting_scheme": None, "authorization_scheme": None, "radius_server_group": None, "ip_pool": None, "dns_primary": None, "dns_secondary": None, "raw_lines": []}
+                parsed["domains"].append(current_item)
+            elif current_item is not None:
+                current_item.setdefault("raw_lines", []).append(stripped)
+                if current_section == "auth" and stripped.startswith("authentication-mode "):
+                    current_item["authentication_mode"] = stripped[len("authentication-mode "):].strip().split()
+                elif current_section == "author" and stripped.startswith("authorization-mode "):
+                    current_item["authorization_mode"] = stripped[len("authorization-mode "):].strip().split()
+                elif current_section == "acct":
+                    if stripped.startswith("accounting-mode "):
+                        current_item["accounting_mode"] = stripped[len("accounting-mode "):].strip().split()
+                    rt = re.match(r"^accounting\s+realtime\s+(\d+)", stripped, re.I)
+                    if rt:
+                        current_item["accounting_realtime"] = int(rt.group(1))
+                elif current_section == "domain":
+                    m = re.match(r"^authentication-scheme\s+(\S+)", stripped)
+                    if m: current_item["authentication_scheme"] = m.group(1)
+                    m = re.match(r"^accounting-scheme\s+(\S+)", stripped)
+                    if m: current_item["accounting_scheme"] = m.group(1)
+                    m = re.match(r"^authorization-scheme\s+(\S+)", stripped)
+                    if m: current_item["authorization_scheme"] = m.group(1)
+                    m = re.match(r"^radius-server\s+group\s+(\S+)", stripped)
+                    if m: current_item["radius_server_group"] = m.group(1)
+                    m = re.match(r"^ip-pool\s+(\S+)", stripped)
+                    if m: current_item["ip_pool"] = m.group(1)
+                    m = re.match(r"^dns\s+(?:primary-ip\s+)?(\S+)", stripped)
+                    if m:
+                        val = stripped.split()[-1]  # Last word is the IP
+                        if not current_item["dns_primary"]:
+                            current_item["dns_primary"] = val
+                        elif not current_item["dns_secondary"]:
+                            current_item["dns_secondary"] = val
         return parsed
 
     def _parse_radius_block(self, block: dict) -> dict:
-        """Parse a RADIUS server configuration block."""
+        """Parse a RADIUS server configuration block (group or template)."""
         header = block["header"]
-        # Extract server name/template
-        # "radius-server group RADIUS-ISP" -> name="RADIUS-ISP"
-        # "radius server RADIUS-BACKUP" -> name="RADIUS-BACKUP"
         parts = header.replace("radius-server", "").replace("radius server", "").strip()
         tokens = parts.split()
-        # Skip "group" / "template" keyword if present
         name = ""
         for token in tokens:
             if token.lower() in ("group", "template"):
@@ -1397,86 +2594,193 @@ class HuaweiVRPParser(BaseParser):
             "name": name,
             "template": name,
             "type": "radius_server",
+            "has_authentication": False,
+            "has_accounting": False,
+            "authentication_servers": [],
+            "accounting_servers": [],
+            "has_shared_key": False,
+            "shared_key_encrypted": True,
+            "shared_key_type": None,
+            "retransmit": None,
+            "timeout": None,
             "raw": block["raw"],
         }
         for line in block["lines"][1:]:
             stripped = line.strip()
             if not stripped or stripped == "#":
                 continue
-            if "radius-server" in stripped and "authentication" in stripped:
+            am = re.match(r"radius-server\s+authentication\s+(\S+)\s+(\d+)(.*)", stripped, re.I)
+            if am:
                 parsed["has_authentication"] = True
-            elif "radius-server" in stripped and "accounting" in stripped:
+                server = {"ip": am.group(1), "port": int(am.group(2))}
+                rest2 = am.group(3)
+                wm = re.search(r"weight\s+(\d+)", rest2, re.I)
+                if wm:
+                    server["weight"] = int(wm.group(1))
+                parsed["authentication_servers"].append(server)
+                continue
+            acm = re.match(r"radius-server\s+accounting\s+(\S+)\s+(\d+)(.*)", stripped, re.I)
+            if acm:
                 parsed["has_accounting"] = True
-            if "ip" in stripped or "." in stripped:
-                parsed.setdefault("lines", []).append(stripped)
+                server = {"ip": acm.group(1), "port": int(acm.group(2))}
+                rest2 = acm.group(3)
+                wm = re.search(r"weight\s+(\d+)", rest2, re.I)
+                if wm:
+                    server["weight"] = int(wm.group(1))
+                parsed["accounting_servers"].append(server)
+                continue
+            sk = re.match(r"radius-server\s+shared-key\s+(cipher|simple)\s+", stripped, re.I)
+            if sk:
+                parsed["has_shared_key"] = True
+                parsed["shared_key_type"] = sk.group(1)
+                parsed["shared_key_encrypted"] = sk.group(1) == "cipher"
+                continue
+            sk2 = re.match(r"radius-server\s+shared-key\s+", stripped, re.I)
+            if sk2:
+                parsed["has_shared_key"] = True
+                parsed["shared_key_type"] = "unknown"
+                parsed["shared_key_encrypted"] = False
+                continue
+            rt = re.match(r"radius-server\s+retransmit\s+(\d+)", stripped, re.I)
+            if rt:
+                parsed["retransmit"] = int(rt.group(1))
+                continue
+            to = re.match(r"radius-server\s+timeout\s+(\d+)", stripped, re.I)
+            if to:
+                parsed["timeout"] = int(to.group(1))
+                continue
         return parsed
 
     def _parse_ip_pool_block(self, block: dict) -> dict:
-        """Parse an IP pool configuration block."""
+        """Parse an IP pool configuration block (local or remote)."""
         header = block["header"]
-        pool_name = header[len("ip pool "):].strip() if header.startswith("ip pool") else ""
+        rest = header[len("ip pool "):].strip() if header.startswith("ip pool") else ""
+        parts = rest.split()
+        pool_name = parts[0] if parts else ""
         parsed = {
             "name": pool_name,
-            "type": "ip_pool",
+            "type": parts[1] if len(parts) > 1 else None,
+            "mode": parts[2] if len(parts) > 2 else None,
             "gateway": None,
+            "mask": None,
+            "sections": [],
             "dns_servers": [],
+            "lease": None,
+            "radius_server_group": None,
             "raw": block["raw"],
         }
         for line in block["lines"][1:]:
             stripped = line.strip()
             if not stripped or stripped == "#":
                 continue
-            if "gateway" in stripped:
-                parts = stripped.split()
-                for p in parts:
-                    if p.count(".") == 3 and p.replace(".", "").isdigit():
-                        parsed["gateway"] = p
-            elif "dns-server" in stripped:
-                parts = stripped.split()
-                for p in parts:
-                    if p.count(".") == 3 and p.replace(".", "").isdigit():
-                        parsed["dns_servers"].append(p)
+            if stripped.startswith("gateway "):
+                gw = stripped[len("gateway "):].strip()
+                gw_parts = gw.split()
+                parsed["gateway"] = gw_parts[0]
+                if len(gw_parts) > 1:
+                    parsed["mask"] = gw_parts[1]
+            elif stripped.startswith("dns-server "):
+                dns_part = stripped[len("dns-server "):].strip()
+                for dns_ip in dns_part.split():
+                    if dns_ip not in parsed["dns_servers"]:
+                        parsed["dns_servers"].append(dns_ip)
+            elif stripped.startswith("section "):
+                sec = re.match(r"section\s+(\S+)\s+(\S+)\s+(\S+)", stripped)
+                if sec:
+                    parsed["sections"].append({"id": sec.group(1), "start_ip": sec.group(2), "end_ip": sec.group(3)})
+            elif stripped.startswith("lease "):
+                parsed["lease"] = stripped[len("lease "):].strip()
+            elif stripped.startswith("radius-server group "):
+                parsed["radius_server_group"] = stripped[len("radius-server group "):].strip()
         return parsed
 
     def _parse_aaa_domain_block(self, block: dict) -> dict:
-        """Parse an AAA domain configuration block."""
+        """Parse an AAA domain configuration block (standalone, outside AAA)."""
         header = block["header"]
         domain_name = header[len("domain "):].strip() if header.startswith("domain ") else ""
         parsed = {
             "name": domain_name,
             "type": "aaa_domain",
+            "authentication_scheme": None,
+            "accounting_scheme": None,
+            "authorization_scheme": None,
+            "radius_server_group": None,
+            "ip_pool": None,
+            "dns_primary": None,
+            "dns_secondary": None,
             "raw": block["raw"],
         }
         for line in block["lines"][1:]:
             stripped = line.strip()
             if not stripped or stripped == "#":
                 continue
-            if "authentication-scheme" in stripped:
+            if stripped.startswith("authentication-scheme "):
                 parsed["authentication_scheme"] = stripped.split()[-1]
-            elif "accounting-scheme" in stripped:
+            elif stripped.startswith("accounting-scheme "):
                 parsed["accounting_scheme"] = stripped.split()[-1]
-            elif "radius-server" in stripped:
+            elif stripped.startswith("authorization-scheme "):
+                parsed["authorization_scheme"] = stripped.split()[-1]
+            elif stripped.startswith("radius-server "):
                 parsed["radius_server_group"] = stripped.split()[-1]
+            elif stripped.startswith("ip-pool "):
+                parsed["ip_pool"] = stripped.split()[-1]
+            elif stripped.startswith("dns "):
+                dns_val = stripped.split()[-1]  # Last word is the IP
+                if not parsed["dns_primary"]:
+                    parsed["dns_primary"] = dns_val
+                elif not parsed["dns_secondary"]:
+                    parsed["dns_secondary"] = dns_val
         return parsed
 
     def _parse_bas_block(self, block: dict) -> dict:
         """Parse a BAS configuration block."""
         parsed = {
             "type": "bas",
+            "access_type": None,
+            "default_domain": None,
+            "pre_authentication_domain": None,
+            "authentication_method": None,
+            "accounting_copy_radius_group": None,
+            "ip_trigger": False,
+            "arp_trigger": False,
+            "ipv6_trigger": False,
             "raw": block["raw"],
         }
         for line in block["lines"][1:]:
             stripped = line.strip()
             if not stripped or stripped == "#":
                 continue
-            if "access-type" in stripped:
-                parsed["access_type"] = stripped.replace("access-type", "").strip()
-            elif "authentication-scheme" in stripped:
-                parsed.setdefault("authentication_schemes", []).append(stripped)
-            elif "accounting-scheme" in stripped:
-                parsed.setdefault("accounting_schemes", []).append(stripped)
-            elif "domain" in stripped:
-                parsed.setdefault("domains", []).append(stripped)
+            if stripped.startswith("access-type "):
+                # Extract just the access type, ignore default-domain etc.
+                at = stripped[len("access-type "):].strip()
+                at_parts = at.split()
+                parsed["access_type"] = at_parts[0] if at_parts else at
+                # Also check for default-domain on the same line
+                dd = re.match(r"default-domain\s+authentication\s+(\S+)", stripped, re.I)
+                if dd:
+                    parsed["default_domain"] = dd.group(1)
+                pd = re.match(r"default-domain\s+pre-authentication\s+(\S+)", stripped, re.I)
+                if pd:
+                    parsed["pre_authentication_domain"] = pd.group(1)
+            elif stripped.startswith("authentication-method "):
+                parsed["authentication_method"] = stripped[len("authentication-method "):].strip()
+            elif stripped.startswith("accounting-copy"):
+                ac = re.match(r"accounting-copy\s+radius-server\s+group\s+(\S+)", stripped, re.I)
+                if ac:
+                    parsed["accounting_copy_radius_group"] = ac.group(1)
+            elif stripped == "ip-trigger":
+                parsed["ip_trigger"] = True
+            elif stripped == "arp-trigger":
+                parsed["arp_trigger"] = True
+            elif stripped == "ipv6-trigger":
+                parsed["ipv6_trigger"] = True
+            else:
+                dd = re.match(r"default-domain\s+authentication\s+(\S+)", stripped, re.I)
+                if dd:
+                    parsed["default_domain"] = dd.group(1)
+                pd = re.match(r"default-domain\s+pre-authentication\s+(\S+)", stripped, re.I)
+                if pd:
+                    parsed["pre_authentication_domain"] = pd.group(1)
         return parsed
 
     def _parse_generic_block(self, block: dict, block_type: str) -> dict:
@@ -2024,18 +3328,19 @@ class HuaweiVRPParser(BaseParser):
         raw_lines = block.get("lines", [])
         full_lines = raw_lines  # raw_lines already includes the header
 
-        # Extract name from header: "ip ip-prefix NAME ..."
-        m = re.match(r"ip\s+(?:prefix-list|ip-prefix)\s+(\S+)", header, re.IGNORECASE)
+        # Extract name from header: "ip ip-prefix NAME ..." or "ip ipv6-prefix NAME ..."
+        m = re.match(r"ip\s+(?:prefix-list|ip-prefix|ipv6-prefix)\s+(\S+)", header, re.IGNORECASE)
         if not m:
             return None
         name = m.group(1)
 
         rules = []
+        is_ipv6 = "ipv6" in header.lower()
         for line in full_lines:
             stripped = line.strip()
             # Each line is self-contained: "ip ip-prefix NAME index N permit|deny PREFIX MASK [ge|le]"
             rule_match = re.match(
-                r"(?:ip\s+(?:prefix-list|ip-prefix)\s+\S+\s+)?"
+                r"(?:ip\s+(?:prefix-list|ip-prefix|ipv6-prefix)\s+\S+\s+)?"
                 r"index\s+(\d+)\s+(permit|deny)\s+"
                 r"(\S+)\s+(\d+)"
                 r"(?:\s+greater-equal\s+(\d+))?"
@@ -2059,6 +3364,7 @@ class HuaweiVRPParser(BaseParser):
         return {
             "name": name,
             "rules": sorted(rules, key=lambda r: r["index"]),
+            "is_ipv6": is_ipv6,
             "raw_lines": full_lines,
             "raw": block.get("raw", ""),
         }
@@ -2101,6 +3407,10 @@ class HuaweiVRPParser(BaseParser):
             im = re.match(r"if-match\s+ip-prefix\s+(\S+)", stripped, re.IGNORECASE)
             if im:
                 if_matches.append({"type": "ip-prefix", "name": im.group(1), "raw": stripped})
+                continue
+            im = re.match(r"if-match\s+ipv6\s+prefix-list\s+(\S+)", stripped, re.IGNORECASE)
+            if im:
+                if_matches.append({"type": "ipv6-prefix-list", "name": im.group(1), "raw": stripped})
                 continue
             im = re.match(r"if-match\s+acl\s+(\S+)", stripped, re.IGNORECASE)
             if im:

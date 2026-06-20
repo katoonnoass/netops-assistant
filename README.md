@@ -4,7 +4,7 @@
   <p>
     <img src="https://img.shields.io/badge/Python-3.12-blue?logo=python" alt="Python 3.12">
     <img src="https://img.shields.io/badge/Django-5.0+-green?logo=django" alt="Django 5.0+">
-    <img src="https://img.shields.io/badge/Tests-722_✔️-brightgreen" alt="722 testes">
+    <img src="https://img.shields.io/badge/Tests-939_✔️-brightgreen" alt="939 testes">
     <img src="https://img.shields.io/badge/License-Proprietary-red" alt="License">
     <img src="https://img.shields.io/badge/Status-Development-yellow" alt="Status">
   </p>
@@ -34,10 +34,13 @@ O sistema interpreta configurações de roteadores e switches, extrai blocos est
 | **Interfaces** | Físicas, subinterfaces dot1q, VLANs, Eth-Trunk, L2 (access/trunk/hybrid) |
 | **Roteamento** | Rotas estáticas, BGP (peers, peer groups, networks), **OSPF** (processos, áreas, redes, redistribuição), **ISIS** (processos, network-entity, circuit-type, cost, autenticação) |
 | **MPLS / LDP** | MPLS global (LSR-ID, TE), MPLS LDP (transporte, graceful-restart, remote-peers, interface enable) |
-| **Políticas e Filtros** | Route-policy, ip-prefix, ACL (básica/expandida), as-path-filter, community-filter, dependency map BGP → policy |
+| **VRF / L3VPN** | VPN-instance (description, RD, RT import/export/both), interfaces binding, rotas estáticas VRF, BGP VPNv4 (peers, enable, route-policy), BGP ipv4-family vpn-instance (import-route, networks, CE peers, route-policy) |
+| **QoS / Traffic Policy** | Traffic classifier (if-match acl/any/dscp/8021p), traffic behavior (CAR cir/pir/cbs/pbs, remark dscp, queue, statistic enable), traffic policy (classifier behavior precedence), aplicação em interface (inbound/outbound), qos-profile, qos car |
+| **NAT / PAT** | Address-group (start/end IP, vpn-instance), NAT outbound (ACL, address-group, no-pat), NAT static (protocol, global/inside IP/port, vpn-instance), NAT server (protocol, global/inside IP/port), NAT ALG, aplicação em interface |
+| **IPv6 / BGP IPv6** | Interfaces IPv6 (enable, address, link-local, auto, global), rotas estáticas IPv6 (global + vpn-instance), IPv6 prefix-list, BGP IPv6 unicast (peers, networks com prefix length, route-policy), VPNv6, ipv6-family vpn-instance, OSPFv3 (processos, interfaces), ISIS IPv6 (enable, cost) |
 | **Circuitos** | L3 Transit, VLAN Transport, QinQ, L2VPN/VSI |
 | **Serviços** | BNG/BAS, AAA, RADIUS, IP Pool, SNMP, NTP, Syslog, VTY/SSH, local-users, L2 Switching, STP/MSTP |
-| **Issues** | Descrições ausentes, next-hop inalcançável, SNMP sem ACL, Telnet ativo, trunk allow all, STP desabilitado, redistribuição sem filtro, etc. |
+| **Issues** | Descrições ausentes, next-hop inalcançável, SNMP sem ACL, Telnet ativo, trunk allow all, STP desabilitado, redistribuição sem filtro, VPN-instance sem RD/RT, VRF sem interface/rota, RD duplicado, VPNv4 peer não habilitado, referência a VPN-instance inexistente, traffic-policy/classifier/behavior não encontrado, classifier/behavior/policy órfão, QoS profile não encontrado, cliente sem QoS, NAT outbound sem address-group/ACL inexistente, address-group órfão, NAT static com IP privado, NAT server expondo porta sensível, NAT server sem protocolo, NAT em interface sem descrição, NAT em VRF inexistente, ALG SIP habilitado, IPv6 address sem ipv6 enable, BGP IPv6 peer sem enable, rota IPv6 next-hop inalcançável, IPv6 default route, IPv6 prefix-list permit any, OSPFv3/ISIS IPv6 processo inexistente, VPNv6 peer sem enable, BGP ipv6-family vpn-instance inexistente, etc. |
 
 ### Cisco IOS/IOS-XE — Suporte inicial
 
@@ -166,9 +169,47 @@ Executando análise...
 | `python manage.py compare_config_files <antes> <depois> --vendor <v> --device-name <n>` | Comparar dois arquivos |
 | `python manage.py compare_snapshots <id1> <id2>` | Comparar dois snapshots no banco |
 
+### Exemplos L3VPN / VRF
+
+```bash
+python manage.py analyze_config_file sample_configs/huawei_l3vpn_basic.txt --vendor huawei --device-name "NE40-L3VPN"
+python manage.py analyze_config_file sample_configs/huawei_l3vpn_risky.txt --vendor huawei --device-name "NE40-L3VPN-RISK"
+python manage.py compare_config_files sample_configs/huawei_l3vpn_change_before.txt sample_configs/huawei_l3vpn_change_after.txt --vendor huawei --device-name "NE40-L3VPN-DIFF"
+```
+
+### Exemplos QoS / Traffic Policy / CAR
+
+```bash
+python manage.py analyze_config_file sample_configs/huawei_qos_basic.txt --vendor huawei --device-name "NE40-QOS"
+python manage.py analyze_config_file sample_configs/huawei_qos_risky.txt --vendor huawei --device-name "NE40-QOS-RISK"
+python manage.py compare_config_files sample_configs/huawei_qos_change_before.txt sample_configs/huawei_qos_change_after.txt --vendor huawei --device-name "NE40-QOS-DIFF"
+```
+
+### Exemplos NAT / PAT
+
+```bash
+python manage.py analyze_config_file sample_configs/huawei_nat_basic.txt --vendor huawei --device-name "NE40-NAT"
+python manage.py analyze_config_file sample_configs/huawei_nat_risky.txt --vendor huawei --device-name "NE40-NAT-RISK"
+python manage.py compare_config_files sample_configs/huawei_nat_change_before.txt sample_configs/huawei_nat_change_after.txt --vendor huawei --device-name "NE40-NAT-DIFF"
+```
+
+### Exemplos IPv6 / BGP IPv6 / VPNv6
+
+```bash
+python manage.py analyze_config_file sample_configs/huawei_ipv6_basic.txt --vendor huawei --device-name "NE40-IPV6"
+python manage.py analyze_config_file sample_configs/huawei_ipv6_risky.txt --vendor huawei --device-name "NE40-IPV6-RISK"
+python manage.py network_search "2001:db8:100::1"
+python manage.py network_search "vpnv6"
+python manage.py compare_config_files sample_configs/huawei_ipv6_change_before.txt sample_configs/huawei_ipv6_change_after.txt --vendor huawei --device-name "NE40-IPV6-DIFF"
+```
+
 ### Exemplos de busca
 
 ```bash
+python manage.py network_search "CLIENTE-A"               # VPN-instance
+python manage.py network_search "65000:100"                # RD ou RT
+python manage.py network_search "vpn-instance"             # Todas VPN-instances
+python manage.py network_search "vpnv4"                    # Peers VPNv4
 python manage.py network_search "EXPORT-CLIENTE"          # Route-policy + dependência BGP
 python manage.py network_search "CLIENTE-X"                # IP prefix
 python manage.py network_search "200.200.200.0/30"         # Prefixo em rotas/policies
@@ -239,7 +280,7 @@ O fluxo é **idempotente** — reanalisar o mesmo snapshot não duplica registro
 
 | Fase | Objetivo |
 |------|----------|
-| **Fechamento Huawei MVP** | ✔ BGP, policies, ACLs, OSPF, **ISIS, MPLS/LDP**, diff, documentação, 722 testes |
+| **Fechamento Huawei MVP** | ✔ BGP, policies, ACLs, OSPF, **ISIS, MPLS/LDP, VRF/L3VPN, QoS/Traffic Policy/CAR, NAT/PAT, IPv6/BGP IPv6/VPNv6/OSPFv3/ISIS IPv6**, diff, documentação, busca, 939 testes |
 | **Inventário e Snapshots** | Cadastro de devices, upload de configs, versões |
 | **Produção** | Docker, deploy, autenticação, permissões, backup |
 | **Mapa Físico/Lógico** | PoPs, OLTs, DIOs, fibras, CTOs, clientes no mapa |

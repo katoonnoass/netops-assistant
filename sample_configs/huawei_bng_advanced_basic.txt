@@ -1,0 +1,66 @@
+#
+sysname NE40-BNG-AVANCADO
+#
+aaa
+ authentication-scheme AUTH-PPPOE
+  authentication-mode radius local
+ #
+ accounting-scheme ACC-PPPOE
+  accounting-mode radius
+  accounting realtime 15
+ #
+ authorization-scheme AUTHZ-PPPOE
+  authorization-mode radius local
+ #
+ domain cliente-pppoe
+  authentication-scheme AUTH-PPPOE
+  accounting-scheme ACC-PPPOE
+  authorization-scheme AUTHZ-PPPOE
+  radius-server group RAD-CLIENTES
+  ip-pool POOL-CLIENTES
+  dns primary-ip 8.8.8.8
+  dns second-ip 1.1.1.1
+#
+radius-server group RAD-CLIENTES
+ radius-server authentication 10.10.10.10 1812 weight 80
+ radius-server accounting 10.10.10.10 1813 weight 80
+ radius-server authentication 10.10.10.11 1812 weight 20
+ radius-server accounting 10.10.10.11 1813 weight 20
+ radius-server shared-key cipher %^%#SECRET-HIDDEN%^%#
+ radius-server retransmit 3
+ radius-server timeout 5
+#
+ip pool POOL-CLIENTES bas local
+ gateway 100.64.0.1 255.255.255.0
+ section 0 100.64.0.2 100.64.0.254
+ dns-server 8.8.8.8 1.1.1.1
+ lease 1 0 0
+#
+ip pool POOL-REMOTO bas remote
+ gateway 100.65.0.1 255.255.255.0
+ radius-server group RAD-CLIENTES
+#
+interface Eth-Trunk100.200
+ description BNG-CLIENTES-PPPOE
+ user-vlan 200
+ bas
+  access-type layer2-subscriber default-domain authentication cliente-pppoe
+  authentication-method pppoe
+  accounting-copy radius-server group RAD-CLIENTES
+  ip-trigger
+  arp-trigger
+  ipv6-trigger
+#
+interface Eth-Trunk100.300
+ description BNG-IPOE
+ user-vlan 300 qinq 400
+ bas
+  access-type layer2-subscriber default-domain authentication cliente-pppoe
+  authentication-method bind
+  ip-trigger
+#
+interface LoopBack0
+ description ROUTER-ID
+ ip address 10.255.0.1 255.255.255.255
+#
+return

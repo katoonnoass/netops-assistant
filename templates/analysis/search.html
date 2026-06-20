@@ -247,6 +247,149 @@
 </div>
 {% endif %}
 
+{% if r.qos %}
+<div class="search-section">
+    <h3>QoS / Traffic Policy <span class="badge badge-primary">{{ r.qos|length }}</span></h3>
+    {% for item in r.qos %}
+    <div class="result-item {% if item.score >= 0.9 %}score-high{% elif item.score >= 0.6 %}score-medium{% else %}score-low{% endif %}">
+        <div class="title">
+            <span class="search-type-tag" style="font-size:0.7rem;margin-right:0.35rem;background:
+                {% if item.type == 'traffic_policy' %}#e91e63
+                {% elif item.type == 'traffic_classifier' %}#9c27b0
+                {% elif item.type == 'traffic_behavior' %}#ff5722
+                {% elif item.type == 'qos_profile' %}#009688
+                {% elif item.type == 'qos_acl_ref' %}#ff9800
+                {% elif item.type == 'qos_interface' %}#4caf50
+                {% else %}#607d8b{% endif %};">{{ item.type }}</span>
+            {{ item.title }}
+        </div>
+        <div class="meta">
+            {{ item.device }} —
+            {% if item.car %}CIR: {{ item.car.cir }}{% if item.car.pir %} PIR: {{ item.car.pir }}{% endif %} — {% endif %}
+            {% if item.acl %}ACL: {{ item.acl }} — {% endif %}
+            {% if item.interface %}{{ item.interface }} — {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if r.nat %}
+<div class="search-section">
+    <h3>NAT / PAT <span class="badge badge-primary">{{ r.nat|length }}</span></h3>
+    {% for item in r.nat %}
+    <div class="result-item {% if item.score >= 0.9 %}score-high{% elif item.score >= 0.6 %}score-medium{% else %}score-low{% endif %}">
+        <div class="title">
+            <span class="search-type-tag" style="font-size:0.7rem;margin-right:0.35rem;background:
+                {% if item.type == 'nat_address_group' %}#4caf50
+                {% elif item.type == 'nat_outbound' %}#ff9800
+                {% elif item.type == 'nat_static' %}#2196f3
+                {% elif item.type == 'nat_server' %]#e91e63
+                {% elif item.type == 'nat_interface' %}#9c27b0
+                {% else %}#607d8b{% endif %};">{{ item.type }}</span>
+            {{ item.title }}
+        </div>
+        <div class="meta">{{ item.device }}</div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if r.ipv6 %}
+<div class="search-section">
+    <h3>IPv6 / BGP IPv6 / VPNv6 <span class="badge badge-primary">{{ r.ipv6|length }}</span></h3>
+    {% for item in r.ipv6 %}
+    <div class="result-item {% if item.score >= 0.9 %}score-high{% elif item.score >= 0.6 %}score-medium{% else %}score-low{% endif %}">
+        <div class="title">
+            <span class="search-type-tag" style="font-size:0.7rem;margin-right:0.35rem;background:
+                {% if item.type == 'ipv6_route' %}#00bcd4
+                {% elif item.type == 'ipv6_prefix_list' %}#009688
+                {% elif item.type == 'bgp_ipv6_peer' %}#2196f3
+                {% elif item.type == 'bgp_ipv6_network' %}#4caf50
+                {% elif item.type == 'vpnv6_peer' %]#ff9800
+                {% elif item.type == 'ipv6_vpn_instance' %}#7c4dff
+                {% elif item.type == 'ospfv3' %}#e91e63
+                {% elif item.type == 'isis_ipv6_interface' %}#ff5722
+                {% elif item.type == 'ipv6_interface_address' %}#3f51b5
+                {% else %}#607d8b{% endif %};">{{ item.type }}</span>
+            {% if item.type == 'ipv6_route' %}
+                Rota IPv6 {{ item.prefix }} via {{ item.next_hop }}
+                {% if item.vpn_instance %}({{ item.vpn_instance }}){% endif %}
+            {% elif item.type == 'ipv6_prefix_list' %}
+                Prefix-list IPv6 {{ item.name }} ({{ item.rule_count }} regras)
+            {% elif item.type == 'bgp_ipv6_peer' %}
+                BGP IPv6 peer {{ item.peer }}
+                {% if item.enabled %}(habilitado){% else %}(desabilitado){% endif %}
+            {% elif item.type == 'bgp_ipv6_network' %}
+                BGP IPv6 network {{ item.prefix }}
+            {% elif item.type == 'vpnv6_peer' %}
+                VPNv6 peer {{ item.peer }}
+                {% if item.enabled %}(habilitado){% else %}(desabilitado){% endif %}
+            {% elif item.type == 'ipv6_vpn_instance' %}
+                VPN-instance IPv6 {{ item.name }}
+            {% elif item.type == 'ospfv3' %}
+                OSPFv3 processo {{ item.process_id }}{% if item.router_id %} (router-id {{ item.router_id }}){% endif %}
+            {% elif item.type == 'isis_ipv6_interface' %}
+                ISIS IPv6 interface {{ item.interface }} (processo {{ item.process_id }})
+            {% elif item.type == 'ipv6_interface_address' %}
+                Interface {{ item.interface }}: {{ item.address }}/{{ item.prefix_length }}
+            {% else %}
+                {{ item.title }}
+            {% endif %}
+        </div>
+        <div class="meta">{{ item.device }}</div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if r.vrf %}
+<div class="search-section">
+    <h3>VRF / L3VPN <span class="badge badge-primary">{{ r.vrf|length }}</span></h3>
+    {% for item in r.vrf %}
+    <div class="result-item {% if item.score >= 0.9 %}score-high{% elif item.score >= 0.6 %}score-medium{% else %}score-low{% endif %}">
+        <div class="title">
+            {% if item.type == 'vpn_instance' %}
+            <span class="search-type-tag" style="font-size:0.7rem;margin-right:0.35rem;background:#7c4dff;">VPN-instance</span>
+            {{ item.vpn_instance }}
+            {% elif item.type == 'vrf_interface' %}
+            <span class="search-type-tag" style="font-size:0.7rem;margin-right:0.35rem;background:#7c4dff;">VRF Interface</span>
+            {{ item.interface }} ({{ item.vpn_instance }})
+            {% elif item.type == 'vrf_static_route' %}
+            <span class="search-type-tag" style="font-size:0.7rem;margin-right:0.35rem;background:#7c4dff;">VRF Route</span>
+            {{ item.destination }} via {{ item.next_hop }}
+            {% elif item.type == 'bgp_vpn_instance' %}
+            <span class="search-type-tag" style="font-size:0.7rem;margin-right:0.35rem;background:#7c4dff;">BGP VPN</span>
+            {{ item.vpn_instance }}
+            {% elif item.type == 'ce_peer' %}
+            <span class="search-type-tag" style="font-size:0.7rem;margin-right:0.35rem;background:#7c4dff;">CE Peer</span>
+            {{ item.ce_peer }} ({{ item.vpn_instance }})
+            {% elif item.type == 'vpnv4_peer' %}
+            <span class="search-type-tag" style="font-size:0.7rem;margin-right:0.35rem;background:#7c4dff;">VPNv4</span>
+            {{ item.vpnv4_peer }}
+            {% elif item.type == 'vrf_issue' %}
+            <span class="search-type-tag" style="font-size:0.7rem;margin-right:0.35rem;background:#e91e63;">VRF Issue</span>
+            {{ item.issue_code }}
+            {% else %}
+            <span class="search-type-tag" style="font-size:0.7rem;margin-right:0.35rem;background:#7c4dff;">VRF</span>
+            {{ item.type }}
+            {% endif %}
+        </div>
+        <div class="meta">
+            {{ item.device }} —
+            {% if item.description %}{{ item.description }} — {% endif %}
+            {% if item.enabled is not None %}{% if item.enabled %}habilitado{% else %}desabilitado{% endif %} — {% endif %}
+            {% if item.ip_address %}{{ item.ip_address }} — {% endif %}
+            {% if item.import_routes %}import: {{ item.import_routes|join:", " }} — {% endif %}
+        </div>
+        {% if item.evidence %}
+        <div class="evidence">{% for e in item.evidence %}{{ e }}{% if not forloop.last %}<hr style="border-color:var(--border);margin:0.2rem 0;">{% endif %}{% endfor %}</div>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
 {% if r.services %}
 <div class="search-section">
     <h3>Serviços <span class="badge badge-primary">{{ r.services|length }}</span></h3>

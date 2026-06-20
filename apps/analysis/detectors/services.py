@@ -28,6 +28,37 @@ def detect_services(snapshot, parsed_data: dict) -> list[DetectedService]:
     """
     services: list[DetectedService] = []
 
+    # ── BNG Advanced services ───────────────────────────────────────
+    bng_adv_svc = _detect_bng_advanced(parsed_data)
+    if bng_adv_svc:
+        bng_adv_svc.snapshot = snapshot
+        bng_adv_svc.save()
+        services.append(bng_adv_svc)
+
+    bas_iface_svcs = _detect_bas_interfaces(parsed_data)
+    for svc in bas_iface_svcs:
+        svc.snapshot = snapshot
+        svc.save()
+        services.append(svc)
+
+    domain_svcs = _detect_subscriber_domains(parsed_data)
+    for svc in domain_svcs:
+        svc.snapshot = snapshot
+        svc.save()
+        services.append(svc)
+
+    aaa_scheme_svc = _detect_aaa_scheme(parsed_data)
+    if aaa_scheme_svc:
+        aaa_scheme_svc.snapshot = snapshot
+        aaa_scheme_svc.save()
+        services.append(aaa_scheme_svc)
+
+    radius_group_svcs = _detect_radius_groups(parsed_data)
+    for svc in radius_group_svcs:
+        svc.snapshot = snapshot
+        svc.save()
+        services.append(svc)
+
     # ── BNG/BAS ─────────────────────────────────────────────────────
     bng_svc = _detect_bng(parsed_data)
     if bng_svc:
@@ -126,6 +157,41 @@ def detect_services(snapshot, parsed_data: dict) -> list[DetectedService]:
         ospf_svc.save()
         services.append(ospf_svc)
 
+    # ── IPv6 ───────────────────────────────────────────────────────
+    ipv6_svc = _detect_ipv6(parsed_data)
+    if ipv6_svc:
+        ipv6_svc.snapshot = snapshot
+        ipv6_svc.save()
+        services.append(ipv6_svc)
+
+    # ── BGP IPv6 ───────────────────────────────────────────────────
+    bgp_ipv6_svc = _detect_bgp_ipv6(parsed_data)
+    if bgp_ipv6_svc:
+        bgp_ipv6_svc.snapshot = snapshot
+        bgp_ipv6_svc.save()
+        services.append(bgp_ipv6_svc)
+
+    # ── VPNv6 ──────────────────────────────────────────────────────
+    vpnv6_svc = _detect_vpnv6(parsed_data)
+    if vpnv6_svc:
+        vpnv6_svc.snapshot = snapshot
+        vpnv6_svc.save()
+        services.append(vpnv6_svc)
+
+    # ── OSPFv3 ─────────────────────────────────────────────────────
+    ospfv3_svc = _detect_ospfv3(parsed_data)
+    if ospfv3_svc:
+        ospfv3_svc.snapshot = snapshot
+        ospfv3_svc.save()
+        services.append(ospfv3_svc)
+
+    # ── ISIS IPv6 ──────────────────────────────────────────────────
+    isis_ipv6_svc = _detect_isis_ipv6(parsed_data)
+    if isis_ipv6_svc:
+        isis_ipv6_svc.snapshot = snapshot
+        isis_ipv6_svc.save()
+        services.append(isis_ipv6_svc)
+
     return services
 
 
@@ -190,6 +256,167 @@ def _detect_bng(parsed_data: dict) -> DetectedService | None:
             "has_domains": has_domains,
             "has_pools": has_pools,
             "has_subscriber": has_subscriber,
+        },
+    )
+
+
+# ── VRF / VPN-instance ────────────────────────────────────────────────
+
+
+def _detect_vrf(parsed_data: dict) -> DetectedService | None:
+    """Detecta serviço VRF/VPN-instance."""
+    vpn_instances = parsed_data.get("vpn_instances", [])
+    if not vpn_instances:
+        return None
+
+    interface_count = sum(
+        1 for iface in parsed_data.get("interfaces", [])
+        if iface.get("is_vrf_interface")
+    )
+    total_routes = sum(
+        1 for r in parsed_data.get("static_routes", [])
+        if r.get("vpn_instance")
+    )
+
+    names = [v["name"] for v in vpn_instances]
+    rds = []
+    for v in vpn_instances:
+        for af in v.get("address_families", {}).values():
+            if af.get("route_distinguisher"):
+                rds.append(af["route_distinguisher"])
+
+    desc = (
+        f"{len(vpn_instances)} VPN-instance(s) detectada(s): "
+        f"{', '.join(names)}. "
+        f"{interface_count} interface(s) em VRF, "
+        f"{total_routes} rota(s) estática(s) VRF."
+    )
+
+    return DetectedService(
+        service_type=DetectedService.ServiceType.VRF,
+        name=f"VRF ({len(vpn_instances)})",
+        description=desc,
+        confidence=0.90 if rds else 0.70,
+        metadata={
+            "vrf_count": len(vpn_instances),
+            "vrf_names": names,
+            "route_distinguishers": rds,
+            "interface_count": interface_count,
+            "static_route_count": total_routes,
+        },
+    )
+
+
+# ── L3VPN ─────────────────────────────────────────────────────────────
+
+
+def _detect_l3vpn(parsed_data: dict) -> DetectedService | None:
+    """Detecta serviço L3VPN MPLS."""
+    vpn_instances = parsed_data.get("vpn_instances", [])
+    bgp_blocks = parsed_data.get("bgp", [])
+
+    if not vpn_instances:
+        return None
+
+    has_vpnv4 = any(
+        bool(bgp.get("vpnv4", {}).get("peers"))
+        for bgp in bgp_blocks
+    )
+    has_bgp_vpn = any(
+        bool(bgp.get("vpn_instances"))
+        for bgp in bgp_blocks
+    )
+    complete = has_bgp_vpn and has_vpnv4
+
+    complete_vrfs = 0
+    vrf_names_with_bgp = set()
+    for bgp in bgp_blocks:
+        for vi in bgp.get("vpn_instances", []):
+            vrf_names_with_bgp.add(vi["name"])
+            if vi.get("peers") or vi.get("networks") or vi.get("import_routes"):
+                complete_vrfs += 1
+
+    has_rd = any(
+        vi.get("address_families", {}).get("ipv4", {}).get("route_distinguisher")
+        for vi in vpn_instances
+    )
+
+    total_rt = sum(
+        len(af.get("vpn_targets", []))
+        for vi in vpn_instances
+        for af in vi.get("address_families", {}).values()
+    )
+
+    names = [v["name"] for v in vpn_instances]
+
+    if complete:
+        confidence = 0.90
+        desc = (
+            "L3VPN MPLS completo detectado: "
+            f"{len(vpn_instances)} VPN-instance(s), "
+            "BGP VPNv4 ativo, BGP ipv4-family vpn-instance configurado."
+        )
+    elif has_rd:
+        confidence = 0.80
+        desc = (
+            "L3VPN MPLS parcial: "
+            f"{len(vpn_instances)} VPN-instance(s) com RD, "
+            "mas sem BGP vpn-instance ou VPNv4 completo."
+        )
+    else:
+        confidence = 0.60
+        desc = "VRF/VPN-instance(s) detectada(s) sem configuração L3VPN MPLS completa."
+
+    return DetectedService(
+        service_type=DetectedService.ServiceType.L3VPN,
+        name=f"L3VPN ({len(vpn_instances)})",
+        description=desc,
+        confidence=confidence,
+        metadata={
+            "vrf_count": len(vpn_instances),
+            "vrf_names": names,
+            "has_rd": has_rd,
+            "total_route_targets": total_rt,
+            "has_vpnv4": has_vpnv4,
+            "has_bgp_vpn_instance": has_bgp_vpn,
+            "complete_vrfs": complete_vrfs,
+            "vrf_names_with_bgp": list(vrf_names_with_bgp),
+        },
+    )
+
+
+# ── BGP VPNv4 ─────────────────────────────────────────────────────────
+
+
+def _detect_vpnv4(parsed_data: dict) -> DetectedService | None:
+    """Detecta serviço BGP VPNv4."""
+    bgp_blocks = parsed_data.get("bgp", [])
+    all_vpnv4_peers = []
+    for bgp in bgp_blocks:
+        vpnv4 = bgp.get("vpnv4", {})
+        all_vpnv4_peers.extend(vpnv4.get("peers", []))
+
+    if not all_vpnv4_peers:
+        return None
+
+    enabled_count = sum(1 for p in all_vpnv4_peers if p.get("enabled"))
+    peer_ips = [p["peer"] for p in all_vpnv4_peers if p.get("peer")]
+
+    desc = (
+        f"BGP VPNv4 detectado com {len(all_vpnv4_peers)} peer(s) "
+        f"({enabled_count} habilitado(s)). "
+        f"Peers: {', '.join(peer_ips)}."
+    )
+
+    return DetectedService(
+        service_type=DetectedService.ServiceType.VPNV4,
+        name=f"BGP VPNv4 ({len(all_vpnv4_peers)})",
+        description=desc,
+        confidence=0.85 if enabled_count else 0.50,
+        metadata={
+            "total_peers": len(all_vpnv4_peers),
+            "enabled_peers": enabled_count,
+            "peer_ips": peer_ips,
         },
     )
 
@@ -691,3 +918,318 @@ def _detect_ospf(parsed_data: dict) -> DetectedService | None:
             "has_router_id": has_router_id,
         },
     )
+
+
+# ── IPv6 ──────────────────────────────────────────────────────────────
+
+
+def _detect_ipv6(parsed_data: dict) -> DetectedService | None:
+    """Detecta configuração IPv6 geral."""
+    interfaces = parsed_data.get("interfaces", [])
+    ipv6_ifaces = [i for i in interfaces if i.get("ipv6_enabled")]
+    routes = parsed_data.get("ipv6_static_routes", [])
+    bgp_blocks = parsed_data.get("bgp", [])
+
+    has_bgp = any(
+        bool(bgp.get("ipv6_unicast", {}).get("peers") or bgp.get("ipv6_unicast", {}).get("networks"))
+        for bgp in bgp_blocks
+    )
+
+    if not ipv6_ifaces and not routes:
+        return None
+
+    parts = [f"IPv6 habilitado em {len(ipv6_ifaces)} interface(s)."]
+    if routes:
+        parts.append(f"{len(routes)} rota(s) estática(s) IPv6.")
+    if has_bgp:
+        parts.append("BGP IPv6 configurado.")
+
+    iface_names = [i["name"] for i in ipv6_ifaces]
+    ipv6_prefix_lists = [pl["name"] for pl in parsed_data.get("prefix_lists", []) if pl.get("is_ipv6")]
+
+    return DetectedService(
+        service_type=DetectedService.ServiceType.IPV6,
+        name=f"IPv6 ({len(ipv6_ifaces)} interfaces)",
+        description=" ".join(parts),
+        confidence=0.90 if (ipv6_ifaces and (routes or has_bgp)) else 0.75,
+        metadata={
+            "interface_count": len(ipv6_ifaces),
+            "interfaces": iface_names,
+            "route_count": len(routes),
+            "has_bgp_ipv6": has_bgp,
+            "ipv6_prefix_lists": ipv6_prefix_lists,
+        },
+    )
+
+
+def _detect_bgp_ipv6(parsed_data: dict) -> DetectedService | None:
+    """Detecta serviço BGP IPv6 unicast."""
+    bgp_blocks = parsed_data.get("bgp", [])
+    all_ipv6_peers = []
+    all_ipv6_networks = []
+    for bgp in bgp_blocks:
+        ipv6 = bgp.get("ipv6_unicast", {})
+        all_ipv6_peers.extend(ipv6.get("peers", []))
+        all_ipv6_networks.extend(ipv6.get("networks", []))
+
+    if not all_ipv6_peers and not all_ipv6_networks:
+        return None
+
+    enabled_count = sum(1 for p in all_ipv6_peers if p.get("enabled"))
+    peer_ips = [p["peer"] for p in all_ipv6_peers if p.get("peer")]
+
+    desc = f"BGP IPv6 com {len(all_ipv6_peers)} peer(s) ({enabled_count} habilitado(s)) e {len(all_ipv6_networks)} rede(s)."
+
+    return DetectedService(
+        service_type=DetectedService.ServiceType.BGP_IPV6,
+        name=f"BGP IPv6 ({len(all_ipv6_peers)})",
+        description=desc,
+        confidence=0.85 if enabled_count else 0.60,
+        metadata={
+            "total_peers": len(all_ipv6_peers),
+            "enabled_peers": enabled_count,
+            "peer_ips": peer_ips,
+            "network_count": len(all_ipv6_networks),
+            "networks": all_ipv6_networks,
+        },
+    )
+
+
+def _detect_vpnv6(parsed_data: dict) -> DetectedService | None:
+    """Detecta serviço BGP VPNv6."""
+    bgp_blocks = parsed_data.get("bgp", [])
+    all_vpnv6_peers = []
+    all_ipv6_vpn_instances = []
+    for bgp in bgp_blocks:
+        all_vpnv6_peers.extend(bgp.get("vpnv6", {}).get("peers", []))
+        for vi in bgp.get("vpn_instances_ipv6", []):
+            all_ipv6_vpn_instances.append(vi.get("name", ""))
+
+    if not all_vpnv6_peers and not all_ipv6_vpn_instances:
+        return None
+
+    enabled_count = sum(1 for p in all_vpnv6_peers if p.get("enabled"))
+    desc = f"VPNv6 com {len(all_vpnv6_peers)} peer(s) ({enabled_count} habilitado(s))."
+    if all_ipv6_vpn_instances:
+        desc += f" VPN-instance IPv6: {', '.join(all_ipv6_vpn_instances)}."
+
+    return DetectedService(
+        service_type=DetectedService.ServiceType.VPNV6,
+        name=f"VPNv6 ({len(all_vpnv6_peers)})",
+        description=desc,
+        confidence=0.85 if enabled_count else 0.60,
+        metadata={
+            "total_peers": len(all_vpnv6_peers),
+            "enabled_peers": enabled_count,
+            "ipv6_vpn_instances": all_ipv6_vpn_instances,
+        },
+    )
+
+
+def _detect_ospfv3(parsed_data: dict) -> DetectedService | None:
+    """Detecta serviço OSPFv3."""
+    ospfv3_blocks = parsed_data.get("ospfv3", [])
+    interfaces = parsed_data.get("interfaces", [])
+    ospfv3_ifaces = [i for i in interfaces if i.get("ospfv3_enabled")]
+
+    if not ospfv3_blocks and not ospfv3_ifaces:
+        return None
+
+    process_ids = [o.get("process_id", "?") for o in ospfv3_blocks]
+    desc = f"OSPFv3 com {len(ospfv3_blocks)} processo(s) ({', '.join(process_ids)}), {len(ospfv3_ifaces)} interface(s)."
+
+    has_router_id = any(o.get("router_id") for o in ospfv3_blocks)
+
+    return DetectedService(
+        service_type=DetectedService.ServiceType.OSPFV3,
+        name=f"OSPFv3 ({', '.join(process_ids)})",
+        description=desc,
+        confidence=0.85 if has_router_id else 0.75,
+        metadata={
+            "process_count": len(ospfv3_blocks),
+            "process_ids": process_ids,
+            "interface_count": len(ospfv3_ifaces),
+            "has_router_id": has_router_id,
+        },
+    )
+
+
+def _detect_isis_ipv6(parsed_data: dict) -> DetectedService | None:
+    """Detecta serviço ISIS IPv6."""
+    interfaces = parsed_data.get("interfaces", [])
+    isis_ipv6_ifaces = [i for i in interfaces if i.get("isis_ipv6_enabled")]
+
+    if not isis_ipv6_ifaces:
+        return None
+
+    iface_names = [i["name"] for i in isis_ipv6_ifaces]
+    desc = f"ISIS IPv6 habilitado em {len(isis_ipv6_ifaces)} interface(s): {', '.join(iface_names)}."
+
+    return DetectedService(
+        service_type=DetectedService.ServiceType.ISIS_IPV6,
+        name=f"ISIS IPv6 ({len(isis_ipv6_ifaces)})",
+        description=desc,
+        confidence=0.85,
+        metadata={
+            "interface_count": len(isis_ipv6_ifaces),
+            "interfaces": iface_names,
+        },
+    )
+
+
+# ── BNG Advanced ──────────────────────────────────────────────────
+
+
+def _detect_bng_advanced(parsed_data: dict) -> DetectedService | None:
+    """Detecta serviço BNG Avançado com AAA schemes, RADIUS, IP pools."""
+    aaa_blocks = parsed_data.get("aaa", [])
+    domains = parsed_data.get("aaa_domains", [])
+    radius_blocks = parsed_data.get("radius_servers", [])
+    pools = parsed_data.get("ip_pools", [])
+
+    # Check for domains inside AAA blocks too
+    has_aaa = bool(aaa_blocks)
+    has_standalone_domains = bool(domains)
+    has_domains_in_aaa = any(bool(ab.get("domains")) for ab in aaa_blocks)
+    has_domains = has_standalone_domains or has_domains_in_aaa
+    has_complex_radius = any(r.get("authentication_servers") or r.get("accounting_servers") for r in radius_blocks)
+    has_structured_pools = any(p.get("sections") or p.get("type") for p in pools)
+
+    if not (has_aaa and has_domains):
+        return None
+
+    # Count schemes
+    total_auth = sum(len(ab.get("authentication_schemes", [])) for ab in aaa_blocks)
+    total_acct = sum(len(ab.get("accounting_schemes", [])) for ab in aaa_blocks)
+    total_authz = sum(len(ab.get("authorization_schemes", [])) for ab in aaa_blocks)
+
+    domain_names = list({d["name"] for d in domains})
+    for ab in aaa_blocks:
+        for d in ab.get("domains", []):
+            if d["name"] not in domain_names:
+                domain_names.append(d["name"])
+
+    confidence = 0.90 if (total_auth and total_acct and has_complex_radius) else 0.80
+
+    return DetectedService(
+        service_type=DetectedService.ServiceType.BNG_ADVANCED,
+        name=f"BNG Avançado ({len(domain_names)} domínios)",
+        description=f"BNG Avançado com {total_auth} auth-scheme(s), {total_acct} acct-scheme(s), {total_authz} authz-scheme(s), {len(radius_blocks)} grupo(s) RADIUS, {len(pools)} pool(s).",
+        confidence=confidence,
+        metadata={
+            "domain_count": len(domain_names),
+            "domains": domain_names,
+            "auth_scheme_count": total_auth,
+            "acct_scheme_count": total_acct,
+            "authz_scheme_count": total_authz,
+            "radius_group_count": len(radius_blocks),
+            "ip_pool_count": len(pools),
+        },
+    )
+
+
+def _detect_bas_interfaces(parsed_data: dict) -> list[DetectedService]:
+    """Detecta interfaces BAS configuradas."""
+    services: list[DetectedService] = []
+    for iface in parsed_data.get("interfaces", []):
+        bas = iface.get("bas")
+        if not bas or not bas.get("enabled"):
+            continue
+        services.append(DetectedService(
+            service_type=DetectedService.ServiceType.BAS_INTERFACE,
+            name=f"BAS {iface['name']}",
+            description=f"BAS interface {iface['name']} com domínio {bas.get('default_domain', 'N/A')}, método {bas.get('authentication_method', 'N/A')}.",
+            confidence=0.90,
+            metadata={
+                "interface": iface["name"],
+                "default_domain": bas.get("default_domain"),
+                "authentication_method": bas.get("authentication_method"),
+                "user_vlan": iface.get("user_vlan"),
+            },
+        ))
+    return services
+
+
+def _detect_subscriber_domains(parsed_data: dict) -> list[DetectedService]:
+    """Detecta domínios de assinante."""
+    services: list[DetectedService] = []
+    domains_seen: set = set()
+    for d in parsed_data.get("aaa_domains", []):
+        if d["name"] in domains_seen:
+            continue
+        domains_seen.add(d["name"])
+        services.append(DetectedService(
+            service_type=DetectedService.ServiceType.SUBSCRIBER_DOMAIN,
+            name=d["name"],
+            description=f"Domínio {d['name']} com auth-scheme {d.get('authentication_scheme', 'N/A')}, acct-scheme {d.get('accounting_scheme', 'N/A')}.",
+            confidence=0.85,
+            metadata={
+                "name": d["name"],
+                "authentication_scheme": d.get("authentication_scheme"),
+                "accounting_scheme": d.get("accounting_scheme"),
+                "radius_server_group": d.get("radius_server_group"),
+                "ip_pool": d.get("ip_pool"),
+            },
+        ))
+    # Also detect domains inside AAA blocks
+    for ab in parsed_data.get("aaa", []):
+        for d in ab.get("domains", []):
+            if d["name"] in domains_seen:
+                continue
+            domains_seen.add(d["name"])
+            services.append(DetectedService(
+                service_type=DetectedService.ServiceType.SUBSCRIBER_DOMAIN,
+                name=d["name"],
+                description=f"Domínio {d['name']} dentro de AAA com auth-scheme {d.get('authentication_scheme', 'N/A')}.",
+                confidence=0.85,
+                metadata=d,
+            ))
+    return services
+
+
+def _detect_aaa_scheme(parsed_data: dict) -> DetectedService | None:
+    """Detecta configuração de AAA schemes."""
+    total = 0
+    details = []
+    for ab in parsed_data.get("aaa", []):
+        for s in ab.get("authentication_schemes", []):
+            total += 1
+            details.append(f"auth {s['name']}({','.join(s.get('authentication_mode', []))})")
+        for s in ab.get("accounting_schemes", []):
+            total += 1
+            details.append(f"acct {s['name']}({','.join(s.get('accounting_mode', []))})")
+        for s in ab.get("authorization_schemes", []):
+            total += 1
+            details.append(f"authz {s['name']}({','.join(s.get('authorization_mode', []))})")
+    if not total:
+        return None
+    return DetectedService(
+        service_type=DetectedService.ServiceType.AAA_SCHEME,
+        name=f"AAA Scheme ({total})",
+        description=f"{total} esquema(s) AAA: {', '.join(details)}.",
+        confidence=0.85,
+        metadata={"scheme_count": total, "details": details},
+    )
+
+
+def _detect_radius_groups(parsed_data: dict) -> list[DetectedService]:
+    """Detecta grupos RADIUS configurados."""
+    services: list[DetectedService] = []
+    for rg in parsed_data.get("radius_servers", []):
+        auth_count = len(rg.get("authentication_servers", []))
+        acct_count = len(rg.get("accounting_servers", []))
+        services.append(DetectedService(
+            service_type=DetectedService.ServiceType.RADIUS_GROUP,
+            name=rg["name"],
+            description=f"Grupo RADIUS {rg['name']} com {auth_count} servidor(es) auth, {acct_count} servidor(es) acct.",
+            confidence=0.90 if auth_count else 0.70,
+            metadata={
+                "name": rg["name"],
+                "authentication_server_count": auth_count,
+                "accounting_server_count": acct_count,
+                "has_shared_key": rg.get("has_shared_key"),
+                "retransmit": rg.get("retransmit"),
+                "timeout": rg.get("timeout"),
+            },
+        ))
+    return services

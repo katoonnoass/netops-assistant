@@ -1,0 +1,58 @@
+#
+sysname NE40-L3VPN-RISK
+#
+router id 10.255.0.1
+#
+interface LoopBack0
+ ip address 10.255.0.1 255.255.255.255
+#
+interface GigabitEthernet0/0/0
+ description CORE-LINK
+ ip address 172.16.0.1 255.255.255.252
+ mpls
+ mpls ldp
+#
+interface GigabitEthernet0/0/1.100
+ description CLIENTE-C-WAN
+ ip binding vpn-instance CLIENTE-C
+ ip address 10.30.30.1 255.255.255.252
+#
+interface GigabitEthernet0/0/2
+ description CLIENTE-D-LAN
+ ip binding vpn-instance CLIENTE-D
+ ip address 172.30.1.1 255.255.255.0
+#
+mpls lsr-id 10.255.0.1
+mpls
+#
+mpls ldp
+#
+bgp 65000
+ peer 10.255.0.2 as-number 65000
+ peer 10.255.0.2 connect-interface LoopBack0
+ #
+ ipv4-family vpnv4
+  peer 10.255.0.2 enable
+ #
+ ipv4-family vpn-instance CLIENTE-C
+  import-route direct
+  peer 10.30.30.2 as-number 64530
+#
+ip vpn-instance CLIENTE-C
+ ipv4-family
+  route-distinguisher 65000:100
+#
+ip vpn-instance CLIENTE-D
+ description Cliente D - VPN sem rotas
+ ipv4-family
+  route-distinguisher 65000:100
+#
+ip vpn-instance CLIENTE-E
+ description VRF sem RD
+ ipv4-family
+  vpn-target 65000:100 both
+#
+ip route-static vpn-instance CLIENTE-X 10.10.0.0 255.255.0.0 10.0.0.1
+ip route-static 0.0.0.0 0.0.0.0 172.16.0.2
+#
+return

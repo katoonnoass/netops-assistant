@@ -13,5 +13,8 @@
 - Never store real secrets, passwords, community strings, or keys in parsed_data — only flags (has_password, password_type, has_secret). Confidence: 0.85
 
 # testing
-- Create dedicated test files per feature domain (e.g., test_management.py for management/observability tests) instead of adding to monolithic test files. Confidence: 0.70
+- Create dedicated test files per feature domain (e.g., test_management.py for management/observability tests) instead of adding to monolithic test files. Confidence: 0.80
+
+# i18n
+- Use Portuguese (Brazilian) for all user-facing descriptions, documentation, issue titles, and CLI help text in this project. Confidence: 0.80
 

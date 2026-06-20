@@ -1,0 +1,48 @@
+#
+sysname NE40-QOS
+#
+interface LoopBack0
+ ip address 10.255.0.1 255.255.255.255
+#
+interface GigabitEthernet0/0/1.100
+ description CLIENTE-A-L3VPN
+ ip binding vpn-instance CLIENTE-A
+ ip address 10.10.10.1 255.255.255.252
+ traffic-policy CLIENTE-A-QOS inbound
+ traffic-policy CLIENTE-A-QOS outbound
+ qos-profile CLIENTE-A-PROFILE inbound
+#
+interface GigabitEthernet0/0/2
+ description CORE-LINK
+ ip address 172.16.0.1 255.255.255.252
+#
+ip vpn-instance CLIENTE-A
+ ipv4-family
+  route-distinguisher 65000:100
+  vpn-target 65000:100 both
+#
+acl number 3001
+ rule 5 permit ip source 10.10.10.0 0.0.0.3
+#
+traffic classifier CLIENTE-A operator or
+ if-match acl 3001
+#
+traffic classifier VOZ operator and
+ if-match dscp ef
+#
+traffic behavior LIMIT-100M
+ car cir 102400 pir 102400 cbs 1884160 pbs 1884160 green pass yellow pass red discard
+ statistic enable
+#
+traffic behavior VOZ-PRIORITY
+ remark dscp ef
+ queue af bandwidth pct 20
+#
+traffic policy CLIENTE-A-QOS
+ classifier CLIENTE-A behavior LIMIT-100M precedence 5
+ classifier VOZ behavior VOZ-PRIORITY precedence 10
+#
+qos-profile CLIENTE-A-PROFILE
+ car cir 102400 pir 102400
+#
+return

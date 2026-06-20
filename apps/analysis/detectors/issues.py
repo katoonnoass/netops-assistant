@@ -81,6 +81,49 @@ def detect_issues(snapshot, parsed_data: dict) -> list[AnalysisIssue]:
     issues.extend(_detect_mpls_interface_without_ldp(snapshot, parsed_data))
     issues.extend(_detect_ldp_remote_peer_without_ip(snapshot, parsed_data))
 
+    # VRF / L3VPN issues
+    issues.extend(_detect_vpn_instance_without_rd(snapshot, parsed_data))
+    issues.extend(_detect_vpn_instance_without_rt(snapshot, parsed_data))
+    issues.extend(_detect_interface_vpn_instance_not_found(snapshot, parsed_data))
+    issues.extend(_detect_static_route_vpn_instance_not_found(snapshot, parsed_data))
+    issues.extend(_detect_bgp_vpn_instance_not_found(snapshot, parsed_data))
+    issues.extend(_detect_vpn_instance_without_interface(snapshot, parsed_data))
+    issues.extend(_detect_vpn_instance_without_routes(snapshot, parsed_data))
+    issues.extend(_detect_vpnv4_peer_not_enabled(snapshot, parsed_data))
+    issues.extend(_detect_duplicate_route_distinguisher(snapshot, parsed_data))
+
+    # QoS / Traffic Policy issues
+    issues.extend(_detect_traffic_policy_not_found(snapshot, parsed_data))
+    issues.extend(_detect_traffic_classifier_not_found(snapshot, parsed_data))
+    issues.extend(_detect_traffic_behavior_not_found(snapshot, parsed_data))
+    issues.extend(_detect_qos_classifier_acl_not_found(snapshot, parsed_data))
+    issues.extend(_detect_traffic_policy_orphan(snapshot, parsed_data))
+    issues.extend(_detect_traffic_classifier_orphan(snapshot, parsed_data))
+    issues.extend(_detect_traffic_behavior_orphan(snapshot, parsed_data))
+    issues.extend(_detect_qos_profile_not_found(snapshot, parsed_data))
+    issues.extend(_detect_qos_profile_orphan(snapshot, parsed_data))
+    issues.extend(_detect_qos_car_without_red_discard(snapshot, parsed_data))
+    issues.extend(_detect_customer_interface_without_qos(snapshot, parsed_data))
+
+    # NAT issues
+    issues.extend(_detect_nat_acl_not_found(snapshot, parsed_data))
+    issues.extend(_detect_nat_address_group_not_found(snapshot, parsed_data))
+    issues.extend(_detect_nat_address_group_orphan(snapshot, parsed_data))
+    issues.extend(_detect_nat_outbound_without_address_group(snapshot, parsed_data))
+    issues.extend(_detect_nat_static_private_global_ip(snapshot, parsed_data))
+    issues.extend(_detect_nat_server_sensitive_port(snapshot, parsed_data))
+    issues.extend(_detect_nat_server_without_protocol(snapshot, parsed_data))
+    issues.extend(_detect_nat_interface_missing_description(snapshot, parsed_data))
+    issues.extend(_detect_nat_vpn_instance_not_found(snapshot, parsed_data))
+    issues.extend(_detect_nat_alg_sip_enabled(snapshot, parsed_data))
+
+    # ── BNG/AAA/RADIUS/IP pool issues ─────────────────────────────────
+    bng_issues = _detect_bng_issues(parsed_data)
+    for iss in bng_issues:
+        iss.snapshot = snapshot
+        iss.save()
+        issues.append(iss)
+
     return issues
 
 
@@ -122,6 +165,261 @@ def _detect_policy_issues(snapshot, parsed_data: dict) -> list[AnalysisIssue]:
                         "direction": bpp["direction"],
                         "route_policy": bpp["route_policy"],
                     },
+                )
+            )
+    return issues
+
+
+# ── NAT issue detectors ──────────────────────────────────────────────
+
+
+def _is_private_ip(ip_str: str) -> bool:
+    """Check if an IP is RFC1918 private."""
+    try:
+        import ipaddress
+        addr = ipaddress.ip_address(ip_str)
+        return addr.is_private
+    except (ValueError, ImportError):
+        return False
+
+
+def _get_nat_address_group_names(parsed_data: dict) -> set[str]:
+    return {ag["name"] for ag in parsed_data.get("nat", {}).get("address_groups", [])}
+
+
+def _get_acl_names(parsed_data: dict) -> set[str]:
+    acl_names: set[str] = set()
+    for a in parsed_data.get("acls", []):
+        if a.get("number"):
+            acl_names.add(a["number"])
+        if a.get("name"):
+            acl_names.add(a["name"])
+    return acl_names
+
+
+SENSITIVE_PORTS = {"22", "23", "3389", "445", "139", "5900"}
+
+
+def _detect_nat_acl_not_found(snapshot, parsed_data: dict) -> list[AnalysisIssue]:
+    """NAT outbound references a non-existent ACL."""
+    issues = []
+    acl_names = _get_acl_names(parsed_data)
+    for ob in parsed_data.get("nat", {}).get("outbound_rules", []):
+        acl = ob.get("acl")
+        if acl and acl not in acl_names:
+            issues.append(
+                _make_issue(
+                    snapshot,
+                    SEVERITY_HIGH,
+                    "nat_acl_not_found",
+                    f"NAT outbound referencia ACL inexistente: {acl}",
+                    f"A regra NAT outbound usa ACL {acl}, mas ela nao foi encontrada.",
+                    metadata={"acl": acl, "raw": ob.get("raw", "")},
+                )
+            )
+    return issues
+
+
+def _detect_nat_address_group_not_found(snapshot, parsed_data: dict) -> list[AnalysisIssue]:
+    """NAT outbound references a non-existent address-group."""
+    issues = []
+    group_names = _get_nat_address_group_names(parsed_data)
+    for ob in parsed_data.get("nat", {}).get("outbound_rules", []):
+        ag = ob.get("address_group")
+        if ag and ag not in group_names:
+            issues.append(
+                _make_issue(
+                    snapshot,
+                    SEVERITY_HIGH,
+                    "nat_address_group_not_found",
+                    f"NAT outbound referencia address-group inexistente: {ag}",
+                    f"A regra NAT outbound usa address-group {ag}, mas ele nao foi encontrado.",
+                    metadata={"address_group": ag, "raw": ob.get("raw", "")},
+                )
+            )
+    return issues
+
+
+def _detect_nat_address_group_orphan(snapshot, parsed_data: dict) -> list[AnalysisIssue]:
+    """Address-group defined but not referenced by any NAT rule."""
+    issues = []
+    group_names = _get_nat_address_group_names(parsed_data)
+    referenced = set()
+    for ob in parsed_data.get("nat", {}).get("outbound_rules", []):
+        if ob.get("address_group"):
+            referenced.add(ob["address_group"])
+    for name in sorted(group_names - referenced):
+        issues.append(
+            _make_issue(
+                snapshot,
+                SEVERITY_LOW,
+                "nat_address_group_orphan",
+                f"NAT address-group orfao: {name}",
+                f"O address-group {name} esta definido mas nao referenciado "
+                f"por nenhuma regra NAT outbound.",
+                metadata={"address_group": name},
+            )
+        )
+    return issues
+
+
+def _detect_nat_outbound_without_address_group(snapshot, parsed_data: dict) -> list[AnalysisIssue]:
+    """NAT outbound without an address-group (uses interface IP)."""
+    issues = []
+    for ob in parsed_data.get("nat", {}).get("outbound_rules", []):
+        if not ob.get("address_group"):
+            issues.append(
+                _make_issue(
+                    snapshot,
+                    SEVERITY_MEDIUM,
+                    "nat_outbound_without_address_group",
+                    f"NAT outbound sem address-group: ACL {ob.get('acl', '?')}",
+                    f"Regra NAT outbound sem address-group explicito. "
+                    f"Usara o IP da interface de saida como origem.",
+                    metadata={"acl": ob.get("acl"), "raw": ob.get("raw", "")},
+                )
+            )
+    return issues
+
+
+def _detect_nat_static_private_global_ip(snapshot, parsed_data: dict) -> list[AnalysisIssue]:
+    """NAT static with a private (RFC1918) global IP."""
+    issues = []
+    for sr in parsed_data.get("nat", {}).get("static_rules", []):
+        global_ip = sr.get("global_ip", "")
+        if _is_private_ip(global_ip):
+            issues.append(
+                _make_issue(
+                    snapshot,
+                    SEVERITY_MEDIUM,
+                    "nat_static_private_global_ip",
+                    f"NAT static com global IP privado: {global_ip}",
+                    f"O IP global {global_ip} em NAT static e um endereco privado "
+                    f"(RFC1918). Validar se o IP publico correto foi configurado.",
+                    metadata={"global_ip": global_ip, "inside_ip": sr.get("inside_ip")},
+                )
+            )
+    return issues
+
+
+def _detect_nat_server_sensitive_port(snapshot, parsed_data: dict) -> list[AnalysisIssue]:
+    """NAT server exposes a sensitive port (SSH, Telnet, RDP)."""
+    issues = []
+    for sv in parsed_data.get("nat", {}).get("server_rules", []):
+        port = sv.get("global_port", "")
+        if port in SENSITIVE_PORTS:
+            issues.append(
+                _make_issue(
+                    snapshot,
+                    SEVERITY_MEDIUM,
+                    "nat_server_sensitive_port",
+                    f"NAT server expoe porta sensivel: {port}",
+                    f"O NAT server para {sv.get('global_ip', '?')} expoe "
+                    f"a porta {port} (porta sensivel). Validar necessidade "
+                    f"e restricao de origem por ACL.",
+                    metadata={
+                        "port": port,
+                        "global_ip": sv.get("global_ip"),
+                        "protocol": sv.get("protocol"),
+                        "inside_ip": sv.get("inside_ip"),
+                    },
+                )
+            )
+    return issues
+
+
+def _detect_nat_server_without_protocol(snapshot, parsed_data: dict) -> list[AnalysisIssue]:
+    """NAT server without explicit protocol."""
+    issues = []
+    for sv in parsed_data.get("nat", {}).get("server_rules", []):
+        if not sv.get("protocol"):
+            issues.append(
+                _make_issue(
+                    snapshot,
+                    SEVERITY_LOW,
+                    "nat_server_without_protocol",
+                    f"NAT server sem protocolo explicito: {sv.get('global_ip', '?')}",
+                    f"O NAT server para {sv.get('global_ip', '?')} nao possui "
+                    f"protocolo explicito (tcp/udp). Padrao e tcp.",
+                    metadata={
+                        "global_ip": sv.get("global_ip"),
+                        "global_port": sv.get("global_port"),
+                    },
+                )
+            )
+    return issues
+
+
+def _detect_nat_interface_missing_description(snapshot, parsed_data: dict) -> list[AnalysisIssue]:
+    """Interface with NAT but no description."""
+    issues = []
+    for iface in parsed_data.get("interfaces", []):
+        if iface.get("has_nat") and not iface.get("description", "").strip():
+            issues.append(
+                _make_issue(
+                    snapshot,
+                    SEVERITY_MEDIUM,
+                    "nat_interface_missing_description",
+                    f"Interface com NAT sem descricao: {iface['name']}",
+                    f"A interface {iface['name']} possui configuracao NAT "
+                    f"mas nao tem descricao. Recomenda-se identificar "
+                    f"o link/conexao.",
+                    metadata={"interface": iface["name"]},
+                )
+            )
+    return issues
+
+
+def _detect_nat_vpn_instance_not_found(snapshot, parsed_data: dict) -> list[AnalysisIssue]:
+    """NAT references a VPN-instance that doesn't exist."""
+    issues = []
+    vpn_names = {v["name"] for v in parsed_data.get("vpn_instances", [])}
+    # Check address-groups with vpn-instance
+    for ag in parsed_data.get("nat", {}).get("address_groups", []):
+        vpn = ag.get("vpn_instance")
+        if vpn and vpn not in vpn_names:
+            issues.append(
+                _make_issue(
+                    snapshot,
+                    SEVERITY_HIGH,
+                    "nat_vpn_instance_not_found",
+                    f"NAT address-group referencia VPN inexistente: {vpn}",
+                    f"O address-group {ag['name']} referencia VPN-instance "
+                    f"{vpn}, mas ela nao foi encontrada.",
+                    metadata={"address_group": ag["name"], "vpn_instance": vpn},
+                )
+            )
+    # Check NAT outbound with vpn-instance
+    for ob in parsed_data.get("nat", {}).get("outbound_rules", []):
+        vpn = ob.get("vpn_instance")
+        if vpn and vpn not in vpn_names:
+            issues.append(
+                _make_issue(
+                    snapshot,
+                    SEVERITY_HIGH,
+                    "nat_vpn_instance_not_found",
+                    f"NAT outbound referencia VPN inexistente: {vpn}",
+                    f"A regra NAT outbound referncia VPN-instance {vpn}.",
+                    metadata={"vpn_instance": vpn, "acl": ob.get("acl")},
+                )
+            )
+    return issues
+
+
+def _detect_nat_alg_sip_enabled(snapshot, parsed_data: dict) -> list[AnalysisIssue]:
+    """NAT ALG SIP is enabled."""
+    issues = []
+    for alg in parsed_data.get("nat", {}).get("alg", []):
+        if alg.get("protocol") == "sip" and alg.get("enabled"):
+            issues.append(
+                _make_issue(
+                    snapshot,
+                    SEVERITY_LOW,
+                    "nat_alg_sip_enabled",
+                    "NAT ALG SIP habilitado",
+                    "ALG SIP esta habilitado. Pode causar comportamento "
+                    "inesperado em VoIP. Validar necessidade.",
+                    metadata={"protocol": "sip", "enabled": True},
                 )
             )
     return issues
@@ -1160,4 +1458,931 @@ def _detect_ldp_remote_peer_without_ip(snapshot, parsed_data: dict) -> list[Anal
                     metadata={"peer_name": peer["name"]},
                 )
             )
+    return issues
+
+
+# ── VRF / L3VPN issue detectors ──────────────────────────────────────
+
+
+def _get_vpn_instance_names(parsed_data: dict) -> set[str]:
+    """Get all defined VPN-instance names."""
+    return {v["name"] for v in parsed_data.get("vpn_instances", [])}
+
+
+def _detect_vpn_instance_without_rd(snapshot, parsed_data: dict) -> list[AnalysisIssue]:
+    """VPN-instance without Route Distinguisher."""
+    issues = []
+    for vi in parsed_data.get("vpn_instances", []):
+        af_data = vi.get("address_families", {})
+        has_rd = any(
+            af.get("route_distinguisher") for af in af_data.values()
+        )
+        if not has_rd:
+            issues.append(
+                _make_issue(
+                    snapshot,
+                    SEVERITY_HIGH,
+                    "vpn_instance_without_rd",
+                    f"VPN-instance sem Route Distinguisher: {vi['name']}",
+                    f"A VPN-instance {vi['name']} não possui "
+                    f"route-distinguisher configurado. "
+                    f"L3VPN pode não funcionar corretamente.",
+                    metadata={"vpn_instance": vi["name"]},
+                )
+            )
+    return issues
+
+
+def _detect_vpn_instance_without_rt(snapshot, parsed_data: dict) -> list[AnalysisIssue]:
+    """VPN-instance without VPN target (import/export)."""
+    issues = []
+    for vi in parsed_data.get("vpn_instances", []):
+        af_data = vi.get("address_families", {})
+        has_rt = any(
+            af.get("vpn_targets") for af in af_data.values()
+        )
+        if not has_rt:
+            issues.append(
+                _make_issue(
+                    snapshot,
+                    SEVERITY_HIGH,
+                    "vpn_instance_without_rt",
+                    f"VPN-instance sem VPN target: {vi['name']}",
+                    f"A VPN-instance {vi['name']} não possui "
+                    f"vpn-target import/export configurado.",
+                    metadata={"vpn_instance": vi["name"]},
+                )
+            )
+    return issues
+
+
+def _detect_interface_vpn_instance_not_found(snapshot, parsed_data: dict) -> list[AnalysisIssue]:
+    """Interface references a VPN-instance that doesn't exist."""
+    issues = []
+    vpn_names = _get_vpn_instance_names(parsed_data)
+    for iface in parsed_data.get("interfaces", []):
+        vpn = iface.get("vpn_instance")
+        if vpn and vpn not in vpn_names:
+            issues.append(
+                _make_issue(
+                    snapshot,
+                    SEVERITY_HIGH,
+                    "interface_vpn_instance_not_found",
+                    f"Interface referencia VPN-instance inexistente: "
+                    f"{iface['name']} -> {vpn}",
+                    f"A interface {iface['name']} está configurada com "
+                    f"ip binding vpn-instance {vpn}, mas esta "
+                    f"VPN-instance não foi encontrada na configuração.",
+                    metadata={
+                        "interface": iface["name"],
+                        "vpn_instance": vpn,
+                    },
+                )
+            )
+    return issues
+
+
+def _detect_static_route_vpn_instance_not_found(snapshot, parsed_data: dict) -> list[AnalysisIssue]:
+    """Static route references a VPN-instance that doesn't exist."""
+    issues = []
+    vpn_names = _get_vpn_instance_names(parsed_data)
+    for route in parsed_data.get("static_routes", []):
+        vpn = route.get("vpn_instance")
+        if vpn and vpn not in vpn_names:
+            dest = f"{route.get('network', '?')}/{route.get('netmask', '?')}"
+            issues.append(
+                _make_issue(
+                    snapshot,
+                    SEVERITY_HIGH,
+                    "static_route_vpn_instance_not_found",
+                    f"Rota estática referencia VPN-instance inexistente: "
+                    f"{dest} -> {vpn}",
+                    f"A rota estática {dest} via {route.get('next_hop', '?')} "
+                    f"referencia a VPN-instance {vpn}, que não foi "
+                    f"encontrada na configuração.",
+                    metadata={
+                        "destination": dest,
+                        "next_hop": route.get("next_hop"),
+                        "vpn_instance": vpn,
+                    },
+                )
+            )
+    return issues
+
+
+def _detect_bgp_vpn_instance_not_found(snapshot, parsed_data: dict) -> list[AnalysisIssue]:
+    """BGP ipv4-family vpn-instance references a VPN-instance that doesn't exist."""
+    issues = []
+    vpn_names = _get_vpn_instance_names(parsed_data)
+    for bgp in parsed_data.get("bgp", []):
+        for vi in bgp.get("vpn_instances", []):
+            if vi["name"] not in vpn_names:
+                issues.append(
+                    _make_issue(
+                        snapshot,
+                        SEVERITY_HIGH,
+                        "bgp_vpn_instance_not_found",
+                        f"BGP ipv4-family referencia VPN-instance inexistente: "
+                        f"{vi['name']}",
+                        f"O BGP possui ipv4-family vpn-instance {vi['name']}, "
+                        f"mas esta VPN-instance não foi encontrada na configuração.",
+                        metadata={"vpn_instance": vi["name"]},
+                    )
+                )
+    return issues
+
+
+def _detect_vpn_instance_without_interface(snapshot, parsed_data: dict) -> list[AnalysisIssue]:
+    """VPN-instance without any interface bound."""
+    issues = []
+    vpn_ifaces: dict[str, list[str]] = {}
+    for iface in parsed_data.get("interfaces", []):
+        vpn = iface.get("vpn_instance")
+        if vpn:
+            vpn_ifaces.setdefault(vpn, []).append(iface["name"])
+
+    for vi in parsed_data.get("vpn_instances", []):
+        if vi["name"] not in vpn_ifaces:
+            issues.append(
+                _make_issue(
+                    snapshot,
+                    SEVERITY_MEDIUM,
+                    "vpn_instance_without_interface",
+                    f"VPN-instance sem interface vinculada: {vi['name']}",
+                    f"A VPN-instance {vi['name']} não possui nenhuma "
+                    f"interface com ip binding vpn-instance. "
+                    f"Pode estar incompleta ou não aplicada.",
+                    metadata={"vpn_instance": vi["name"]},
+                )
+            )
+    return issues
+
+
+def _detect_vpn_instance_without_routes(snapshot, parsed_data: dict) -> list[AnalysisIssue]:
+    """VPN-instance without any routes (no BGP, no import-route, no static routes)."""
+    issues = []
+    vrf_static: dict[str, list] = {}
+    for route in parsed_data.get("static_routes", []):
+        vpn = route.get("vpn_instance")
+        if vpn:
+            vrf_static.setdefault(vpn, []).append(route)
+
+    vrf_bgp: set[str] = set()
+    for bgp in parsed_data.get("bgp", []):
+        for vi in bgp.get("vpn_instances", []):
+            if vi.get("peers") or vi.get("networks") or vi.get("import_routes"):
+                vrf_bgp.add(vi["name"])
+
+    for vi in parsed_data.get("vpn_instances", []):
+        name = vi["name"]
+        has_static = name in vrf_static
+        has_bgp = name in vrf_bgp
+        if not has_static and not has_bgp:
+            issues.append(
+                _make_issue(
+                    snapshot,
+                    SEVERITY_MEDIUM,
+                    "vpn_instance_without_routes",
+                    f"VPN-instance sem rotas configuradas: {name}",
+                    f"A VPN-instance {name} não possui rotas estáticas, "
+                    f"BGP ipv4-family vpn-instance com peers, "
+                    f"networks ou import-route.",
+                    metadata={"vpn_instance": name},
+                )
+            )
+    return issues
+
+
+def _detect_vpnv4_peer_not_enabled(snapshot, parsed_data: dict) -> list[AnalysisIssue]:
+    """VPNv4 peer detected but not enabled."""
+    issues = []
+    for bgp in parsed_data.get("bgp", []):
+        for vp in bgp.get("vpnv4", {}).get("peers", []):
+            if not vp.get("enabled") and vp.get("peer"):
+                issues.append(
+                    _make_issue(
+                        snapshot,
+                        SEVERITY_MEDIUM,
+                        "vpnv4_peer_not_enabled",
+                        f"VPNv4 peer não habilitado: {vp['peer']}",
+                        f"O peer VPNv4 {vp['peer']} foi referenciado "
+                        f"mas não possui 'peer {vp['peer']} enable' "
+                        f"dentro de ipv4-family vpnv4.",
+                        metadata={"peer": vp["peer"]},
+                    )
+                )
+    return issues
+
+
+def _detect_duplicate_route_distinguisher(snapshot, parsed_data: dict) -> list[AnalysisIssue]:
+    """Duplicate RD detected across different VPN-instances."""
+    issues = []
+    rd_map: dict[str, list[str]] = {}
+    for vi in parsed_data.get("vpn_instances", []):
+        for af in vi.get("address_families", {}).values():
+            rd = af.get("route_distinguisher")
+            if rd:
+                rd_map.setdefault(rd, []).append(vi["name"])
+
+    for rd, names in rd_map.items():
+        if len(names) > 1:
+            issues.append(
+                _make_issue(
+                    snapshot,
+                    SEVERITY_HIGH,
+                    "duplicate_route_distinguisher",
+                    f"Route Distinguisher duplicado: {rd}",
+                    f"O RD {rd} está sendo usado por múltiplas "
+                    f"VPN-instances: {', '.join(names)}. "
+                    f"RDs duplicados podem causar conflitos "
+                    f"de roteamento VPNv4.",
+                    metadata={
+                        "route_distinguisher": rd,
+                        "vpn_instances": names,
+                    },
+                )
+            )
+    return issues
+
+
+# ── QoS / Traffic Policy issue detectors ──────────────────────────────
+
+
+def _get_qos_names(parsed_data: dict) -> dict:
+    """Get sets of defined QoS component names."""
+    qos = parsed_data.get("qos", {})
+    return {
+        "classifiers": {c["name"] for c in qos.get("traffic_classifiers", [])},
+        "behaviors": {b["name"] for b in qos.get("traffic_behaviors", [])},
+        "policies": {p["name"] for p in qos.get("traffic_policies", [])},
+        "profiles": {p["name"] for p in qos.get("qos_profiles", [])},
+    }
+
+
+def _detect_traffic_policy_not_found(snapshot, parsed_data: dict) -> list[AnalysisIssue]:
+    """Traffic-policy applied on interface but not defined."""
+    issues = []
+    names = _get_qos_names(parsed_data)
+    defined = names["policies"]
+
+    for iface in parsed_data.get("interfaces", []):
+        for tp in iface.get("traffic_policies_applied", []):
+            if tp["name"] not in defined:
+                issues.append(
+                    _make_issue(
+                        snapshot,
+                        SEVERITY_HIGH,
+                        "traffic_policy_not_found",
+                        f"Traffic-policy aplicada nao encontrada: {tp['name']}",
+                        f"A interface {iface['name']} aplica traffic-policy "
+                        f"{tp['name']} sentido {tp['direction']}, mas a politica "
+                        f"nao foi encontrada na configuracao.",
+                        metadata={
+                            "interface": iface["name"],
+                            "policy": tp["name"],
+                            "direction": tp["direction"],
+                        },
+                    )
+                )
+    return issues
+
+
+def _detect_traffic_classifier_not_found(snapshot, parsed_data: dict) -> list[AnalysisIssue]:
+    """Traffic policy references a classifier that doesn't exist."""
+    issues = []
+    names = _get_qos_names(parsed_data)
+    defined = names["classifiers"]
+
+    for policy in parsed_data.get("qos", {}).get("traffic_policies", []):
+        for ce in policy.get("classifiers", []):
+            if ce["classifier"] not in defined:
+                issues.append(
+                    _make_issue(
+                        snapshot,
+                        SEVERITY_HIGH,
+                        "traffic_classifier_not_found",
+                        f"Traffic-policy referencia classifier inexistente: "
+                        f"{ce['classifier']}",
+                        f"A policy {policy['name']} referencia o classifier "
+                        f"{ce['classifier']} que nao foi encontrado.",
+                        metadata={
+                            "policy": policy["name"],
+                            "classifier": ce["classifier"],
+                        },
+                    )
+                )
+    return issues
+
+
+def _detect_traffic_behavior_not_found(snapshot, parsed_data: dict) -> list[AnalysisIssue]:
+    """Traffic policy references a behavior that doesn't exist."""
+    issues = []
+    names = _get_qos_names(parsed_data)
+    defined = names["behaviors"]
+
+    for policy in parsed_data.get("qos", {}).get("traffic_policies", []):
+        for ce in policy.get("classifiers", []):
+            if ce["behavior"] not in defined:
+                issues.append(
+                    _make_issue(
+                        snapshot,
+                        SEVERITY_HIGH,
+                        "traffic_behavior_not_found",
+                        f"Traffic-policy referencia behavior inexistente: "
+                        f"{ce['behavior']}",
+                        f"A policy {policy['name']} referencia o behavior "
+                        f"{ce['behavior']} que nao foi encontrado.",
+                        metadata={
+                            "policy": policy["name"],
+                            "behavior": ce["behavior"],
+                        },
+                    )
+                )
+    return issues
+
+
+def _detect_qos_classifier_acl_not_found(snapshot, parsed_data: dict) -> list[AnalysisIssue]:
+    """Classifier references an ACL that doesn't exist."""
+    issues = []
+    acls = parsed_data.get("acls", [])
+    acl_numbers = {a["number"] for a in acls if a["number"]}
+    acl_names = {a["name"] for a in acls if a["name"]}
+    all_acls = acl_numbers | acl_names
+
+    for cl in parsed_data.get("qos", {}).get("traffic_classifiers", []):
+        for im in cl.get("if_match", []):
+            if im["type"] == "acl" and im["value"] not in all_acls:
+                issues.append(
+                    _make_issue(
+                        snapshot,
+                        SEVERITY_MEDIUM,
+                        "qos_classifier_acl_not_found",
+                        f"Classifier referencia ACL inexistente: {im['value']}",
+                        f"O classifier {cl['name']} faz if-match acl "
+                        f"{im['value']}, mas esta ACL nao foi encontrada.",
+                        metadata={
+                            "classifier": cl["name"],
+                            "acl": im["value"],
+                        },
+                    )
+                )
+    return issues
+
+
+def _detect_traffic_policy_orphan(snapshot, parsed_data: dict) -> list[AnalysisIssue]:
+    """Traffic policy defined but not applied to any interface."""
+    issues = []
+    qos = parsed_data.get("qos", {})
+    policies = qos.get("traffic_policies", [])
+    applied = set()
+    for iface in parsed_data.get("interfaces", []):
+        for tp in iface.get("traffic_policies_applied", []):
+            applied.add(tp["name"])
+
+    for p in policies:
+        if p["name"] not in applied:
+            issues.append(
+                _make_issue(
+                    snapshot,
+                    SEVERITY_LOW,
+                    "traffic_policy_orphan",
+                    f"Traffic-policy definida mas nao aplicada: {p['name']}",
+                    f"A traffic-policy {p['name']} esta definida mas nao "
+                    f"esta aplicada a nenhuma interface.",
+                    metadata={"policy": p["name"]},
+                )
+            )
+    return issues
+
+
+def _detect_traffic_classifier_orphan(snapshot, parsed_data: dict) -> list[AnalysisIssue]:
+    """Traffic classifier not referenced by any policy."""
+    issues = []
+    qos = parsed_data.get("qos", {})
+    classifiers = {c["name"] for c in qos.get("traffic_classifiers", [])}
+    referenced = set()
+    for p in qos.get("traffic_policies", []):
+        for ce in p.get("classifiers", []):
+            referenced.add(ce["classifier"])
+
+    for cname in sorted(classifiers - referenced):
+        issues.append(
+            _make_issue(
+                snapshot,
+                SEVERITY_LOW,
+                "traffic_classifier_orphan",
+                f"Traffic classifier orfao: {cname}",
+                f"O classifier {cname} esta definido mas nao e referenciado "
+                f"por nenhuma traffic-policy.",
+                metadata={"classifier": cname},
+            )
+        )
+    return issues
+
+
+def _detect_traffic_behavior_orphan(snapshot, parsed_data: dict) -> list[AnalysisIssue]:
+    """Traffic behavior not referenced by any policy."""
+    issues = []
+    qos = parsed_data.get("qos", {})
+    behaviors = {b["name"] for b in qos.get("traffic_behaviors", [])}
+    referenced = set()
+    for p in qos.get("traffic_policies", []):
+        for ce in p.get("classifiers", []):
+            referenced.add(ce["behavior"])
+
+    for bname in sorted(behaviors - referenced):
+        issues.append(
+            _make_issue(
+                snapshot,
+                SEVERITY_LOW,
+                "traffic_behavior_orphan",
+                f"Traffic behavior orfao: {bname}",
+                f"O behavior {bname} esta definido mas nao e referenciado "
+                f"por nenhuma traffic-policy.",
+                metadata={"behavior": bname},
+            )
+        )
+    return issues
+
+
+def _detect_qos_profile_not_found(snapshot, parsed_data: dict) -> list[AnalysisIssue]:
+    """QoS profile applied on interface but not defined."""
+    issues = []
+    names = _get_qos_names(parsed_data)
+    defined = names["profiles"]
+
+    for iface in parsed_data.get("interfaces", []):
+        for qp in iface.get("qos_profiles_applied", []):
+            if qp["name"] not in defined:
+                issues.append(
+                    _make_issue(
+                        snapshot,
+                        SEVERITY_MEDIUM,
+                        "qos_profile_not_found",
+                        f"QoS-profile aplicado nao encontrado: {qp['name']}",
+                        f"A interface {iface['name']} aplica qos-profile "
+                        f"{qp['name']} sentido {qp['direction']}, mas o "
+                        f"perfil nao foi encontrado.",
+                        metadata={
+                            "interface": iface["name"],
+                            "profile": qp["name"],
+                            "direction": qp["direction"],
+                        },
+                    )
+                )
+    return issues
+
+
+def _detect_qos_profile_orphan(snapshot, parsed_data: dict) -> list[AnalysisIssue]:
+    """QoS profile defined but not applied to any interface."""
+    issues = []
+    qos = parsed_data.get("qos", {})
+    profiles = {p["name"] for p in qos.get("qos_profiles", [])}
+    applied = set()
+    for iface in parsed_data.get("interfaces", []):
+        for qp in iface.get("qos_profiles_applied", []):
+            applied.add(qp["name"])
+
+    for pname in sorted(profiles - applied):
+        issues.append(
+            _make_issue(
+                snapshot,
+                SEVERITY_LOW,
+                "qos_profile_orphan",
+                f"QoS-profile orfao: {pname}",
+                f"O qos-profile {pname} esta definido mas nao aplicado "
+                f"a nenhuma interface.",
+                metadata={"profile": pname},
+            )
+        )
+    return issues
+
+
+def _detect_qos_car_without_red_discard(snapshot, parsed_data: dict) -> list[AnalysisIssue]:
+    """CAR without explicit red discard action."""
+    issues = []
+    for bh in parsed_data.get("qos", {}).get("traffic_behaviors", []):
+        car = bh.get("car")
+        if car and car.get("red_action") not in ("discard", None):
+            issues.append(
+                _make_issue(
+                    snapshot,
+                    SEVERITY_LOW,
+                    "qos_car_without_red_discard",
+                    f"CAR sem descarte explicito para red: {bh['name']}",
+                    f"O behavior {bh['name']} possui CAR com acao red="
+                    f"{car.get('red_action', 'ausente')}. "
+                    f"Pode ser intencional, mas validar politica de banda.",
+                    metadata={
+                        "behavior": bh["name"],
+                        "red_action": car.get("red_action"),
+                    },
+                )
+            )
+    return issues
+
+
+def _detect_customer_interface_without_qos(snapshot, parsed_data: dict) -> list[AnalysisIssue]:
+    """Interface with clear customer indication but no QoS."""
+    issues = []
+    qos_interfaces = set()
+    for iface in parsed_data.get("interfaces", []):
+        if iface.get("traffic_policies_applied") or iface.get("qos_profiles_applied") or iface.get("qos_car"):
+            qos_interfaces.add(iface["name"])
+
+    for iface in parsed_data.get("interfaces", []):
+        if iface["name"] in qos_interfaces:
+            continue
+        desc = iface.get("description", "").lower()
+        vpn = iface.get("vpn_instance")
+        has_customer_indication = (
+            "cliente" in desc or "customer" in desc
+            or bool(vpn)
+            or iface.get("is_vrf_interface")
+        )
+        if has_customer_indication:
+            issues.append(
+                _make_issue(
+                    snapshot,
+                    SEVERITY_LOW,
+                    "customer_interface_without_qos",
+                    f"Interface de cliente sem QoS: {iface['name']}",
+                    f"A interface {iface['name']} possui indicio de "
+                    f"cliente (VPN: {vpn or 'N/A'}), "
+                    f"mas nao possui traffic-policy, qos-profile ou "
+                    f"qos car configurado.",
+                    metadata={
+                        "interface": iface["name"],
+                        "vpn_instance": vpn,
+                        "description": iface.get("description", ""),
+                    },
+                )
+            )
+    return issues
+
+
+# ── IPv6 issues ──────────────────────────────────────────────────────
+
+ISSUE_IPV6_ADDRESS_WITHOUT_ENABLE = "ipv6_address_without_enable"
+ISSUE_BGP_IPV6_PEER_NOT_ENABLED = "bgp_ipv6_peer_not_enabled"
+ISSUE_IPV6_STATIC_ROUTE_NEXTHOP_UNREACHABLE = "ipv6_static_route_nexthop_unreachable"
+ISSUE_IPV6_DEFAULT_ROUTE_DETECTED = "ipv6_default_route_detected"
+ISSUE_IPV6_PREFIX_PERMIT_ANY = "ipv6_prefix_permit_any"
+ISSUE_OSPFV3_INTERFACE_UNKNOWN_PROCESS = "ospfv3_interface_unknown_process"
+ISSUE_ISIS_IPV6_INTERFACE_UNKNOWN_PROCESS = "isis_ipv6_interface_unknown_process"
+ISSUE_VPNV6_PEER_NOT_ENABLED = "vpnv6_peer_not_enabled"
+ISSUE_BGP_IPV6_VPN_INSTANCE_NOT_FOUND = "bgp_ipv6_vpn_instance_not_found"
+
+# Reference RFC1918 equivalent for IPv6: all private IPv6 unicast addresses
+# But for simplicity, check for link-local/ULA
+
+# Collect all IPv6 addresses from interfaces
+def _get_all_ipv6_addresses(parsed_data):
+    addrs = set()
+    for iface in parsed_data.get("interfaces", []):
+        for addr in iface.get("ipv6_addresses", []):
+            addrs.add(addr.get("address", ""))
+    return addrs
+
+
+def _detect_ipv6_issues(parsed_data):
+    """Detect IPv6-related issues across all parsed data."""
+    issues = []
+
+    # A) Interface with IPv6 address without ipv6 enable
+    for iface in parsed_data.get("interfaces", []):
+        if iface.get("ipv6_addresses") and not iface.get("ipv6_enabled"):
+            issues.append(AnalysisIssue(
+                code=ISSUE_IPV6_ADDRESS_WITHOUT_ENABLE,
+                severity="medium",
+                title=f"Interface {iface['name']} possui IPv6 address sem ipv6 enable",
+                description=(
+                    f"A interface {iface['name']} tem endereco IPv6 configurado "
+                    f"mas o comando 'ipv6 enable' nao foi encontrado."
+                ),
+            ))
+
+    # B) BGP IPv6 peer without enable
+    for bgp in parsed_data.get("bgp", []):
+        for peer in bgp.get("ipv6_unicast", {}).get("peers", []):
+            if not peer.get("enabled"):
+                issues.append(AnalysisIssue(
+                    code=ISSUE_BGP_IPV6_PEER_NOT_ENABLED,
+                    severity="medium",
+                    title=f"BGP IPv6 peer {peer['peer']} sem enable em ipv6-family",
+                    description=(
+                        f"O peer BGP IPv6 {peer['peer']} foi definido mas "
+                        f"nao possui 'enable' em ipv6-family unicast."
+                    ),
+                ))
+
+    # C) IPv6 static route next-hop unreachable
+    iface_addrs = _get_all_ipv6_addresses(parsed_data)
+    for route in parsed_data.get("ipv6_static_routes", []):
+        nh = route.get("next_hop")
+        dest = route.get("destination", "")
+        if nh and nh not in iface_addrs and nh not in ("::",) and not nh.startswith("fe80:"):
+            issues.append(AnalysisIssue(
+                code=ISSUE_IPV6_STATIC_ROUTE_NEXTHOP_UNREACHABLE,
+                severity="high",
+                title=f"IPv6 route next-hop {nh} inalcancavel",
+                description=(
+                    f"A rota IPv6 para {dest} usa next-hop {nh}, "
+                    f"mas {nh} nao foi encontrado em nenhuma interface IPv6 do equipamento."
+                ),
+            ))
+
+    # D) IPv6 default route
+    for route in parsed_data.get("ipv6_static_routes", []):
+        if route.get("destination") == "::" or route.get("prefix") == "::/0":
+            issues.append(AnalysisIssue(
+                code=ISSUE_IPV6_DEFAULT_ROUTE_DETECTED,
+                severity="info",
+                title="Rota default IPv6 detectada",
+                description=(
+                    f"Rota default IPv6 (::/0) via {route.get('next_hop', 'N/A')} encontrada."
+                ),
+            ))
+
+    # E) IPv6 prefix-list permit any
+    for pl in parsed_data.get("prefix_lists", []):
+        if not pl.get("is_ipv6"):
+            continue
+        for rule in pl.get("rules", []):
+            prefix = rule.get("prefix", "")
+            mask_len = rule.get("mask_length")
+            le = rule.get("less_equal")
+            ge = rule.get("greater_equal")
+            if prefix == "::" and mask_len == 0 and rule.get("action") == "permit":
+                if (le and le >= 128) or (not le and not ge):
+                    issues.append(AnalysisIssue(
+                        code=ISSUE_IPV6_PREFIX_PERMIT_ANY,
+                        severity="high",
+                        title=f"IPv6 prefix-list {pl['name']} permite ::/0",
+                        description=(
+                            f"O prefix-list IPv6 {pl['name']} possui regra "
+                            f"permitindo ::/0, que permite todo o trafego IPv6."
+                        ),
+                    ))
+
+    # F) OSPFv3 interface references unknown process
+    known_ospfv3_processes = {o.get("process_id") for o in parsed_data.get("ospfv3", [])}
+    for iface in parsed_data.get("interfaces", []):
+        pid = iface.get("ospfv3_process_id")
+        if pid and pid not in known_ospfv3_processes:
+            issues.append(AnalysisIssue(
+                code=ISSUE_OSPFV3_INTERFACE_UNKNOWN_PROCESS,
+                severity="medium",
+                title=f"Interface {iface['name']} referencia processo OSPFv3 {pid} inexistente",
+                description=(
+                    f"A interface {iface['name']} tem ospfv3 {pid} area configurado, "
+                    f"mas o processo OSPFv3 {pid} nao existe na configuracao."
+                ),
+            ))
+
+    # G) ISIS IPv6 interface references unknown process
+    known_isis_processes = {p.get("process_id") for p in parsed_data.get("isis", [])}
+    for iface in parsed_data.get("interfaces", []):
+        pid = iface.get("isis_ipv6_process_id")
+        if pid and pid not in known_isis_processes:
+            issues.append(AnalysisIssue(
+                code=ISSUE_ISIS_IPV6_INTERFACE_UNKNOWN_PROCESS,
+                severity="medium",
+                title=f"Interface {iface['name']} referencia processo ISIS {pid} inexistente para IPv6",
+                description=(
+                    f"A interface {iface['name']} tem isis ipv6 enable {pid}, "
+                    f"mas o processo ISIS {pid} nao existe na configuracao."
+                ),
+            ))
+
+    # H) VPNv6 peer without enable
+    for bgp in parsed_data.get("bgp", []):
+        for peer in bgp.get("vpnv6", {}).get("peers", []):
+            if not peer.get("enabled"):
+                issues.append(AnalysisIssue(
+                    code=ISSUE_VPNV6_PEER_NOT_ENABLED,
+                    severity="medium",
+                    title=f"VPNv6 peer {peer['peer']} sem enable",
+                    description=(
+                        f"O peer VPNv6 {peer['peer']} foi configurado mas "
+                        f"nao possui 'enable' em ipv6-family vpnv6."
+                    ),
+                ))
+
+    # I) BGP ipv6-family vpn-instance references nonexistent VPN-instance
+    existing_vpn_instances = {v.get("name") for v in parsed_data.get("vpn_instances", [])}
+    for bgp in parsed_data.get("bgp", []):
+        for vi in bgp.get("vpn_instances_ipv6", []):
+            vpn_name = vi.get("name", "")
+            if vpn_name and vpn_name not in existing_vpn_instances:
+                issues.append(AnalysisIssue(
+                    code=ISSUE_BGP_IPV6_VPN_INSTANCE_NOT_FOUND,
+                    severity="high",
+                    title=f"BGP ipv6-family vpn-instance referencia VPN-instance inexistente: {vpn_name}",
+                    description=(
+                        f"O BGP possui ipv6-family vpn-instance {vpn_name}, "
+                        f"mas a VPN-instance {vpn_name} nao foi definida."
+                    ),
+                ))
+
+    return issues
+
+
+# ── BNG/AAA/RADIUS/IP pool issues ─────────────────────────────────────
+
+# Issue codes
+ISSUE_BAS_DOMAIN_NOT_FOUND = "bas_domain_not_found"
+ISSUE_DOMAIN_AUTH_SCHEME_NOT_FOUND = "domain_authentication_scheme_not_found"
+ISSUE_DOMAIN_ACCT_SCHEME_NOT_FOUND = "domain_accounting_scheme_not_found"
+ISSUE_DOMAIN_AUTHZ_SCHEME_NOT_FOUND = "domain_authorization_scheme_not_found"
+ISSUE_DOMAIN_RADIUS_GROUP_NOT_FOUND = "domain_radius_group_not_found"
+ISSUE_DOMAIN_IP_POOL_NOT_FOUND = "domain_ip_pool_not_found"
+ISSUE_RADIUS_GROUP_WITHOUT_AUTH = "radius_group_without_authentication_server"
+ISSUE_RADIUS_GROUP_WITHOUT_ACCT = "radius_group_without_accounting_server"
+ISSUE_RADIUS_SHARED_KEY_PLAIN = "radius_shared_key_plain"
+ISSUE_IP_POOL_WITHOUT_GATEWAY = "ip_pool_without_gateway"
+ISSUE_IP_POOL_WITHOUT_SECTION = "ip_pool_without_section"
+ISSUE_BAS_WITHOUT_USER_VLAN = "bas_interface_without_user_vlan"
+ISSUE_BAS_WITHOUT_AUTH_METHOD = "bas_interface_without_authentication_method"
+ISSUE_DOMAIN_WITHOUT_ACCT = "domain_without_accounting"
+ISSUE_BAS_MISSING_DESCRIPTION = "bas_interface_missing_description"
+
+
+def _detect_bng_issues(parsed_data):
+    """Detect BNG/AAA/RADIUS/IP pool issues."""
+    issues = []
+
+    # Collect all valid references
+    aaa_blocks = parsed_data.get("aaa", [])
+    all_domains = set()
+    all_auth_schemes = set()
+    all_acct_schemes = set()
+    all_authz_schemes = set()
+    for ab in aaa_blocks:
+        for d in ab.get("domains", []):
+            all_domains.add(d["name"])
+        for s in ab.get("authentication_schemes", []):
+            all_auth_schemes.add(s["name"])
+        for s in ab.get("accounting_schemes", []):
+            all_acct_schemes.add(s["name"])
+        for s in ab.get("authorization_schemes", []):
+            all_authz_schemes.add(s["name"])
+    for d in parsed_data.get("aaa_domains", []):
+        all_domains.add(d["name"])
+
+    all_radius_groups = {r["name"] for r in parsed_data.get("radius_servers", [])}
+    all_ip_pools = {p["name"] for p in parsed_data.get("ip_pools", [])}
+
+    # A) BAS interface references domain inexistente
+    for iface in parsed_data.get("interfaces", []):
+        bas = iface.get("bas")
+        if not bas or not bas.get("enabled"):
+            continue
+        dom = bas.get("default_domain")
+        if dom and dom not in all_domains:
+            issues.append(AnalysisIssue(
+                code=ISSUE_BAS_DOMAIN_NOT_FOUND,
+                severity="high",
+                title=f"BAS interface {iface['name']} referencia domínio inexistente: {dom}",
+                description=f"A interface BAS {iface['name']} usa domínio {dom}, mas ele não foi definido.",
+            ))
+        # M) BAS sem authentication-method
+        if not bas.get("authentication_method"):
+            issues.append(AnalysisIssue(
+                code=ISSUE_BAS_WITHOUT_AUTH_METHOD,
+                severity="medium",
+                title=f"BAS interface {iface['name']} sem authentication-method",
+                description=f"A interface BAS {iface['name']} não possui authentication-method configurado.",
+            ))
+        # L) BAS sem user-vlan
+        if not iface.get("user_vlan"):
+            issues.append(AnalysisIssue(
+                code=ISSUE_BAS_WITHOUT_USER_VLAN,
+                severity="medium",
+                title=f"BAS interface {iface['name']} sem user-vlan",
+                description=f"A interface BAS {iface['name']} não possui user-vlan configurada.",
+            ))
+        # O) BAS sem description
+        if not iface.get("description"):
+            issues.append(AnalysisIssue(
+                code=ISSUE_BAS_MISSING_DESCRIPTION,
+                severity="medium",
+                title=f"BAS interface {iface['name']} sem descrição",
+                description=f"A interface BAS {iface['name']} não possui descrição configurada.",
+            ))
+
+    # Collect all domains (from AAA blocks + standalone)
+    all_domain_entries = []
+    for ab in aaa_blocks:
+        all_domain_entries.extend(ab.get("domains", []))
+    all_domain_entries.extend(parsed_data.get("aaa_domains", []))
+
+    for d in all_domain_entries:
+        name = d["name"]
+
+        # B) Domain references auth-scheme inexistente
+        as_scheme = d.get("authentication_scheme")
+        if as_scheme and as_scheme not in all_auth_schemes:
+            issues.append(AnalysisIssue(
+                code=ISSUE_DOMAIN_AUTH_SCHEME_NOT_FOUND,
+                severity="high",
+                title=f"Domain {name} referencia authentication-scheme inexistente: {as_scheme}",
+                description=f"O domínio {name} usa authentication-scheme {as_scheme}, mas ele não foi definido em AAA.",
+            ))
+
+        # C) Domain references acct-scheme inexistente
+        ac_scheme = d.get("accounting_scheme")
+        if ac_scheme and ac_scheme not in all_acct_schemes:
+            issues.append(AnalysisIssue(
+                code=ISSUE_DOMAIN_ACCT_SCHEME_NOT_FOUND,
+                severity="high",
+                title=f"Domain {name} referencia accounting-scheme inexistente: {ac_scheme}",
+                description=f"O domínio {name} usa accounting-scheme {ac_scheme}, mas ele não foi definido em AAA.",
+            ))
+
+        # D) Domain references authz-scheme inexistente
+        az_scheme = d.get("authorization_scheme")
+        if az_scheme and az_scheme not in all_authz_schemes:
+            issues.append(AnalysisIssue(
+                code=ISSUE_DOMAIN_AUTHZ_SCHEME_NOT_FOUND,
+                severity="medium",
+                title=f"Domain {name} referencia authorization-scheme inexistente: {az_scheme}",
+            ))
+
+        # E) Domain references radius group inexistente
+        rg = d.get("radius_server_group")
+        if rg and rg not in all_radius_groups:
+            issues.append(AnalysisIssue(
+                code=ISSUE_DOMAIN_RADIUS_GROUP_NOT_FOUND,
+                severity="high",
+                title=f"Domain {name} referencia radius-server group inexistente: {rg}",
+                description=f"O domínio {name} usa grupo RADIUS {rg}, mas ele não foi definido.",
+            ))
+
+        # F) Domain references ip-pool inexistente
+        ip = d.get("ip_pool")
+        if ip and ip not in all_ip_pools:
+            issues.append(AnalysisIssue(
+                code=ISSUE_DOMAIN_IP_POOL_NOT_FOUND,
+                severity="high",
+                title=f"Domain {name} referencia ip-pool inexistente: {ip}",
+                description=f"O domínio {name} usa IP pool {ip}, mas ele não foi definido.",
+            ))
+
+        # N) Domain sem accounting-scheme
+        if not d.get("accounting_scheme"):
+            issues.append(AnalysisIssue(
+                code=ISSUE_DOMAIN_WITHOUT_ACCT,
+                severity="medium",
+                title=f"Domain {name} sem accounting-scheme",
+                description=f"O domínio {name} não possui accounting-scheme configurado.",
+            ))
+
+    # G) RADIUS group without authentication server
+    for rg in parsed_data.get("radius_servers", []):
+        if not rg.get("authentication_servers"):
+            issues.append(AnalysisIssue(
+                code=ISSUE_RADIUS_GROUP_WITHOUT_AUTH,
+                severity="high",
+                title=f"RADIUS group {rg['name']} sem servidor de autenticação",
+                description=f"O grupo RADIUS {rg['name']} não possui nenhum servidor de autenticação configurado.",
+            ))
+
+        # H) RADIUS group without accounting server
+        if not rg.get("accounting_servers"):
+            issues.append(AnalysisIssue(
+                code=ISSUE_RADIUS_GROUP_WITHOUT_ACCT,
+                severity="medium",
+                title=f"RADIUS group {rg['name']} sem servidor de contabilidade",
+                description=f"O grupo RADIUS {rg['name']} não possui nenhum servidor de contabilidade configurado.",
+            ))
+
+        # I) RADIUS shared-key simple
+        if rg.get("shared_key_type") == "simple":
+            issues.append(AnalysisIssue(
+                code=ISSUE_RADIUS_SHARED_KEY_PLAIN,
+                severity="high",
+                title=f"RADIUS group {rg['name']} com shared-key simple (texto plano)",
+                description=f"O grupo RADIUS {rg['name']} usa shared-key simple, que não é criptografada. Recomenda-se usar cipher.",
+            ))
+
+    # J) IP pool without gateway
+    for pool in parsed_data.get("ip_pools", []):
+        if not pool.get("gateway"):
+            issues.append(AnalysisIssue(
+                code=ISSUE_IP_POOL_WITHOUT_GATEWAY,
+                severity="high",
+                title=f"IP pool {pool['name']} sem gateway",
+                description=f"O IP pool {pool['name']} não possui gateway configurado.",
+            ))
+
+        # K) IP pool local without section
+        if pool.get("mode") != "remote" and not pool.get("sections"):
+            issues.append(AnalysisIssue(
+                code=ISSUE_IP_POOL_WITHOUT_SECTION,
+                severity="medium",
+                title=f"IP pool local {pool['name']} sem section/range",
+                description=f"O IP pool local {pool['name']} não possui seção/range de endereços configurada.",
+            ))
+
     return issues

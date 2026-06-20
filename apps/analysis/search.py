@@ -1627,7 +1627,828 @@ def _search_raw_matches(
     return results[:20]
 
 
-# ── public API ──────────────────────────────────────────────────────────────
+# ── QoS search ────────────────────────────────────────────────────────────
+
+
+def _search_qos(
+    classification: dict, filters: dict | None, only_last_snapshot: bool = False
+) -> list[dict]:
+    """Search QoS / Traffic Policy / CAR data in parsed snapshots."""
+    q = classification["query"]
+    qtype = classification["type"]
+    qval = classification.get("value", q)
+    q_lower = q.lower()
+    results: list[dict] = []
+
+    is_qos_keyword = q_lower in ("qos", "traffic-policy", "traffic policy", "car", "qos-profile")
+
+    parsed_qs = ParsedConfig.objects.select_related("snapshot__device").all()
+    if filters:
+        if filters.get("vendor"):
+            parsed_qs = parsed_qs.filter(snapshot__vendor=filters["vendor"])
+        if filters.get("device"):
+            parsed_qs = parsed_qs.filter(snapshot__device__name__icontains=filters["device"])
+        if filters.get("last_snapshot_only") or only_last_snapshot:
+            from django.db.models import Max
+            latest_ids = (parsed_qs.values("snapshot__device_id").annotate(max_id=Max("pk")).values_list("max_id", flat=True))
+            parsed_qs = parsed_qs.filter(pk__in=list(latest_ids))
+
+    for parsed in parsed_qs:
+        qos = parsed.parsed_data.get("qos", {})
+        if not qos and not is_qos_keyword:
+            continue
+        snapshot = parsed.snapshot
+        device_name = snapshot.device.name if snapshot.device else "?"
+
+        # Search policies
+        for p in qos.get("traffic_policies", []):
+            score = 0.0
+            if is_qos_keyword:
+                score = 0.6
+            elif q_lower and q_lower == p["name"].lower():
+                score = 1.0
+            elif q_lower and q_lower in p["name"].lower():
+                score = 0.8
+            if score > 0:
+                results.append({
+                    "type": "traffic_policy",
+                    "title": f"Traffic-policy {p['name']}",
+                    "name": p["name"],
+                    "device": device_name,
+                    "snapshot": snapshot.pk,
+                    "parsed_config": parsed.pk,
+                    "url": f"/analysis/{parsed.pk}/",
+                    "score": score,
+                    "evidence": [],
+                })
+
+        # Search classifiers
+        for cl in qos.get("traffic_classifiers", []):
+            score = 0.0
+            if is_qos_keyword:
+                score = 0.5
+            elif q_lower and q_lower == cl["name"].lower():
+                score = 1.0
+            elif q_lower and q_lower in cl["name"].lower():
+                score = 0.8
+            if score > 0:
+                results.append({
+                    "type": "traffic_classifier",
+                    "title": f"Classifier {cl['name']}",
+                    "name": cl["name"],
+                    "device": device_name,
+                    "snapshot": snapshot.pk,
+                    "parsed_config": parsed.pk,
+                    "url": f"/analysis/{parsed.pk}/",
+                    "score": score,
+                    "evidence": [],
+                })
+
+            # Search ACL refs in classifier
+            for im in cl.get("if_match", []):
+                if im["type"] == "acl" and q_lower and q_lower == im["value"].lower():
+                    results.append({
+                        "type": "qos_acl_ref",
+                        "title": f"Classifier {cl['name']} -> ACL {im['value']}",
+                        "acl": im["value"],
+                        "classifier": cl["name"],
+                        "device": device_name,
+                        "snapshot": snapshot.pk,
+                        "parsed_config": parsed.pk,
+                        "url": f"/analysis/{parsed.pk}/",
+                        "score": 0.7,
+                        "evidence": [],
+                    })
+
+        # Search behaviors
+        for bh in qos.get("traffic_behaviors", []):
+            score = 0.0
+            if is_qos_keyword:
+                score = 0.5
+            elif q_lower and q_lower == bh["name"].lower():
+                score = 1.0
+            elif q_lower and q_lower in bh["name"].lower():
+                score = 0.8
+            if score == 0.0 and qtype == "asn" and qval:
+                car = bh.get("car", {})
+                if car and (str(car.get("cir", "")) == qval or str(car.get("pir", "")) == qval):
+                    score = 0.7
+            if score > 0:
+                results.append({
+                    "type": "traffic_behavior",
+                    "title": f"Behavior {bh['name']}",
+                    "name": bh["name"],
+                    "car": bh.get("car"),
+                    "device": device_name,
+                    "snapshot": snapshot.pk,
+                    "parsed_config": parsed.pk,
+                    "url": f"/analysis/{parsed.pk}/",
+                    "score": score,
+                    "evidence": [],
+                })
+
+        # Search qos-profiles
+        for qp in qos.get("qos_profiles", []):
+            score = 0.0
+            if is_qos_keyword:
+                score = 0.5
+            elif q_lower and q_lower == qp["name"].lower():
+                score = 1.0
+            elif q_lower and q_lower in qp["name"].lower():
+                score = 0.8
+            if score > 0:
+                results.append({
+                    "type": "qos_profile",
+                    "title": f"QoS-profile {qp['name']}",
+                    "name": qp["name"],
+                    "device": device_name,
+                    "snapshot": snapshot.pk,
+                    "parsed_config": parsed.pk,
+                    "url": f"/analysis/{parsed.pk}/",
+                    "score": score,
+                    "evidence": [],
+                })
+
+        # Search interfaces with QoS
+        for iface in parsed.parsed_data.get("interfaces", []):
+            has_qos = iface.get("traffic_policies_applied") or iface.get("qos_profiles_applied") or iface.get("qos_car")
+            if not has_qos:
+                continue
+            score = 0.0
+            if is_qos_keyword:
+                score = 0.4
+            elif q_lower and q_lower in iface["name"].lower():
+                score = 0.7
+            if score > 0:
+                results.append({
+                    "type": "qos_interface",
+                    "title": f"Interface com QoS: {iface['name']}",
+                    "interface": iface["name"],
+                    "policies": [tp["name"] for tp in iface.get("traffic_policies_applied", [])],
+                    "device": device_name,
+                    "snapshot": snapshot.pk,
+                    "parsed_config": parsed.pk,
+                    "url": f"/analysis/{parsed.pk}/",
+                    "score": score,
+                    "evidence": [],
+                })
+
+    seen = set()
+    unique = []
+    for r in results:
+        key = f"{r.get('type', '')}|{r.get('name', '')}|{r.get('title', '')}"
+        if key not in seen:
+            seen.add(key)
+            unique.append(r)
+
+    unique.sort(key=lambda x: x.get("score", 0), reverse=True)
+    return unique[:20]
+
+
+# ── NAT search ────────────────────────────────────────────────────────────
+
+
+def _search_bng(
+    classification: dict, filters: dict | None, only_last_snapshot: bool = False
+) -> list[dict]:
+    """Search BNG/AAA/RADIUS/IP pool data."""
+    q = classification["query"]
+    q_lower = q.lower()
+    results: list[dict] = []
+    is_bng_keyword = any(k in q_lower for k in ("bng", "bas", "aaa", "radius", "pool", "domain", "subscriber", "authentication", "accounting"))
+
+    parsed_qs = ParsedConfig.objects.select_related("snapshot__device").all()
+    if filters:
+        if filters.get("vendor"):
+            parsed_qs = parsed_qs.filter(snapshot__vendor=filters["vendor"])
+        if filters.get("device"):
+            parsed_qs = parsed_qs.filter(snapshot__device__name__icontains=filters["device"])
+        if filters.get("last_snapshot_only") or only_last_snapshot:
+            from django.db.models import Max
+            latest_ids = (parsed_qs.values("snapshot__device_id").annotate(max_id=Max("pk")).values_list("max_id", flat=True))
+            parsed_qs = parsed_qs.filter(pk__in=list(latest_ids))
+
+    for parsed in parsed_qs:
+        data = parsed.parsed_data
+        snapshot = parsed.snapshot
+        device_name = snapshot.device.name if snapshot.device else "?"
+
+        # BAS interfaces
+        for iface in data.get("interfaces", []):
+            bas = iface.get("bas")
+            if not bas or not bas.get("enabled"):
+                continue
+            score = 0.5 if is_bng_keyword else 0.0
+            if q_lower and q_lower in iface["name"].lower():
+                score = 0.9
+            if q_lower and bas.get("default_domain") and q_lower in bas["default_domain"].lower():
+                score = 0.8
+            if q_lower and bas.get("authentication_method") and q_lower in bas["authentication_method"].lower():
+                score = 0.8
+            if q_lower and iface.get("user_vlan") and q_lower == iface["user_vlan"]:
+                score = 0.8
+            if score:
+                results.append({"type": "bas_interface", "title": f"BAS {iface['name']}", "device": device_name, "score": score, "snapshot": snapshot.pk})
+
+            # Subscriber VLAN
+            if q_lower and iface.get("user_vlan") and q_lower == iface["user_vlan"]:
+                results.append({"type": "bas_user_vlan", "title": f"User VLAN {iface['user_vlan']} em {iface['name']}", "device": device_name, "score": 0.9, "snapshot": snapshot.pk})
+
+        # RADIUS groups
+        for rg in data.get("radius_servers", []):
+            score = 0.5 if is_bng_keyword else 0.0
+            if q_lower and q_lower == rg["name"].lower():
+                score = 1.0
+            elif q_lower and q_lower in rg["name"].lower():
+                score = 0.8
+            for srv in rg.get("authentication_servers", []):
+                if q_lower and q_lower in srv.get("ip", ""):
+                    score = max(score, 0.9)
+            for srv in rg.get("accounting_servers", []):
+                if q_lower and q_lower in srv.get("ip", ""):
+                    score = max(score, 0.9)
+            if score:
+                results.append({"type": "radius_group", "title": f"RADIUS group {rg['name']}", "device": device_name, "score": score, "snapshot": snapshot.pk})
+
+        # IP pools
+        for pool in data.get("ip_pools", []):
+            score = 0.5 if is_bng_keyword else 0.0
+            if q_lower and q_lower == pool["name"].lower():
+                score = 1.0
+            elif q_lower and q_lower in pool["name"].lower():
+                score = 0.8
+            elif pool.get("gateway") and q_lower in pool["gateway"]:
+                score = 0.8
+            if score:
+                results.append({"type": "ip_pool", "title": f"IP pool {pool['name']}", "device": device_name, "score": score, "snapshot": snapshot.pk})
+
+        # Domains
+        seen_domains = set()
+        for ab in data.get("aaa", []):
+            for d in ab.get("domains", []):
+                name = d["name"]
+                if name in seen_domains:
+                    continue
+                seen_domains.add(name)
+                score = 0.5 if is_bng_keyword else 0.0
+                if q_lower and q_lower == name.lower():
+                    score = 1.0
+                elif q_lower and q_lower in name.lower():
+                    score = 0.8
+                if score:
+                    results.append({"type": "subscriber_domain", "title": f"Domínio {name}", "device": device_name, "score": score, "snapshot": snapshot.pk})
+        for d in data.get("aaa_domains", []):
+            name = d["name"]
+            if name in seen_domains:
+                continue
+            seen_domains.add(name)
+            score = 0.5 if is_bng_keyword else 0.0
+            if q_lower and q_lower == name.lower():
+                score = 1.0
+            elif q_lower and q_lower in name.lower():
+                score = 0.8
+            if score:
+                results.append({"type": "subscriber_domain", "title": f"Domínio {name}", "device": device_name, "score": score, "snapshot": snapshot.pk})
+
+        # AAA schemes
+        for ab in data.get("aaa", []):
+            for s in ab.get("authentication_schemes", []):
+                if q_lower and q_lower == s["name"].lower():
+                    results.append({"type": "aaa_scheme", "title": f"Auth-scheme {s['name']}", "device": device_name, "score": 0.9, "snapshot": snapshot.pk})
+            for s in ab.get("accounting_schemes", []):
+                if q_lower and q_lower == s["name"].lower():
+                    results.append({"type": "aaa_scheme", "title": f"Acct-scheme {s['name']}", "device": device_name, "score": 0.9, "snapshot": snapshot.pk})
+
+    seen = set()
+    unique = []
+    for r in results:
+        key = f"{r.get('type', '')}|{r.get('title', '')}"
+        if key not in seen:
+            seen.add(key)
+            unique.append(r)
+    unique.sort(key=lambda x: x.get("score", 0), reverse=True)
+    return unique
+
+
+def _search_ipv6(
+    classification: dict, filters: dict | None, only_last_snapshot: bool = False
+) -> list[dict]:
+    """Search IPv6-related data."""
+    q = classification["query"]
+    q_lower = q.lower()
+    qval = classification.get("value", q)
+    results: list[dict] = []
+
+    is_ipv6_keyword = any(k in q_lower for k in ("ipv6", "vpnv6", "ospfv3", "isis ipv6"))
+
+    parsed_qs = ParsedConfig.objects.select_related("snapshot__device").all()
+    if filters:
+        if filters.get("vendor"):
+            parsed_qs = parsed_qs.filter(snapshot__vendor=filters["vendor"])
+        if filters.get("device"):
+            parsed_qs = parsed_qs.filter(snapshot__device__name__icontains=filters["device"])
+        if filters.get("last_snapshot_only") or only_last_snapshot:
+            from django.db.models import Max
+            latest_ids = (parsed_qs.values("snapshot__device_id").annotate(max_id=Max("pk")).values_list("max_id", flat=True))
+            parsed_qs = parsed_qs.filter(pk__in=list(latest_ids))
+
+    for parsed in parsed_qs:
+        data = parsed.parsed_data
+        snapshot = parsed.snapshot
+        device_name = snapshot.device.name if snapshot.device else "?"
+
+        # IPv6 static routes
+        for route in data.get("ipv6_static_routes", []):
+            score = 0.0
+            if is_ipv6_keyword:
+                score = 0.5
+            elif q_lower and q_lower in route.get("prefix", "").lower():
+                score = 0.9
+            elif q_lower and q_lower in route.get("destination", "").lower():
+                score = 0.9
+            elif q_lower and q_lower in route.get("next_hop", "").lower():
+                score = 0.8
+            elif route.get("vpn_instance") and q_lower in route["vpn_instance"].lower():
+                score = 0.8
+            if score > 0:
+                nh = route.get("next_hop", "?")
+                results.append({"type": "ipv6_route", "title": f"Rota IPv6 {route.get('prefix', '?')} via {nh}", "device": device_name, "score": score, "snapshot": snapshot.pk})
+
+        # IPv6 prefix-lists
+        for pl in data.get("prefix_lists", []):
+            if not pl.get("is_ipv6"):
+                continue
+            score = 0.0
+            if is_ipv6_keyword:
+                score = 0.5
+            elif q_lower and q_lower == pl["name"].lower():
+                score = 1.0
+            elif q_lower and q_lower in pl["name"].lower():
+                score = 0.8
+            if score == 0 and q_lower:
+                for rule in pl.get("rules", []):
+                    if q_lower in rule.get("prefix", "").lower():
+                        score = 0.9
+                        break
+            if score > 0:
+                results.append({"type": "ipv6_prefix_list", "title": f"IPv6 prefix-list {pl['name']} ({len(pl.get('rules', []))} regras)", "device": device_name, "score": score, "snapshot": snapshot.pk})
+
+        # BGP blocks
+        for bgp in data.get("bgp", []):
+            ipv6 = bgp.get("ipv6_unicast", {})
+            # Peers
+            for peer in ipv6.get("peers", []):
+                score = 0.0
+                if is_ipv6_keyword:
+                    score = 0.5
+                elif q_lower and q_lower in peer.get("peer", ""):
+                    score = 0.9
+                elif q_lower and peer.get("route_policy_import") and q_lower in peer["route_policy_import"].lower():
+                    score = 0.8
+                elif q_lower and peer.get("route_policy_export") and q_lower in peer["route_policy_export"].lower():
+                    score = 0.8
+                if score > 0:
+                    enabled = "habilitado" if peer.get("enabled") else "desabilitado"
+                    results.append({"type": "bgp_ipv6_peer", "title": f"BGP IPv6 peer {peer['peer']} ({enabled})", "device": device_name, "score": score, "snapshot": snapshot.pk})
+            # Networks
+            for net in ipv6.get("networks", []):
+                score = 0.0
+                net_str = net.get("prefix", str(net)) if isinstance(net, dict) else str(net)
+                if is_ipv6_keyword:
+                    score = 0.5
+                elif q_lower and q_lower in net_str.lower():
+                    score = 0.9
+                if score > 0:
+                    results.append({"type": "bgp_ipv6_network", "title": f"BGP IPv6 network {net_str}", "device": device_name, "score": score, "snapshot": snapshot.pk})
+
+            # VPNv6 peers
+            for peer in bgp.get("vpnv6", {}).get("peers", []):
+                score = 0.0
+                if is_ipv6_keyword:
+                    score = 0.5
+                elif q_lower and q_lower in peer.get("peer", ""):
+                    score = 0.9
+                if score > 0:
+                    enabled = "habilitado" if peer.get("enabled") else "desabilitado"
+                    results.append({"type": "vpnv6_peer", "title": f"VPNv6 peer {peer['peer']} ({enabled})", "device": device_name, "score": score, "snapshot": snapshot.pk})
+
+            # IPv6 vpn-instances in BGP
+            for vi in bgp.get("vpn_instances_ipv6", []):
+                score = 0.0
+                if is_ipv6_keyword:
+                    score = 0.5
+                elif q_lower and vi.get("name") and q_lower in vi["name"].lower():
+                    score = 0.9
+                if score > 0:
+                    results.append({"type": "ipv6_vpn_instance", "title": f"VPN-instance IPv6 {vi.get('name', '?')}", "device": device_name, "score": score, "snapshot": snapshot.pk})
+
+        # OSPFv3
+        for ospf in data.get("ospfv3", []):
+            score = 0.0
+            if is_ipv6_keyword:
+                score = 0.5
+            elif q_lower and q_lower == ospf.get("process_id", ""):
+                score = 0.9
+            elif q_lower and ospf.get("router_id") and q_lower in ospf["router_id"]:
+                score = 0.8
+            if score > 0:
+                results.append({"type": "ospfv3", "title": f"OSPFv3 processo {ospf.get('process_id', '?')} (router-id {ospf.get('router_id', '?')})", "device": device_name, "score": score, "snapshot": snapshot.pk})
+
+        # Interfaces with ISIS IPv6
+        for iface in data.get("interfaces", []):
+            if iface.get("isis_ipv6_enabled"):
+                score = 0.0
+                if is_ipv6_keyword:
+                    score = 0.5
+                elif q_lower and q_lower in iface.get("name", "").lower():
+                    score = 0.9
+                if score > 0:
+                    results.append({"type": "isis_ipv6_interface", "title": f"ISIS IPv6 interface {iface['name']}", "device": device_name, "score": score, "snapshot": snapshot.pk})
+
+            # Interface IPv6 addresses (direct match)
+            for addr in iface.get("ipv6_addresses", []):
+                addr_str = addr.get("address", "")
+                if q_lower and q_lower == addr_str:
+                    results.append({"type": "ipv6_interface_address", "title": f"Interface {iface['name']}: {addr_str}/{addr.get('prefix_length', '?')}", "device": device_name, "score": 0.95, "snapshot": snapshot.pk})
+
+    seen = set()
+    unique = []
+    for r in results:
+        key = f"{r.get('type', '')}|{r.get('title', '')}"
+        if key not in seen:
+            seen.add(key)
+            unique.append(r)
+    unique.sort(key=lambda x: x.get("score", 0), reverse=True)
+    return unique
+
+
+def _search_nat(
+    classification: dict, filters: dict | None, only_last_snapshot: bool = False
+) -> list[dict]:
+    """Search NAT / PAT / Port Forward data in parsed snapshots."""
+    q = classification["query"]
+    qtype = classification["type"]
+    qval = classification.get("value", q)
+    q_lower = q.lower()
+    results: list[dict] = []
+
+    is_nat_keyword = any(q_lower.startswith(k) for k in ("nat", "address-group"))
+    is_port_query = q_lower.isdigit() and len(q_lower) <= 5
+
+    parsed_qs = ParsedConfig.objects.select_related("snapshot__device").all()
+    if filters:
+        if filters.get("vendor"):
+            parsed_qs = parsed_qs.filter(snapshot__vendor=filters["vendor"])
+        if filters.get("device"):
+            parsed_qs = parsed_qs.filter(snapshot__device__name__icontains=filters["device"])
+        if filters.get("last_snapshot_only") or only_last_snapshot:
+            from django.db.models import Max
+            latest_ids = (parsed_qs.values("snapshot__device_id").annotate(max_id=Max("pk")).values_list("max_id", flat=True))
+            parsed_qs = parsed_qs.filter(pk__in=list(latest_ids))
+
+    for parsed in parsed_qs:
+        nat = parsed.parsed_data.get("nat", {})
+        if not nat and not is_nat_keyword and not is_port_query:
+            continue
+        snapshot = parsed.snapshot
+        device_name = snapshot.device.name if snapshot.device else "?"
+
+        for ag in nat.get("address_groups", []):
+            score = 0.0
+            if is_nat_keyword:
+                score = 0.5
+            elif q_lower and q_lower == ag["name"].lower():
+                score = 1.0
+            elif q_lower and q_lower in ag["name"].lower():
+                score = 0.8
+            elif q_lower in ag.get("start_ip", "") or q_lower in ag.get("end_ip", ""):
+                score = 0.7
+            if score > 0:
+                results.append({"type": "nat_address_group", "title": f"Address-group {ag['name']} ({ag['start_ip']}-{ag['end_ip']})", "device": device_name, "score": score, "snapshot": snapshot.pk, "url": f"/analysis/{parsed.pk}/"})
+
+        for ob in nat.get("outbound_rules", []):
+            score = 0.0
+            if is_nat_keyword:
+                score = 0.5
+            elif q_lower and ob.get("acl") and q_lower == ob["acl"].lower():
+                score = 0.8
+            elif q_lower and ob.get("address_group") and q_lower == ob["address_group"].lower():
+                score = 0.8
+            if score > 0:
+                acl_part = f"ACL {ob['acl']}" if ob.get("acl") else "sem ACL"
+                results.append({"type": "nat_outbound", "title": f"NAT outbound {acl_part}", "device": device_name, "score": score, "snapshot": snapshot.pk, "url": f"/analysis/{parsed.pk}/"})
+
+        for sr in nat.get("static_rules", []):
+            score = 0.0
+            if is_nat_keyword:
+                score = 0.5
+            elif q_lower and q_lower in sr.get("global_ip", ""):
+                score = 0.9
+            elif q_lower and q_lower in sr.get("inside_ip", ""):
+                score = 0.7
+            if score > 0:
+                results.append({"type": "nat_static", "title": f"NAT static {sr['global_ip']} -> {sr['inside_ip']}", "device": device_name, "score": score, "snapshot": snapshot.pk, "url": f"/analysis/{parsed.pk}/"})
+
+        for sv in nat.get("server_rules", []):
+            score = 0.0
+            if is_nat_keyword:
+                score = 0.5
+            elif q_lower and q_lower in sv.get("global_ip", ""):
+                score = 0.9
+            elif q_lower and q_lower in sv.get("inside_ip", ""):
+                score = 0.7
+            elif is_port_query and sv.get("global_port") == q_lower:
+                score = 0.8
+            if score > 0:
+                results.append({"type": "nat_server", "title": f"NAT server {sv.get('global_ip', '?')}:{sv.get('global_port', '?')} -> {sv.get('inside_ip', '?')}:{sv.get('inside_port', '?')}", "device": device_name, "score": score, "snapshot": snapshot.pk, "url": f"/analysis/{parsed.pk}/"})
+
+        for iface in parsed.parsed_data.get("interfaces", []):
+            if iface.get("has_nat") and (is_nat_keyword or (q_lower and q_lower in iface["name"].lower())):
+                results.append({"type": "nat_interface", "title": f"Interface com NAT: {iface['name']}", "device": device_name, "score": 0.6, "snapshot": snapshot.pk, "url": f"/analysis/{parsed.pk}/"})
+
+    seen = set()
+    unique = []
+    for r in results:
+        key = f"{r.get('type', '')}|{r.get('title', '')}"
+        if key not in seen:
+            seen.add(key)
+            unique.append(r)
+    unique.sort(key=lambda x: x.get("score", 0), reverse=True)
+    return unique[:20]
+
+
+# ── VRF / VPN-instance search ─────────────────────────────────────────────
+
+
+def _search_vrf(
+    classification: dict, filters: dict | None, only_last_snapshot: bool = False
+) -> list[dict]:
+    """Search VRF / VPN-instance / L3VPN data in parsed snapshots.
+
+    Searches: VPN-instance names, RD, RT, interfaces in VRF,
+    static routes in VRF, BGP vpn-instance, VPNv4 peers.
+    """
+    q = classification["query"]
+    qtype = classification["type"]
+    qval = classification.get("value", q)
+    q_lower = q.lower()
+    results: list[dict] = []
+
+    is_vrf_query = q_lower in ("vpn-instance", "vrf", "l3vpn", "vpnv4")
+
+    parsed_qs = ParsedConfig.objects.select_related(
+        "snapshot__device"
+    ).all()
+
+    if filters:
+        if filters.get("vendor"):
+            parsed_qs = parsed_qs.filter(snapshot__vendor=filters["vendor"])
+        if filters.get("device"):
+            parsed_qs = parsed_qs.filter(
+                snapshot__device__name__icontains=filters["device"]
+            )
+        if filters.get("last_snapshot_only") or only_last_snapshot:
+            from django.db.models import Max
+            latest_ids = (
+                parsed_qs.values("snapshot__device_id")
+                .annotate(max_id=Max("pk"))
+                .values_list("max_id", flat=True)
+            )
+            parsed_qs = parsed_qs.filter(pk__in=list(latest_ids))
+
+    for parsed in parsed_qs:
+        parsed_data = parsed.parsed_data
+        vpn_instances = parsed_data.get("vpn_instances", [])
+        bgp_blocks = parsed_data.get("bgp", [])
+        snapshot = parsed.snapshot
+        device_name = snapshot.device.name if snapshot.device else "?"
+
+        # Get raw config text for evidence
+        raw_text = snapshot.raw_config or ""
+
+        # Search VPN-instance names
+        for vi in vpn_instances:
+            name = vi.get("name", "")
+            desc = vi.get("description", "")
+            evidence = []
+            score = 0.0
+
+            if is_vrf_query:
+                score = 0.6
+            elif q_lower and q_lower in name.lower():
+                score = 1.0 if name.lower() == q_lower else 0.8
+            elif desc and q_lower in desc.lower():
+                score = 0.7
+            elif qtype == "asn" and qval:
+                for af in vi.get("address_families", {}).values():
+                    rd = af.get("route_distinguisher", "")
+                    if qval in rd:
+                        score = max(score, 0.9)
+                    for vt in af.get("vpn_targets", []):
+                        if qval in vt.get("value", ""):
+                            score = max(score, 0.8)
+            elif qtype == "text":
+                for af in vi.get("address_families", {}).values():
+                    rd = af.get("route_distinguisher", "")
+                    if rd and q_lower in rd.lower():
+                        score = max(score, 0.7)
+                    for vt in af.get("vpn_targets", []):
+                        if q_lower in vt.get("value", "").lower():
+                            score = max(score, 0.7)
+
+            if score > 0:
+                if raw_text:
+                    evidence = _get_evidence_lines(raw_text, name)
+                results.append({
+                    "type": "vpn_instance",
+                    "title": f"VPN-instance {name}",
+                    "vpn_instance": name,
+                    "description": desc,
+                    "device": device_name,
+                    "snapshot": snapshot.pk,
+                    "parsed_config": parsed.pk,
+                    "url": f"/analysis/{parsed.pk}/",
+                    "score": score,
+                    "evidence": evidence[:3],
+                })
+
+        # Search VPNv4 peers even without vpn_instances
+        for bgp in bgp_blocks:
+            for vp in bgp.get("vpnv4", {}).get("peers", []):
+                peer = vp.get("peer", "")
+                vpnv4_score = 0.0
+                if is_vrf_query or q_lower in "vpnv4":
+                    vpnv4_score = 0.6
+                elif q_lower and q_lower in peer.lower():
+                    vpnv4_score = 0.8
+                if vpnv4_score > 0:
+                    results.append({
+                        "type": "vpnv4_peer",
+                        "title": f"VPNv4 peer {peer}",
+                        "vpnv4_peer": peer,
+                        "enabled": vp.get("enabled", False),
+                        "device": device_name,
+                        "snapshot": snapshot.pk,
+                        "parsed_config": parsed.pk,
+                        "url": f"/analysis/{parsed.pk}/",
+                        "score": vpnv4_score,
+                        "evidence": [],
+                    })
+
+            # Search BGP vpn-instance
+            for vi in bgp.get("vpn_instances", []):
+                vi_name = vi["name"]
+                if q_lower and q_lower in vi_name.lower():
+                    results.append({
+                        "type": "bgp_vpn_instance",
+                        "title": f"BGP vpn-instance {vi_name}",
+                        "vpn_instance": vi_name,
+                        "import_routes": vi.get("import_routes", []),
+                        "device": device_name,
+                        "snapshot": snapshot.pk,
+                        "parsed_config": parsed.pk,
+                        "url": f"/analysis/{parsed.pk}/",
+                        "score": 0.7,
+                        "evidence": [],
+                    })
+
+                for ce_peer in vi.get("peers", []):
+                    if q_lower and q_lower == ce_peer.get("ip", "").lower():
+                        results.append({
+                            "type": "ce_peer",
+                            "title": f"CE peer {ce_peer['ip']} in {vi_name}",
+                            "vpn_instance": vi_name,
+                            "ce_peer": ce_peer["ip"],
+                            "remote_as": ce_peer.get("remote_as"),
+                            "device": device_name,
+                            "snapshot": snapshot.pk,
+                            "parsed_config": parsed.pk,
+                            "url": f"/analysis/{parsed.pk}/",
+                            "score": 1.0,
+                            "evidence": [],
+                        })
+
+        # Search interfaces in VRF
+        for iface in parsed_data.get("interfaces", []):
+            vpn_name = iface.get("vpn_instance")
+            if not vpn_name:
+                continue
+            iface_name = iface.get("name", "")
+            ip_addr = iface.get("ip_address", "")
+            iface_desc = iface.get("description", "")
+            score = 0.0
+
+            if q_lower in iface_name.lower():
+                score = 0.8
+            elif q_lower and vpn_name and q_lower in vpn_name.lower():
+                score = 0.6
+            elif qtype == "ip" and ip_addr and qval in ip_addr:
+                score = 0.7
+
+            if score > 0:
+                evidence = []
+                if raw_text:
+                    evidence = _get_evidence_lines(raw_text, iface_name)
+                results.append({
+                    "type": "vrf_interface",
+                    "title": f"VRF interface {iface_name} ({vpn_name})",
+                    "interface": iface_name,
+                    "vpn_instance": vpn_name,
+                    "ip_address": ip_addr,
+                    "device": device_name,
+                    "snapshot": snapshot.pk,
+                    "parsed_config": parsed.pk,
+                    "url": f"/analysis/{parsed.pk}/",
+                    "score": score,
+                    "evidence": evidence[:3],
+                })
+
+        # Search static routes in VRF
+        for route in parsed_data.get("static_routes", []):
+            vpn_name = route.get("vpn_instance")
+            if not vpn_name:
+                continue
+            dest = f"{route.get('network', '?')}/{route.get('netmask', '?')}"
+            nh = route.get("next_hop", "?")
+            score = 0.0
+
+            if q_lower in dest.lower():
+                score = 0.8
+            elif qtype == "prefix" and qval and qval in dest.replace(" ", "/"):
+                score = 0.7
+            elif qtype == "ip" and nh and qval == nh:
+                score = 0.7
+            elif q_lower and vpn_name and q_lower in vpn_name.lower():
+                score = 0.5
+
+            if score > 0:
+                results.append({
+                    "type": "vrf_static_route",
+                    "title": f"VRF route {dest} via {nh} ({vpn_name})",
+                    "vpn_instance": vpn_name,
+                    "destination": dest,
+                    "next_hop": nh,
+                    "device": device_name,
+                    "snapshot": snapshot.pk,
+                    "parsed_config": parsed.pk,
+                    "url": f"/analysis/{parsed.pk}/",
+                    "score": score,
+                    "evidence": [],
+                })
+                for vi in bgp.get("vpn_instances", []):
+                    vi_name = vi["name"]
+                    if q_lower and q_lower in vi_name.lower():
+                        results.append({
+                            "type": "bgp_vpn_instance",
+                            "vpn_instance": vi_name,
+                            "import_routes": vi.get("import_routes", []),
+                            "ce_peers": [p["ip"] for p in vi.get("peers", [])],
+                            "snapshot_id": snapshot.pk,
+                            "device": snapshot.device.name if snapshot.device else "?",
+                            "score": 0.7,
+                            "evidence": [],
+                        })
+
+                    for ce_peer in vi.get("peers", []):
+                        if q_lower and q_lower == ce_peer.get("ip", "").lower():
+                            results.append({
+                                "type": "ce_peer",
+                                "vpn_instance": vi_name,
+                                "ce_peer": ce_peer["ip"],
+                                "remote_as": ce_peer.get("remote_as"),
+                                "snapshot_id": snapshot.pk,
+                                "device": snapshot.device.name if snapshot.device else "?",
+                                "score": 1.0,
+                                "evidence": [],
+                            })
+
+                vpnv4 = bgp.get("vpnv4", {})
+                for vp in vpnv4.get("peers", []):
+                    peer = vp.get("peer", "")
+                    if (q_lower in peer.lower()
+                            or q_lower == "vpnv4"
+                            or (qtype == "ip" and qval == peer)):
+                        results.append({
+                            "type": "vpnv4_peer",
+                            "vpnv4_peer": peer,
+                            "enabled": vp.get("enabled", False),
+                            "snapshot_id": snapshot.pk,
+                            "device": snapshot.device.name if snapshot.device else "?",
+                            "score": 0.8 if qval == peer else 0.6,
+                            "evidence": [],
+                        })
+
+    # Deduplicate by key
+    seen: set[str] = set()
+    unique_results = []
+    for r in results:
+        key = f"{r.get('type', '')}|{r.get('vpn_instance', '')}|{r.get('vpnv4_peer', '')}|{r.get('ce_peer', '')}|{r.get('interface', '')}"
+        if key not in seen:
+            seen.add(key)
+            unique_results.append(r)
+
+    unique_results.sort(key=lambda x: x.get("score", 0), reverse=True)
+    return unique_results[:20]
 
 
 def global_network_search(
@@ -1692,6 +2513,17 @@ def global_network_search(
     core_results = _search_core(
         classification, effective_filters, only_last_snapshot
     )
+    vrf_results = _search_vrf(
+        classification, effective_filters, only_last_snapshot
+    )
+    qos_results = _search_qos(
+        classification, effective_filters, only_last_snapshot
+    )
+    bng_results = _search_bng(classification, effective_filters, only_last_snapshot)
+    ipv6_results = _search_ipv6(classification, effective_filters, only_last_snapshot)
+    nat_results = _search_nat(
+        classification, effective_filters, only_last_snapshot
+    )
 
     summary_counts: dict[str, int] = {
         "devices": len(devices),
@@ -1705,6 +2537,11 @@ def global_network_search(
         "policies": len(policies),
         "isis": len(isis_results),
         "core": len(core_results),
+        "vrf": len(vrf_results),
+        "qos": len(qos_results),
+        "nat": len(nat_results),
+        "ipv6": len(ipv6_results),
+        "bng": len(bng_results),
         "raw_matches": len(raw_matches),
     }
 
@@ -1724,5 +2561,10 @@ def global_network_search(
         "policies": policies,
         "isis": isis_results,
         "core": core_results,
+        "vrf": vrf_results,
+        "qos": qos_results,
+        "nat": nat_results,
+        "ipv6": ipv6_results,
+        "bng": bng_results,
         "raw_matches": raw_matches,
     }
