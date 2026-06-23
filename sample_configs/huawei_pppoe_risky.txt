@@ -1,0 +1,45 @@
+#
+sysname NE40-PPPOE-RISK
+#
+# Issue: Virtual-Template sem PPP authentication-mode (virtual_template_without_ppp_authentication)
+interface Virtual-Template1
+ description PPPoE template sem auth
+ mtu 1500
+ remote address pool POOL-INEXISTENTE
+#
+# Issue: Virtual-Template com PAP habilitado (ppp_authentication_pap_enabled)
+# Issue: MTU != 1492 (virtual_template_mtu_not_1492)
+interface Virtual-Template2
+ ppp authentication-mode pap
+#
+# Virtual-Template órfã - não referenciada por nenhuma interface (virtual_template_orphan)
+interface Virtual-Template3
+ ppp authentication-mode chap
+#
+# Issue: PPPoE bind para Virtual-Template inexistente (99) (pppoe_virtual_template_not_found)
+# Issue: PPPoE sem BAS (pppoe_interface_without_bas)
+# Issue: PPPoE sem user-vlan (pppoe_interface_without_user_vlan)
+interface Eth-Trunk100.100
+ description PPPOE-RISK-SEM-BAS
+ pppoe-server bind Virtual-Template 99
+#
+# Issue: PPPoE com BAS mas sem default-domain (pppoe_interface_without_domain)
+# Issue: PPPoE sem max-sessions (pppoe_without_max_sessions)
+interface Eth-Trunk100.200
+ description PPPOE-RISK-SEM-DOMAIN
+ pppoe-server bind Virtual-Template 2
+ user-vlan 200
+ bas
+ #
+  access-type layer2-subscriber
+ #
+# Issue: Virtual-Template com MTU 1500 usada por PPPoE (virtual_template_mtu_not_1492)
+interface Eth-Trunk100.250
+ description PPPOE-COM-VT1
+ pppoe-server bind Virtual-Template 1
+ user-vlan 250
+ bas
+ #
+  access-type layer2-subscriber default-domain authentication cliente-pppoe
+  authentication-method ppp
+ #

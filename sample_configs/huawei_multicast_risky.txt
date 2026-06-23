@@ -1,0 +1,49 @@
+#
+sysname NE40-MCAST-RISK
+#
+# PIM sem multicast routing-enable (so pim is configured but multicast routing isn't)
+pim
+ static-rp 10.255.0.1
+#
+# IGMP sem multicast routing-enable
+interface Vlanif100
+ description IPTV-CLIENTES
+ ip address 192.168.100.1 255.255.255.0
+ igmp enable
+ igmp version 1
+#
+# MLD sem ipv6 multicast routing-enable
+interface Vlanif200
+ description IPV6-MLD
+ ipv6 enable
+ mld enable
+ mld static-group ff3e::1
+#
+# PIM sparse mode sem RP/BSR
+pim
+#
+# PIM interface sem descricao
+interface GigabitEthernet0/0/1
+ ip address 10.0.0.5 255.255.255.252
+ pim sm
+#
+# IGMP grupo invalido
+interface Vlanif300
+ ip address 10.10.10.1 255.255.255.0
+ igmp enable
+ igmp static-group 10.0.0.1
+#
+# MLD grupo invalido
+interface Vlanif400
+ ipv6 enable
+ mld enable
+ mld static-group 2001:db8::1
+#
+# IGMP snooping sem querier
+igmp-snooping enable
+igmp-snooping vlan 200 enable
+#
+# Multicast VPN-instance inexistente
+pim vpn-instance VPN-INEXISTENTE
+ static-rp 10.10.10.1
+#

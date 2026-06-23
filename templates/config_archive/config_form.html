@@ -24,9 +24,11 @@
         <div class="form-group">
             <label for="id_vendor">Fabricante</label>
             <select name="vendor" id="id_vendor" class="form-control" required>
-                <option value="huawei" selected>Huawei / VRP</option>
+                {% for value, label in form.vendor.field.choices %}
+                <option value="{{ value }}" {% if form.vendor.value == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
             </select>
-            <div class="help-text">Fabricante do equipamento. Por enquanto apenas Huawei é suportado.</div>
+            <div class="help-text">Fabricantes suportados: Huawei / VRP, ZTE OLT / ZXA10 e Cisco IOS / IOS-XE.</div>
         </div>
 
         <div class="form-group">

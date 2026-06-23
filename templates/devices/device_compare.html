@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+{% block title %}Comparar Snapshots - {{ device.name }} - NetOps Assistant{% endblock %}
+
+{% block content %}
+<div class="page-header flex justify-between items-center">
+    <div>
+        <h1>Comparar Snapshots</h1>
+        <p><a href="{% url 'device_detail' device.pk %}">{{ device.name }}</a></p>
+    </div>
+    <div class="flex gap-1">
+        <a href="{% url 'device_snapshot_list' device.pk %}" class="btn btn-outline btn-sm">Snapshots</a>
+    </div>
+</div>
+
+<div class="card">
+    <form method="post">
+        {% csrf_token %}
+
+        {% if snapshots|length < 2 %}
+        <div class="empty-state">
+            <p>É necessário pelo menos 2 snapshots para comparar.</p>
+            <a href="{% url 'device_snapshot_upload' device.pk %}" class="btn btn-primary">Enviar novo snapshot</a>
+        </div>
+        {% else %}
+        <div class="card-grid" style="grid-template-columns:1fr 1fr;">
+            <div class="form-group">
+                <label for="id_base">Snapshot Base</label>
+                <select id="id_base" name="base_snapshot" class="form-control" required>
+                    <option value="">— Selecione —</option>
+                    {% for snap in snapshots %}
+                    <option value="{{ snap.pk }}">
+                        #{{ snap.pk }} — {{ snap.created_at|date:"d/m/Y H:i" }}{% if snap.name %} — {{ snap.name }}{% endif %}{% if snap.is_baseline %} [BASELINE]{% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="id_target">Snapshot Alvo</label>
+                <select id="id_target" name="target_snapshot" class="form-control" required>
+                    <option value="">— Selecione —</option>
+                    {% for snap in snapshots %}
+                    <option value="{{ snap.pk }}">
+                        #{{ snap.pk }} — {{ snap.created_at|date:"d/m/Y H:i" }}{% if snap.name %} — {{ snap.name }}{% endif %}{% if snap.is_baseline %} [BASELINE]{% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <div class="help-text" style="margin-top:0.5rem;">
+            Selecione dois snapshots diferentes do mesmo equipamento. O snapshot base é a referência (antes) e o alvo é a configuração mais recente (depois).
+        </div>
+
+        <div style="margin-top:1rem;">
+            <button type="submit" class="btn btn-primary">Comparar</button>
+            <a href="{% url 'device_snapshot_list' device.pk %}" class="btn btn-outline">Cancelar</a>
+        </div>
+        {% endif %}
+    </form>
+</div>
+{% endblock %}

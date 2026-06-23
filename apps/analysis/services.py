@@ -5,10 +5,13 @@ Funções de alto nível para analisar snapshots de configuração.
 
 from __future__ import annotations
 
+from django.db import transaction
+
 from apps.analysis.models import DetectedService, ParsedConfig
 from apps.parsers.registry import get_parser_for_vendor, list_supported_vendors
 
 
+@transaction.atomic
 def analyze_config_snapshot(snapshot) -> ParsedConfig:
     """Executa análise completa de um snapshot de configuração.
 
@@ -71,6 +74,8 @@ def analyze_config_snapshot(snapshot) -> ParsedConfig:
     detect_vlan_transport_circuits(parsed.snapshot, parsed_data)
     detect_qinq_transport_circuits(parsed.snapshot, parsed_data)
     detect_l2vpn_vsi_circuits(parsed.snapshot, parsed_data)
+    from apps.analysis.detectors.circuits import detect_olt_circuits
+    detect_olt_circuits(parsed.snapshot, parsed_data)
 
     return parsed
 
@@ -361,6 +366,96 @@ def detect_services(snapshot, parsed_data: dict) -> list[DetectedService]:
 
     radius_group_svcs = _detect_radius_groups(parsed_data)
     for svc in radius_group_svcs:
+        svc.snapshot = snapshot
+        svc.save()
+        services.append(svc)
+
+    # ── HA / BFD / GR / NSR ─────────────────────────────────────────
+    from apps.analysis.detectors.services import _detect_bfd, _detect_graceful_restart, _detect_nsr
+
+    bfd_svc = _detect_bfd(parsed_data)
+    if bfd_svc:
+        bfd_svc.snapshot = snapshot
+        bfd_svc.save()
+        services.append(bfd_svc)
+
+    gr_svc = _detect_graceful_restart(parsed_data)
+    if gr_svc:
+        gr_svc.snapshot = snapshot
+        gr_svc.save()
+        services.append(gr_svc)
+
+    nsr_svc = _detect_nsr(parsed_data)
+    if nsr_svc:
+        nsr_svc.snapshot = snapshot
+        nsr_svc.save()
+        services.append(nsr_svc)
+
+    # ── Multicast / PIM / IGMP / MLD ────────────────────────────────
+    from apps.analysis.detectors.services import _detect_multicast, _detect_pim, _detect_igmp, _detect_igmp_snooping, _detect_mld
+
+    mcast_svc = _detect_multicast(parsed_data)
+    if mcast_svc:
+        mcast_svc.snapshot = snapshot
+        mcast_svc.save()
+        services.append(mcast_svc)
+
+    pim_svc = _detect_pim(parsed_data)
+    if pim_svc:
+        pim_svc.snapshot = snapshot
+        pim_svc.save()
+        services.append(pim_svc)
+
+    igmp_svc = _detect_igmp(parsed_data)
+    if igmp_svc:
+        igmp_svc.snapshot = snapshot
+        igmp_svc.save()
+        services.append(igmp_svc)
+
+    igmp_snoop_svc = _detect_igmp_snooping(parsed_data)
+    if igmp_snoop_svc:
+        igmp_snoop_svc.snapshot = snapshot
+        igmp_snoop_svc.save()
+        services.append(igmp_snoop_svc)
+
+    mld_svc = _detect_mld(parsed_data)
+    if mld_svc:
+        mld_svc.snapshot = snapshot
+        mld_svc.save()
+        services.append(mld_svc)
+
+    # ── PPPoE / Virtual-Template / PPP Access ──────────────────────
+    from apps.analysis.detectors.services import _detect_pppoe_server, _detect_virtual_templates, _detect_ppp_access
+
+    pppoe_svc = _detect_pppoe_server(parsed_data)
+    if pppoe_svc:
+        pppoe_svc.snapshot = snapshot
+        pppoe_svc.save()
+        services.append(pppoe_svc)
+
+    vt_svcs = _detect_virtual_templates(parsed_data)
+    for svc in vt_svcs:
+        svc.snapshot = snapshot
+        svc.save()
+        services.append(svc)
+
+    ppp_access_svc = _detect_ppp_access(parsed_data)
+    if ppp_access_svc:
+        ppp_access_svc.snapshot = snapshot
+        ppp_access_svc.save()
+        services.append(ppp_access_svc)
+
+    # ── Huawei advanced feature families ───────────────────────────
+    from apps.analysis.detectors.services import _detect_huawei_advanced_services
+
+    for svc in _detect_huawei_advanced_services(parsed_data):
+        svc.snapshot = snapshot
+        svc.save()
+        services.append(svc)
+
+    from apps.analysis.detectors.services import _detect_zte_olt_services
+
+    for svc in _detect_zte_olt_services(parsed_data):
         svc.snapshot = snapshot
         svc.save()
         services.append(svc)

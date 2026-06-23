@@ -17,6 +17,7 @@ class NewAnalysisForm(forms.Form):
         label="Fabricante",
         choices=[
             ("huawei", "Huawei / VRP"),
+            ("zte", "ZTE OLT / ZXA10"),
             ("cisco_ios", "Cisco IOS / IOS-XE"),
         ],
         error_messages={"required": "Selecione um fabricante."},

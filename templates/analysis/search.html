@@ -284,7 +284,7 @@
                 {% if item.type == 'nat_address_group' %}#4caf50
                 {% elif item.type == 'nat_outbound' %}#ff9800
                 {% elif item.type == 'nat_static' %}#2196f3
-                {% elif item.type == 'nat_server' %]#e91e63
+                {% elif item.type == 'nat_server' %}#e91e63
                 {% elif item.type == 'nat_interface' %}#9c27b0
                 {% else %}#607d8b{% endif %};">{{ item.type }}</span>
             {{ item.title }}
@@ -306,7 +306,7 @@
                 {% elif item.type == 'ipv6_prefix_list' %}#009688
                 {% elif item.type == 'bgp_ipv6_peer' %}#2196f3
                 {% elif item.type == 'bgp_ipv6_network' %}#4caf50
-                {% elif item.type == 'vpnv6_peer' %]#ff9800
+                {% elif item.type == 'vpnv6_peer' %}#ff9800
                 {% elif item.type == 'ipv6_vpn_instance' %}#7c4dff
                 {% elif item.type == 'ospfv3' %}#e91e63
                 {% elif item.type == 'isis_ipv6_interface' %}#ff5722
@@ -439,6 +439,131 @@
         {% if item.evidence %}
         <div class="evidence">{% for e in item.evidence %}{{ e }}{% if not forloop.last %}<hr style="border-color:var(--border);margin:0.2rem 0;">{% endif %}{% endfor %}</div>
         {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if r.ha %}
+<div class="search-section">
+    <h3>HA / BFD / GR / NSR <span class="badge badge-primary">{{ r.ha|length }}</span></h3>
+    {% for item in r.ha %}
+    <div class="result-item {% if item.score >= 0.9 %}score-high{% elif item.score >= 0.6 %}score-medium{% else %}score-low{% endif %}">
+        <div class="title">
+            <span class="search-type-tag" style="font-size:0.7rem;margin-right:0.35rem;background:
+                {% if item.type == 'bfd_session' %}#3f51b5
+                {% elif item.type == 'bgp_bfd' %}#009688
+                {% elif item.type == 'graceful_restart' %}#4caf50
+                {% elif item.type == 'nsr' %}#ff5722
+                {% elif item.type == 'igp_bfd' %}#9c27b0
+                {% elif item.type == 'ldp_ha' %}#ff9800
+                {% else %}#607d8b{% endif %};">{{ item.type }}</span>
+            {{ item.title }}
+        </div>
+        <div class="meta">{{ item.device }} — {{ item.description }}</div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if r.multicast %}
+<div class="search-section">
+    <h3>Multicast / PIM / IGMP / MLD <span class="badge badge-primary">{{ r.multicast|length }}</span></h3>
+    {% for item in r.multicast %}
+    <div class="result-item {% if item.score >= 0.9 %}score-high{% elif item.score >= 0.6 %}score-medium{% else %}score-low{% endif %}">
+        <div class="title">
+            <span class="search-type-tag" style="font-size:0.7rem;margin-right:0.35rem;background:
+                {% if item.type == 'multicast_routing' %}#4caf50
+                {% elif item.type == 'pim_static_rp' %}#e91e63
+                {% elif item.type == 'pim_bsr' %}#ff9800
+                {% elif item.type == 'pim_interface' %}#9c27b0
+                {% elif item.type == 'igmp_interface' %}#2196f3
+                {% elif item.type == 'igmp_group' %}#00bcd4
+                {% elif item.type == 'mld_interface' %}#009688
+                {% elif item.type == 'igmp_snooping_global' %}#3f51b5
+                {% elif item.type == 'igmp_snooping_vlan' %}#ff5722
+                {% elif item.type == 'multicast_vpn' %}#7c4dff
+                {% else %}#607d8b{% endif %};">{{ item.type }}</span>
+            {{ item.title }}
+        </div>
+        <div class="meta">{{ item.device }} — {{ item.description }}</div>
+        {% if item.evidence %}
+        <div class="evidence">{% for e in item.evidence %}{{ e }}{% if not forloop.last %}<hr style="border-color:var(--border);margin:0.2rem 0;">{% endif %}{% endfor %}</div>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if r.bng %}
+<div class="search-section">
+    <h3>BNG / AAA / RADIUS / IP Pool <span class="badge badge-primary">{{ r.bng|length }}</span></h3>
+    {% for item in r.bng %}
+    <div class="result-item {% if item.score >= 0.9 %}score-high{% elif item.score >= 0.6 %}score-medium{% else %}score-low{% endif %}">
+        <div class="title">
+            <span class="search-type-tag" style="font-size:0.7rem;margin-right:0.35rem;background:
+                {% if item.type == 'bas_interface' %}#3f51b5
+                {% elif item.type == 'subscriber_domain' %}#009688
+                {% elif item.type == 'aaa_scheme' %}#4caf50
+                {% elif item.type == 'radius_group' %}#ff9800
+                {% elif item.type == 'radius_server' %}#ff5722
+                {% elif item.type == 'ip_pool' %}#e91e63
+                {% elif item.type == 'ip_pool_section' %}#9c27b0
+                {% elif item.type == 'bng_issue' %}#f44336
+                {% else %}#607d8b{% endif %};">{{ item.type }}</span>
+            {% if item.type == 'bas_interface' %}
+                BAS {{ item.interface }} — {{ item.default_domain|default:"sem domínio" }}
+                {% if item.user_vlan %}(VLAN {{ item.user_vlan }}){% endif %}
+            {% elif item.type == 'subscriber_domain' %}
+                Domínio {{ item.name }}
+                {% if item.radius_server_group %}(RADIUS: {{ item.radius_server_group }}){% endif %}
+            {% elif item.type == 'aaa_scheme' %}
+                {{ item.name }} ({{ item.scheme_type }})
+            {% elif item.type == 'radius_group' %}
+                RADIUS group {{ item.name }}
+                {% if item.server_count %} ({{ item.server_count }} servidores){% endif %}
+            {% elif item.type == 'radius_server' %}
+                RADIUS server {{ item.ip }}:{{ item.port }}
+            {% elif item.type == 'ip_pool' %}
+                Pool {{ item.name }} — gateway {{ item.gateway|default:"sem gateway" }}
+            {% elif item.type == 'ip_pool_section' %}
+                Pool {{ item.pool }}: {{ item.start }} — {{ item.end }}
+            {% elif item.type == 'bng_issue' %}
+                {{ item.title }}
+            {% else %}
+                {{ item.title }}
+            {% endif %}
+        </div>
+        <div class="meta">{{ item.device }} — {{ item.description }}</div>
+        {% if item.evidence %}
+        <div class="evidence">{% for e in item.evidence %}{{ e }}{% if not forloop.last %}<hr style="border-color:var(--border);margin:0.2rem 0;">{% endif %}{% endfor %}</div>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if r.huawei_advanced %}
+<div class="search-section">
+    <h3>Huawei avançado <span class="badge badge-primary">{{ r.huawei_advanced|length }}</span></h3>
+    {% for item in r.huawei_advanced %}
+    <div class="result-item {% if item.score >= 0.9 %}score-high{% else %}score-medium{% endif %}">
+        <div class="title"><span class="search-type-tag">{{ item.type }}</span> {{ item.title }}</div>
+        <div class="meta">{{ item.device }} — {{ item.description }}</div>
+        {% if item.evidence %}<div class="evidence">{% for e in item.evidence %}{{ e }}{% if not forloop.last %}<hr>{% endif %}{% endfor %}</div>{% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if r.zte_olt %}
+<div class="search-section">
+    <h3>ZTE OLT / GPON <span class="badge badge-primary">{{ r.zte_olt|length }}</span></h3>
+    {% for item in r.zte_olt %}
+    <div class="result-item {% if item.score >= 0.9 %}score-high{% else %}score-medium{% endif %}">
+        <div class="title"><span class="search-type-tag">{{ item.type }}</span> {{ item.title }}</div>
+        <div class="meta">{{ item.device }} — {{ item.description }}</div>
+        {% if item.evidence %}<div class="evidence">{% for e in item.evidence %}{{ e }}{% if not forloop.last %}<hr>{% endif %}{% endfor %}</div>{% endif %}
     </div>
     {% endfor %}
 </div>

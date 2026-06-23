@@ -35,8 +35,11 @@ class BaseParser(ABC):
 
     def detect_vendor(self, raw_config: str) -> str:
         """Detect vendor from configuration text."""
-        if "sysname" in raw_config[:500].lower():
+        raw_lower = raw_config.lower()
+        if any(token in raw_lower for token in ("zxa10", "zte", "gpon-olt_", "gpon-onu_")):
+            return "zte"
+        if "sysname" in raw_lower[:500]:
             return "huawei"
-        if "hostname" in raw_config[:500].lower():
+        if "hostname" in raw_lower[:500]:
             return "cisco"
         return "unknown"

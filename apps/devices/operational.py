@@ -4,9 +4,10 @@ Fornece funções para consolidar dados de um único equipamento:
 status operacional, resumo, timeline, ações recomendadas.
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from django.db.models import Count, Max, Q
+from django.utils import timezone
 
 from apps.analysis.models import (
     AnalysisIssue,
@@ -201,11 +202,24 @@ def get_device_recommended_actions(device: Device) -> list[dict]:
     return actions
 
 
-def filter_devices(vendor: str = "", status: str = "", q: str = "") -> list[dict]:
+def filter_devices(
+    vendor: str = "",
+    status: str = "",
+    q: str = "",
+    role: str = "",
+    site: str = "",
+    platform: str = "",
+) -> list[dict]:
     """Retorna lista de dispositivos com dados operacionais, aplicando filtros."""
     qs = Device.objects.all()
     if vendor:
         qs = qs.filter(vendor=vendor)
+    if role:
+        qs = qs.filter(role=role)
+    if site:
+        qs = qs.filter(site__icontains=site)
+    if platform:
+        qs = qs.filter(platform__icontains=platform)
     if q:
         qs = qs.filter(Q(name__icontains=q) | Q(hostname__icontains=q) | Q(ip_address__icontains=q))
 
@@ -214,8 +228,8 @@ def filter_devices(vendor: str = "", status: str = "", q: str = "") -> list[dict
         status_val = get_device_status(device)
         if status and status != status_val:
             continue
-        last_snap = ConfigSnapshot.objects.filter(device=device).order_by("-created_at", "-pk").first()
-        last_parsed = ParsedConfig.objects.filter(snapshot=last_snap).first() if last_snap else None
+        last_snap = get_latest_snapshot(device)
+        last_parsed = get_latest_parsed_config(device)
         circuits_count = DetectedCircuit.objects.filter(snapshot=last_snap).count() if last_snap else 0
         services_count = DetectedService.objects.filter(snapshot=last_snap).count() if last_snap else 0
         issues_count = AnalysisIssue.objects.filter(snapshot=last_snap).count() if last_snap else 0
@@ -233,3 +247,78 @@ def filter_devices(vendor: str = "", status: str = "", q: str = "") -> list[dict
         })
 
     return results
+
+
+# ── Helper services ───────────────────────────────────────────────────
+
+
+def get_latest_snapshot(device: Device) -> ConfigSnapshot | None:
+    """Retorna o snapshot mais recente do dispositivo."""
+    return ConfigSnapshot.objects.filter(device=device).order_by("-created_at", "-pk").first()
+
+
+def get_latest_parsed_config(device: Device) -> ParsedConfig | None:
+    """Retorna o ParsedConfig mais recente do dispositivo."""
+    snap = get_latest_snapshot(device)
+    if snap:
+        return ParsedConfig.objects.filter(snapshot=snap).first()
+    return None
+
+
+def get_latest_issue_summary(device: Device) -> dict:
+    """Retorna contagem de issues por severidade do último snapshot."""
+    result = {"critical": 0, "warning": 0, "info": 0, "total": 0}
+    snap = get_latest_snapshot(device)
+    if snap:
+        issues = AnalysisIssue.objects.filter(snapshot=snap)
+        result["critical"] = issues.filter(severity="critical").count()
+        result["warning"] = issues.filter(severity="warning").count()
+        result["info"] = issues.filter(severity="info").count()
+        result["total"] = result["critical"] + result["warning"] + result["info"]
+    return result
+
+
+def get_snapshots_for_device(device: Device) -> list[ConfigSnapshot]:
+    """Retorna snapshots do dispositivo com dados agregados."""
+    return list(
+        ConfigSnapshot.objects.filter(device=device)
+        .prefetch_related("detected_circuits", "analysis_issues", "parsed_configs")
+        .order_by("-created_at", "-pk")
+    )
+
+
+def get_vendor_summary() -> list[dict]:
+    """Retorna contagem de dispositivos por fabricante."""
+    return list(
+        Device.objects.values("vendor").annotate(total=Count("pk")).order_by("-total")
+    )
+
+
+def get_top_issues_devices(limit: int = 5) -> list[dict]:
+    """Retorna top N dispositivos com mais issues críticas/atenção."""
+    results = []
+    for device in Device.objects.annotate(
+        snap_count=Count("snapshots")
+    ).filter(snap_count__gt=0):
+        summary = get_latest_issue_summary(device)
+        score = summary["critical"] * 10 + summary["warning"]
+        if score > 0:
+            results.append({
+                "device": device,
+                "critical": summary["critical"],
+                "warning": summary["warning"],
+                "score": score,
+            })
+    results.sort(key=lambda r: r["score"], reverse=True)
+    return results[:limit]
+
+
+def get_snapshots_last_7_days() -> int:
+    """Retorna total de snapshots criados nos últimos 7 dias."""
+    cutoff = timezone.now() - timedelta(days=7)
+    return ConfigSnapshot.objects.filter(created_at__gte=cutoff).count()
+
+
+def get_devices_without_snapshot_count() -> int:
+    """Retorna total de dispositivos sem nenhum snapshot."""
+    return Device.objects.annotate(snap_count=Count("snapshots")).filter(snap_count=0).count()

@@ -3,6 +3,7 @@
 import os
 
 from django.conf import settings
+from django.contrib.auth.models import User
 from django.test import TestCase
 from django.urls import reverse
 
@@ -22,6 +23,9 @@ def _load_fixture(name: str) -> str:
 
 
 class DashboardTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="webdash", password="pass123")
+        self.client.force_login(self.user)
     def test_dashboard_returns_200(self):
         """Página inicial / deve responder 200."""
         response = self.client.get("/")
@@ -42,6 +46,9 @@ class DashboardTests(TestCase):
 
 
 class NewAnalysisPageTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_superuser(username="webnewa", password="pass123")
+        self.client.force_login(self.user)
     def test_new_analysis_returns_200(self):
         response = self.client.get("/configs/new/")
         self.assertEqual(response.status_code, 200)
@@ -64,6 +71,9 @@ class NewAnalysisPageTests(TestCase):
 
 
 class NewAnalysisPostTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_superuser(username="webnewpost", password="pass123")
+        self.client.force_login(self.user)
     CONFIG = _load_fixture("circuit_l3.txt")
 
     def test_post_valid_creates_device(self):
@@ -152,6 +162,8 @@ class NewAnalysisPostTests(TestCase):
 
 class AnalysisDetailTests(TestCase):
     def setUp(self):
+        self.user = User.objects.create_user(username="webdetail", password="pass123")
+        self.client.force_login(self.user)
         self.device = Device.objects.create(
             name="TESTE-WEB", vendor="huawei", hostname="TESTE-WEB"
         )
@@ -202,6 +214,9 @@ class AnalysisDetailTests(TestCase):
 
 
 class SnapshotListTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="websnap", password="pass123")
+        self.client.force_login(self.user)
     def test_list_returns_200(self):
         response = self.client.get("/configs/")
         self.assertEqual(response.status_code, 200)

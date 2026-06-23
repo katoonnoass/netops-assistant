@@ -59,6 +59,75 @@ def detect_services(snapshot, parsed_data: dict) -> list[DetectedService]:
         svc.save()
         services.append(svc)
 
+    # ── HA / BFD / GR / NSR ─────────────────────────────────────────
+    bfd_svc = _detect_bfd(parsed_data)
+    if bfd_svc:
+        bfd_svc.snapshot = snapshot
+        bfd_svc.save()
+        services.append(bfd_svc)
+
+    gr_svc = _detect_graceful_restart(parsed_data)
+    if gr_svc:
+        gr_svc.snapshot = snapshot
+        gr_svc.save()
+        services.append(gr_svc)
+
+    nsr_svc = _detect_nsr(parsed_data)
+    if nsr_svc:
+        nsr_svc.snapshot = snapshot
+        nsr_svc.save()
+        services.append(nsr_svc)
+
+    # ── Multicast ───────────────────────────────────────────────────
+    mcast_svc = _detect_multicast(parsed_data)
+    if mcast_svc:
+        mcast_svc.snapshot = snapshot
+        mcast_svc.save()
+        services.append(mcast_svc)
+
+    pim_svc = _detect_pim(parsed_data)
+    if pim_svc:
+        pim_svc.snapshot = snapshot
+        pim_svc.save()
+        services.append(pim_svc)
+
+    igmp_svc = _detect_igmp(parsed_data)
+    if igmp_svc:
+        igmp_svc.snapshot = snapshot
+        igmp_svc.save()
+        services.append(igmp_svc)
+
+    igmp_snoop_svc = _detect_igmp_snooping(parsed_data)
+    if igmp_snoop_svc:
+        igmp_snoop_svc.snapshot = snapshot
+        igmp_snoop_svc.save()
+        services.append(igmp_snoop_svc)
+
+    mld_svc = _detect_mld(parsed_data)
+    if mld_svc:
+        mld_svc.snapshot = snapshot
+        mld_svc.save()
+        services.append(mld_svc)
+
+    # ── PPPoE ───────────────────────────────────────────────────────
+    pppoe_svc = _detect_pppoe_server(parsed_data)
+    if pppoe_svc:
+        pppoe_svc.snapshot = snapshot
+        pppoe_svc.save()
+        services.append(pppoe_svc)
+
+    vt_svcs = _detect_virtual_templates(parsed_data)
+    for svc in vt_svcs:
+        svc.snapshot = snapshot
+        svc.save()
+        services.append(svc)
+
+    ppp_access_svc = _detect_ppp_access(parsed_data)
+    if ppp_access_svc:
+        ppp_access_svc.snapshot = snapshot
+        ppp_access_svc.save()
+        services.append(ppp_access_svc)
+
     # ── BNG/BAS ─────────────────────────────────────────────────────
     bng_svc = _detect_bng(parsed_data)
     if bng_svc:
@@ -1111,6 +1180,10 @@ def _detect_bng_advanced(parsed_data: dict) -> DetectedService | None:
 
     confidence = 0.90 if (total_auth and total_acct and has_complex_radius) else 0.80
 
+    # Collect BAS interface details
+    bas_ifaces = [i for i in parsed_data.get("interfaces", []) if i.get("bas", {}).get("enabled")]
+    vlans = [{"name": i["name"], "user_vlan": i.get("user_vlan"), "qinq": i.get("qinq_vlan")} for i in bas_ifaces if i.get("user_vlan")]
+
     return DetectedService(
         service_type=DetectedService.ServiceType.BNG_ADVANCED,
         name=f"BNG Avançado ({len(domain_names)} domínios)",
@@ -1124,6 +1197,11 @@ def _detect_bng_advanced(parsed_data: dict) -> DetectedService | None:
             "authz_scheme_count": total_authz,
             "radius_group_count": len(radius_blocks),
             "ip_pool_count": len(pools),
+            "bas_count": len(bas_ifaces),
+            "vlans_used": [i.get("user_vlan") for i in bas_ifaces if i.get("user_vlan")],
+            "bas_interfaces": [{"name": i["name"], "domain": i.get("bas", {}).get("default_domain"), "method": i.get("bas", {}).get("authentication_method")} for i in bas_ifaces],
+            "pools": [p.get("name") for p in pools if p.get("name")],
+            "radius_groups": [rg.get("name") for rg in radius_blocks if rg.get("name")],
         },
     )
 
@@ -1142,9 +1220,16 @@ def _detect_bas_interfaces(parsed_data: dict) -> list[DetectedService]:
             confidence=0.90,
             metadata={
                 "interface": iface["name"],
+                "description": iface.get("description"),
                 "default_domain": bas.get("default_domain"),
                 "authentication_method": bas.get("authentication_method"),
+                "access_type": bas.get("access_type"),
                 "user_vlan": iface.get("user_vlan"),
+                "qinq_vlan": iface.get("qinq_vlan"),
+                "accounting_copy_radius_group": bas.get("accounting_copy_radius_group"),
+                "ip_trigger": bas.get("ip_trigger"),
+                "arp_trigger": bas.get("arp_trigger"),
+                "ipv6_trigger": bas.get("ipv6_trigger"),
             },
         ))
     return services
@@ -1167,8 +1252,11 @@ def _detect_subscriber_domains(parsed_data: dict) -> list[DetectedService]:
                 "name": d["name"],
                 "authentication_scheme": d.get("authentication_scheme"),
                 "accounting_scheme": d.get("accounting_scheme"),
+                "authorization_scheme": d.get("authorization_scheme"),
                 "radius_server_group": d.get("radius_server_group"),
                 "ip_pool": d.get("ip_pool"),
+                "dns_primary": d.get("dns_primary"),
+                "dns_secondary": d.get("dns_secondary"),
             },
         ))
     # Also detect domains inside AAA blocks
@@ -1182,7 +1270,16 @@ def _detect_subscriber_domains(parsed_data: dict) -> list[DetectedService]:
                 name=d["name"],
                 description=f"Domínio {d['name']} dentro de AAA com auth-scheme {d.get('authentication_scheme', 'N/A')}.",
                 confidence=0.85,
-                metadata=d,
+                metadata={
+                    "name": d["name"],
+                    "authentication_scheme": d.get("authentication_scheme"),
+                    "accounting_scheme": d.get("accounting_scheme"),
+                    "authorization_scheme": d.get("authorization_scheme"),
+                    "radius_server_group": d.get("radius_server_group"),
+                    "ip_pool": d.get("ip_pool"),
+                    "dns_primary": d.get("dns_primary"),
+                    "dns_secondary": d.get("dns_secondary"),
+                },
             ))
     return services
 
@@ -1210,6 +1307,330 @@ def _detect_aaa_scheme(parsed_data: dict) -> DetectedService | None:
         confidence=0.85,
         metadata={"scheme_count": total, "details": details},
     )
+
+
+# ── PPPoE service detection ─────────────────────────────────────────────
+
+
+def _detect_pppoe_server(parsed_data: dict) -> DetectedService | None:
+    """Detecta serviço PPPoE Server."""
+    interfaces = parsed_data.get("interfaces", [])
+    pppoe_ifaces = [i for i in interfaces if i.get("pppoe_server", {}).get("enabled")]
+    if not pppoe_ifaces:
+        return None
+    total_sessions = sum(
+        (i.get("pppoe_server") or {}).get("max_sessions", 0) or 0
+        for i in pppoe_ifaces
+    )
+    return DetectedService(
+        service_type=DetectedService.ServiceType.PPPOE,
+        name=f"PPPoE Server ({len(pppoe_ifaces)} interfaces)",
+        description=f"PPPoE Server com {len(pppoe_ifaces)} interface(s), {total_sessions} sessões totais.",
+        confidence=0.90,
+        metadata={
+            "interface_count": len(pppoe_ifaces),
+            "total_max_sessions": total_sessions,
+            "interfaces": [{"name": i["name"], "vt": (i.get("pppoe_server") or {}).get("virtual_template"), "max": (i.get("pppoe_server") or {}).get("max_sessions")} for i in pppoe_ifaces],
+        },
+    )
+
+
+def _detect_virtual_templates(parsed_data: dict) -> list[DetectedService]:
+    """Detecta Virtual-Templates."""
+    services = []
+    for iface in parsed_data.get("interfaces", []):
+        name = iface.get("name", "")
+        if not name.lower().startswith("virtual-template"):
+            continue
+        auth_modes = iface.get("ppp_authentication_modes", [])
+        services.append(DetectedService(
+            service_type=DetectedService.ServiceType.VIRTUAL_TEMPLATE,
+            name=name,
+            description=f"Virtual-Template {name} com auth {', '.join(auth_modes) if auth_modes else 'N/A'}.",
+            confidence=0.90,
+            metadata={
+                "name": name,
+                "description": iface.get("description", ""),
+                "ppp_authentication_modes": auth_modes,
+                "remote_address_pool": iface.get("remote_address_pool"),
+                "mtu": iface.get("mtu"),
+                "ip_unnumbered_interface": iface.get("ip_unnumbered_interface"),
+                "ipv6_enabled": iface.get("ipv6_enabled", False),
+            },
+        ))
+    return services
+
+
+def _detect_ppp_access(parsed_data: dict) -> DetectedService | None:
+    """Detecta serviço PPP Subscriber Access."""
+    interfaces = parsed_data.get("interfaces", [])
+    has_pppoe = any(i.get("pppoe_server", {}).get("enabled") for i in interfaces)
+    has_vt = any(i.get("name", "").lower().startswith("virtual-template") for i in interfaces)
+    has_bas = any(i.get("bas", {}).get("enabled") and i.get("pppoe_server", {}).get("enabled") for i in interfaces)
+    if not (has_pppoe and has_vt):
+        return None
+    return DetectedService(
+        service_type=DetectedService.ServiceType.PPP_ACCESS,
+        name="PPP Subscriber Access",
+        description=f"Acesso assinante PPP com {sum(1 for i in interfaces if i.get('pppoe_server', {}).get('enabled'))} interface(s) PPPoE.",
+        confidence=0.95 if has_bas else 0.80,
+        metadata={
+            "pppoe_interface_count": sum(1 for i in interfaces if i.get("pppoe_server", {}).get("enabled")),
+            "virtual_template_count": sum(1 for i in interfaces if i.get("name", "").lower().startswith("virtual-template")),
+        },
+    )
+
+
+# ── Multicast / PIM / IGMP / MLD service detection ─────────────────────
+
+
+def _detect_multicast(parsed_data: dict) -> DetectedService | None:
+    """Detecta serviço Multicast Routing."""
+    mc = parsed_data.get("multicast", {})
+    if not mc.get("ipv4_routing_enabled") and not mc.get("ipv6_routing_enabled"):
+        return None
+    ipv4 = mc.get("ipv4_routing_enabled", False)
+    ipv6 = mc.get("ipv6_routing_enabled", False)
+    pim_static_rps = mc.get("pim", {}).get("global", {}).get("static_rps", [])
+    return DetectedService(
+        service_type=DetectedService.ServiceType.MULTICAST,
+        name="Multicast Routing",
+        description=f"Multicast {'IPv4 ' if ipv4 else ''}{'IPv6 ' if ipv6 else ''}com {len(pim_static_rps)} static RP(s).",
+        confidence=0.90,
+        metadata={
+            "ipv4_routing": ipv4,
+            "ipv6_routing": ipv6,
+            "static_rps": [r["rp_address"] for r in pim_static_rps],
+        },
+    )
+
+
+def _detect_pim(parsed_data: dict) -> DetectedService | None:
+    """Detecta serviço PIM."""
+    interfaces = parsed_data.get("interfaces", [])
+    pim_ifaces = [i for i in interfaces if i.get("pim_enabled")]
+    mc = parsed_data.get("multicast", {})
+    pim_global = mc.get("pim", {}).get("global", {})
+    if not pim_ifaces and not pim_global.get("static_rps"):
+        return None
+    return DetectedService(
+        service_type=DetectedService.ServiceType.PIM,
+        name=f"PIM ({len(pim_ifaces)} interfaces)",
+        description=f"PIM com {len(pim_ifaces)} interface(s), {len(pim_global.get('static_rps', []))} static RP(s).",
+        confidence=0.85,
+        metadata={
+            "interface_count": len(pim_ifaces),
+            "static_rps": [r["rp_address"] for r in pim_global.get("static_rps", [])],
+            "mode": pim_global.get("mode"),
+        },
+    )
+
+
+def _detect_igmp(parsed_data: dict) -> DetectedService | None:
+    """Detecta serviço IGMP."""
+    interfaces = parsed_data.get("interfaces", [])
+    igmp_ifaces = [i for i in interfaces if i.get("igmp_enabled")]
+    if not igmp_ifaces:
+        return None
+    groups = set()
+    for i in igmp_ifaces:
+        groups.update(i.get("igmp_static_groups", []))
+        groups.update(i.get("igmp_join_groups", []))
+    return DetectedService(
+        service_type=DetectedService.ServiceType.IGMP,
+        name=f"IGMP ({len(igmp_ifaces)} interfaces)",
+        description=f"IGMP com {len(igmp_ifaces)} interface(s), {len(groups)} grupo(s).",
+        confidence=0.90,
+        metadata={
+            "interface_count": len(igmp_ifaces),
+            "group_count": len(groups),
+            "groups": sorted(groups),
+        },
+    )
+
+
+def _detect_igmp_snooping(parsed_data: dict) -> DetectedService | None:
+    """Detecta serviço IGMP Snooping."""
+    snoop = parsed_data.get("multicast", {}).get("igmp_snooping", {})
+    if not snoop.get("global_enabled") and not snoop.get("vlans"):
+        return None
+    return DetectedService(
+        service_type=DetectedService.ServiceType.IGMP_SNOOPING,
+        name=f"IGMP Snooping ({len(snoop.get('vlans', []))} VLANs)",
+        description=f"IGMP Snooping com {len(snoop.get('vlans', []))} VLAN(s).",
+        confidence=0.85,
+        metadata={"vlan_count": len(snoop.get("vlans", [])), "vlans": [v["vlan_id"] for v in snoop.get("vlans", [])]},
+    )
+
+
+def _detect_mld(parsed_data: dict) -> DetectedService | None:
+    """Detecta serviço MLD IPv6 Multicast."""
+    interfaces = parsed_data.get("interfaces", [])
+    mld_ifaces = [i for i in interfaces if i.get("mld_enabled")]
+    if not mld_ifaces:
+        return None
+    groups = set()
+    for i in mld_ifaces:
+        groups.update(i.get("mld_static_groups", []))
+    return DetectedService(
+        service_type=DetectedService.ServiceType.MLD,
+        name=f"MLD ({len(mld_ifaces)} interfaces)",
+        description=f"MLD IPv6 com {len(mld_ifaces)} interface(s), {len(groups)} grupo(s).",
+        confidence=0.85,
+        metadata={"interface_count": len(mld_ifaces), "group_count": len(groups), "groups": sorted(groups)},
+    )
+
+
+# ── HA / BFD / GR / NSR service detection ──────────────────────────────
+
+
+def _detect_bfd(parsed_data: dict) -> DetectedService | None:
+    """Detecta serviço BFD / Fast Convergence."""
+    ha = parsed_data.get("ha", {})
+    bfd = ha.get("bfd", {})
+    sessions = bfd.get("sessions", [])
+    if not bfd.get("global_enabled") and not sessions:
+        return None
+    # Count BFD-protected items
+    bgp_bfd = sum(1 for bgp in parsed_data.get("bgp", []) for p in bgp.get("peers", []) if p.get("bfd_enabled"))
+    return DetectedService(
+        service_type=DetectedService.ServiceType.BFD,
+        name=f"BFD / Fast Convergence ({len(sessions)} sessões)",
+        description=f"BFD com {len(sessions)} sessão(ões), {bgp_bfd} peer(s) BGP com BFD.",
+        confidence=0.90,
+        metadata={
+            "global_enabled": bfd.get("global_enabled"),
+            "session_count": len(sessions),
+            "bgp_peers_with_bfd": bgp_bfd,
+        },
+    )
+
+
+def _detect_graceful_restart(parsed_data: dict) -> DetectedService | None:
+    """Detecta serviço Graceful Restart."""
+    ha = parsed_data.get("ha", {})
+    gr = ha.get("graceful_restart", {})
+    enabled = [k for k, v in gr.items() if v]
+    if not enabled:
+        return None
+    return DetectedService(
+        service_type=DetectedService.ServiceType.GRACEFUL_RESTART,
+        name=f"Graceful Restart ({', '.join(enabled)})",
+        description=f"Graceful Restart habilitado em: {', '.join(enabled)}.",
+        confidence=0.85,
+        metadata={"protocols": enabled},
+    )
+
+
+def _detect_nsr(parsed_data: dict) -> DetectedService | None:
+    """Detecta serviço NSR / Non-Stop Routing."""
+    ha = parsed_data.get("ha", {})
+    nsr = ha.get("nsr", {})
+    enabled = [k for k, v in nsr.items() if v]
+    if not enabled:
+        return None
+    return DetectedService(
+        service_type=DetectedService.ServiceType.NSR,
+        name=f"NSR ({', '.join(enabled)})",
+        description=f"NSR habilitado em: {', '.join(enabled)}.",
+        confidence=0.85,
+        metadata={"protocols": enabled},
+    )
+
+
+def _detect_huawei_advanced_services(parsed_data: dict) -> list[DetectedService]:
+    """Detect Huawei advanced control-plane and service families."""
+    advanced = parsed_data.get("huawei_advanced", {})
+    services: list[DetectedService] = []
+
+    evpn = advanced.get("evpn_vxlan", {})
+    if evpn.get("enabled"):
+        services.append(DetectedService(
+            service_type=DetectedService.ServiceType.EVPN_VXLAN,
+            name="EVPN / VXLAN",
+            description=f"EVPN/VXLAN com {len(evpn.get('vnis', []))} VNI(s) e {len(evpn.get('bridge_domains', []))} bridge-domain(s).",
+            confidence=0.90,
+            metadata={k: evpn.get(k) for k in ("evpn_enabled", "vxlan_enabled", "vnis", "bridge_domains", "nve_interfaces", "peers")},
+        ))
+
+    sr = advanced.get("segment_routing", {})
+    if sr.get("enabled"):
+        services.append(DetectedService(
+            service_type=DetectedService.ServiceType.SEGMENT_ROUTING,
+            name="Segment Routing / SRv6" if sr.get("srv6_enabled") else "Segment Routing",
+            description=f"Segment Routing com {len(sr.get('locators', []))} locator(s) e {len(sr.get('prefix_sids', []))} prefix-SID(s).",
+            confidence=0.90,
+            metadata={k: sr.get(k) for k in ("srv6_enabled", "locators", "prefix_sids", "global_blocks")},
+        ))
+
+    te = advanced.get("mpls_te", {})
+    if te.get("enabled"):
+        services.append(DetectedService(
+            service_type=DetectedService.ServiceType.MPLS_TE,
+            name="MPLS-TE / RSVP-TE",
+            description=f"MPLS-TE com {len(te.get('tunnel_interfaces', []))} túnel(is), {len(te.get('explicit_paths', []))} explicit-path(s).",
+            confidence=0.90,
+            metadata=te,
+        ))
+
+    cgnat = advanced.get("cgnat", {})
+    if cgnat.get("enabled"):
+        services.append(DetectedService(
+            service_type=DetectedService.ServiceType.CGNAT,
+            name="CGNAT Avançado",
+            description=f"CGNAT com {len(cgnat.get('instances', []))} instância(s) e {len(cgnat.get('port_blocks', []))} regra(s) de port-block.",
+            confidence=0.85,
+            metadata=cgnat,
+        ))
+
+    msdp = advanced.get("msdp", {})
+    if msdp.get("enabled"):
+        services.append(DetectedService(
+            service_type=DetectedService.ServiceType.MSDP,
+            name="MSDP",
+            description=f"MSDP com {len(msdp.get('peers', []))} peer(s).",
+            confidence=0.90,
+            metadata=msdp,
+        ))
+
+    telemetry = advanced.get("telemetry", {})
+    if telemetry.get("enabled") or any(telemetry.get(k) for k in ("grpc_enabled", "netstream_enabled", "sflow_enabled")):
+        services.append(DetectedService(
+            service_type=DetectedService.ServiceType.TELEMETRY,
+            name="Telemetria / Streaming",
+            description=f"Telemetria com {len(telemetry.get('sensor_groups', []))} sensor-group(s) e {len(telemetry.get('subscriptions', []))} subscription(s).",
+            confidence=0.85,
+            metadata=telemetry,
+        ))
+
+    return services
+
+
+def _detect_zte_olt_services(parsed_data: dict) -> list[DetectedService]:
+    """Detect ZTE OLT / GPON inventory services."""
+    if parsed_data.get("vendor") != "zte":
+        return []
+    olt = parsed_data.get("zte_olt", {})
+    if not olt.get("enabled"):
+        return []
+    metadata = {
+        "pon_ports": len(olt.get("pon_ports", [])),
+        "onus": len(olt.get("onus", [])),
+        "service_ports": len(olt.get("service_ports", [])),
+        "vlans": len(olt.get("vlans", [])),
+    }
+    return [
+        DetectedService(
+            service_type=DetectedService.ServiceType.GPON_OLT,
+            name="ZTE OLT GPON",
+            description=(
+                f"OLT ZTE com {metadata['pon_ports']} porta(s) PON, "
+                f"{metadata['onus']} ONU(s) e {metadata['service_ports']} service-port(s)."
+            ),
+            confidence=0.95,
+            metadata=metadata,
+        )
+    ]
 
 
 def _detect_radius_groups(parsed_data: dict) -> list[DetectedService]:

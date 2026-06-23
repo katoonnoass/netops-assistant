@@ -6,6 +6,8 @@ from django.conf import settings
 from django.test import TestCase
 from django.urls import reverse
 
+from apps.core.tests import *  # noqa: F401, F403 — desabilita auth para testes de view
+
 from apps.analysis.models import (
     AnalysisIssue,
     DetectedCircuit,

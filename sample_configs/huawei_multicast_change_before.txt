@@ -1,0 +1,23 @@
+#
+sysname NE40-MCAST-DIFF
+#
+multicast routing-enable
+#
+pim
+ static-rp 10.255.0.1
+#
+interface GigabitEthernet0/0/0
+ description CORE-UPLINK
+ ip address 10.0.0.1 255.255.255.252
+ pim sm
+#
+interface Vlanif100
+ description IPTV-CLIENTES
+ ip address 192.168.100.1 255.255.255.0
+ igmp enable
+ igmp version 2
+ igmp static-group 239.1.1.1
+#
+igmp-snooping enable
+igmp-snooping vlan 100 enable
+#

@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% block title %}Acesso Negado - NetOps Assistant{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Acesso Negado</h1>
+</div>
+
+<div class="card empty-state">
+    <p style="font-size:1.2rem;color:var(--danger);">Você não tem permissão para acessar esta página.</p>
+    <p>Entre em contato com o administrador do sistema se precisar de acesso.</p>
+    <div style="margin-top:1rem;">
+        <a href="{% url 'dashboard' %}" class="btn btn-primary">Ir para Dashboard</a>
+    </div>
+</div>
+{% endblock %}

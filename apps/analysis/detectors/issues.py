@@ -124,6 +124,532 @@ def detect_issues(snapshot, parsed_data: dict) -> list[AnalysisIssue]:
         iss.save()
         issues.append(iss)
 
+    # ── PPPoE / Virtual-Template issues ──────────────────────────────
+    pppoe_issues = _detect_pppoe_issues(parsed_data)
+    for iss in pppoe_issues:
+        iss.snapshot = snapshot
+        iss.save()
+        issues.append(iss)
+
+    # ── HA / BFD / GR / NSR issues ──────────────────────────────────
+    ha_issues = _detect_ha_issues(parsed_data)
+    for iss in ha_issues:
+        iss.snapshot = snapshot
+        iss.save()
+        issues.append(iss)
+
+    # ── Multicast / PIM / IGMP / MLD issues ─────────────────────────
+    mcast_issues = _detect_multicast_issues(parsed_data)
+    for iss in mcast_issues:
+        iss.snapshot = snapshot
+        iss.save()
+        issues.append(iss)
+
+    # Huawei advanced feature families
+    for iss in _detect_huawei_advanced_issues(parsed_data):
+        iss.snapshot = snapshot
+        iss.save()
+        issues.append(iss)
+
+    for iss in _detect_zte_olt_issues(parsed_data):
+        iss.snapshot = snapshot
+        iss.save()
+        issues.append(iss)
+
+    return issues
+
+
+def _detect_huawei_advanced_issues(parsed_data: dict) -> list[AnalysisIssue]:
+    advanced = parsed_data.get("huawei_advanced", {})
+    issues: list[AnalysisIssue] = []
+    evpn = advanced.get("evpn_vxlan", {})
+    if evpn.get("evpn_enabled") and not evpn.get("vxlan_enabled"):
+        issues.append(AnalysisIssue(
+            severity=SEVERITY_MEDIUM,
+            category="evpn_vxlan",
+            code="evpn_without_vxlan",
+            title="EVPN habilitado sem VXLAN/VNI detectado",
+            description="A configuração possui EVPN, mas nenhum VXLAN/VNI associado foi identificado.",
+        ))
+    if evpn.get("vxlan_enabled") and not evpn.get("nve_interfaces"):
+        issues.append(AnalysisIssue(
+            severity=SEVERITY_MEDIUM,
+            category="evpn_vxlan",
+            code="vxlan_without_nve_interface",
+            title="VXLAN sem interface NVE detectada",
+            description="Revise a origem e os peers do overlay VXLAN.",
+        ))
+
+    sr = advanced.get("segment_routing", {})
+    if sr.get("srv6_enabled") and not sr.get("locators"):
+        issues.append(AnalysisIssue(
+            severity=SEVERITY_HIGH,
+            category="segment_routing",
+            code="srv6_without_locator",
+            title="SRv6 habilitado sem locator",
+            description="SRv6 requer ao menos um locator para alocação de SIDs.",
+        ))
+
+    te = advanced.get("mpls_te", {})
+    if te.get("enabled") and not parsed_data.get("mpls", {}).get("enabled"):
+        issues.append(AnalysisIssue(
+            severity=SEVERITY_HIGH,
+            category="mpls_te",
+            code="mpls_te_without_mpls",
+            title="MPLS-TE habilitado sem MPLS global",
+        ))
+
+    cgnat = advanced.get("cgnat", {})
+    if cgnat.get("enabled") and not cgnat.get("logging_enabled"):
+        issues.append(AnalysisIssue(
+            severity=SEVERITY_MEDIUM,
+            category="cgnat",
+            code="cgnat_without_logging",
+            title="CGNAT sem logging detectado",
+            description="CGNAT deve manter registros de tradução conforme requisitos operacionais e legais.",
+        ))
+
+    msdp = advanced.get("msdp", {})
+    if msdp.get("enabled") and not parsed_data.get("multicast", {}).get("ipv4_routing_enabled"):
+        issues.append(AnalysisIssue(
+            severity=SEVERITY_HIGH,
+            category="msdp",
+            code="msdp_without_multicast_routing",
+            title="MSDP sem multicast routing-enable",
+        ))
+    if msdp.get("enabled") and not msdp.get("peers"):
+        issues.append(AnalysisIssue(
+            severity=SEVERITY_MEDIUM,
+            category="msdp",
+            code="msdp_without_peer",
+            title="MSDP habilitado sem peer",
+        ))
+
+    telemetry = advanced.get("telemetry", {})
+    if telemetry.get("enabled") and not telemetry.get("destination_groups"):
+        issues.append(AnalysisIssue(
+            severity=SEVERITY_MEDIUM,
+            category="telemetry",
+            code="telemetry_without_destination",
+            title="Telemetria sem destination-group",
+        ))
+    return issues
+
+
+def _detect_zte_olt_issues(parsed_data: dict) -> list[AnalysisIssue]:
+    """Detect ZTE OLT inventory and provisioning risks."""
+    if parsed_data.get("vendor") != "zte":
+        return []
+    olt = parsed_data.get("zte_olt", {})
+    if not olt.get("enabled"):
+        return []
+
+    issues: list[AnalysisIssue] = []
+    for pon in olt.get("pon_ports", []):
+        if not pon.get("onu_count"):
+            issues.append(AnalysisIssue(
+                severity=SEVERITY_LOW,
+                category="zte_olt",
+                code="zte_pon_without_onu",
+                title=f"PON sem ONU provisionada: {pon.get('name', '?')}",
+                description="A porta PON foi encontrada sem ONUs provisionadas.",
+                metadata={"pon": pon.get("pon"), "raw": pon.get("raw", "")},
+            ))
+
+    for onu in olt.get("onus", []):
+        identifier = onu.get("interface") or f"{onu.get('pon')}:{onu.get('onu_id')}"
+        if not onu.get("serial"):
+            issues.append(AnalysisIssue(
+                severity=SEVERITY_MEDIUM,
+                category="zte_olt",
+                code="zte_onu_without_serial",
+                title=f"ONU sem serial: {identifier}",
+                description="A ONU não possui serial detectado no provisionamento.",
+                metadata={"onu": identifier, "raw": onu.get("raw", "")},
+            ))
+        if not (onu.get("description") or onu.get("name")):
+            issues.append(AnalysisIssue(
+                severity=SEVERITY_MEDIUM,
+                category="zte_olt",
+                code="zte_onu_without_description",
+                title=f"ONU sem identificação: {identifier}",
+                description="A ONU não possui name/description. Recomenda-se identificar cliente, circuito ou endereço.",
+                metadata={"onu": identifier, "serial": onu.get("serial", "")},
+            ))
+        if not onu.get("service_ports"):
+            issues.append(AnalysisIssue(
+                severity=SEVERITY_HIGH,
+                category="zte_olt",
+                code="zte_onu_without_service_port",
+                title=f"ONU sem service-port: {identifier}",
+                description="A ONU está provisionada, mas não foi encontrada associação de serviço/VLAN.",
+                metadata={"onu": identifier, "serial": onu.get("serial", "")},
+            ))
+
+    for service in olt.get("service_ports", []):
+        if not service.get("vlan") and not service.get("user_vlan"):
+            issues.append(AnalysisIssue(
+                severity=SEVERITY_HIGH,
+                category="zte_olt",
+                code="zte_service_port_without_vlan",
+                title=f"Service-port sem VLAN: {service.get('id', '?')}",
+                description="Service-port ZTE sem VLAN detectável. Validar provisionamento do cliente.",
+                metadata={"service": service},
+            ))
+    return issues
+
+
+# ── Multicast issue codes ──────────────────────────────────────────────
+
+ISSUE_PIM_WITHOUT_MULTICAST_ROUTING = "pim_without_multicast_routing"
+ISSUE_IGMP_WITHOUT_MULTICAST_ROUTING = "igmp_without_multicast_routing"
+ISSUE_MLD_WITHOUT_IPV6_MULTICAST_ROUTING = "mld_without_ipv6_multicast_routing"
+ISSUE_PIM_WITHOUT_RP_OR_BSR = "pim_without_rp_or_bsr"
+ISSUE_IGMP_SNOOPING_WITHOUT_QUERIER = "igmp_snooping_without_querier"
+ISSUE_IGMP_VERSION_1 = "igmp_version_1"
+ISSUE_PIM_INTERFACE_MISSING_DESCRIPTION = "pim_interface_missing_description"
+ISSUE_MULTICAST_VPN_INSTANCE_NOT_FOUND = "multicast_vpn_instance_not_found"
+ISSUE_IGMP_INVALID_GROUP_ADDRESS = "igmp_invalid_group_address"
+ISSUE_MLD_INVALID_GROUP_ADDRESS = "mld_invalid_group_address"
+ISSUE_PIM_STATIC_RP_NOT_LOCAL = "pim_static_rp_not_local"
+
+
+def _detect_multicast_issues(parsed_data):
+    """Detect multicast / PIM / IGMP / MLD issues."""
+    issues = []
+    mc = parsed_data.get("multicast", {})
+    interfaces = parsed_data.get("interfaces", [])
+    vpn_instance_names = {v["name"] for v in parsed_data.get("vpn_instances", [])}
+
+    ipv4_routing = mc.get("ipv4_routing_enabled", False)
+    ipv6_routing = mc.get("ipv6_routing_enabled", False)
+    pim_global = mc.get("pim", {}).get("global", {})
+    pim_vpn_list = mc.get("pim", {}).get("vpn_instances", [])
+    igmp_snoop = mc.get("igmp_snooping", {})
+
+    has_rp_or_bsr = bool(pim_global.get("static_rps") or pim_global.get("bsr_candidates") or pim_global.get("rp_candidates"))
+
+    def _is_multicast_ipv4(ip: str) -> bool:
+        try:
+            import ipaddress
+            return ipaddress.IPv4Address(ip) in ipaddress.IPv4Network("224.0.0.0/4")
+        except Exception:
+            return False
+
+    def _is_multicast_ipv6(ip: str) -> bool:
+        return ip.lower().startswith("ff")
+
+    for iface in interfaces:
+        name = iface.get("name", "")
+
+        # A) PIM without multicast routing-enable
+        if iface.get("pim_enabled") and not ipv4_routing:
+            issues.append(AnalysisIssue(
+                code=ISSUE_PIM_WITHOUT_MULTICAST_ROUTING,
+                severity="high",
+                title=f"PIM na interface {name} sem multicast routing-enable",
+                description=f"A interface {name} tem PIM habilitado mas o multicast routing global (multicast routing-enable) não está configurado.",
+            ))
+
+        # B) IGMP without multicast routing-enable
+        if iface.get("igmp_enabled") and not ipv4_routing:
+            issues.append(AnalysisIssue(
+                code=ISSUE_IGMP_WITHOUT_MULTICAST_ROUTING,
+                severity="medium",
+                title=f"IGMP na interface {name} sem multicast routing-enable",
+                description=f"A interface {name} tem IGMP habilitado mas o multicast routing global não está configurado.",
+            ))
+
+        # C) MLD without IPv6 multicast routing-enable
+        if iface.get("mld_enabled") and not ipv6_routing:
+            issues.append(AnalysisIssue(
+                code=ISSUE_MLD_WITHOUT_IPV6_MULTICAST_ROUTING,
+                severity="medium",
+                title=f"MLD na interface {name} sem IPv6 multicast routing-enable",
+                description=f"A interface {name} tem MLD habilitado mas o IPv6 multicast routing global não está configurado.",
+            ))
+
+        # G) IGMP version 1
+        if iface.get("igmp_version") == 1:
+            issues.append(AnalysisIssue(
+                code=ISSUE_IGMP_VERSION_1,
+                severity="low",
+                title=f"IGMP version 1 na interface {name}",
+                description=f"A interface {name} usa IGMP version 1. Recomendado version 2 ou 3.",
+            ))
+
+        # H) PIM interface missing description
+        if iface.get("pim_enabled") and not iface.get("description"):
+            issues.append(AnalysisIssue(
+                code=ISSUE_PIM_INTERFACE_MISSING_DESCRIPTION,
+                severity="low",
+                title=f"Interface PIM {name} sem descrição",
+                description=f"A interface {name} tem PIM habilitado mas não possui descrição.",
+            ))
+
+        # J) IGMP invalid group
+        for g in iface.get("igmp_static_groups", []) + iface.get("igmp_join_groups", []):
+            if not _is_multicast_ipv4(g):
+                issues.append(AnalysisIssue(
+                    code=ISSUE_IGMP_INVALID_GROUP_ADDRESS,
+                    severity="medium",
+                    title=f"IGMP grupo inválido na interface {name}: {g}",
+                    description=f"O endereço {g} não é um grupo multicast IPv4 válido (224.0.0.0/4).",
+                ))
+
+        # K) MLD invalid group
+        for g in iface.get("mld_static_groups", []):
+            if not _is_multicast_ipv6(g):
+                issues.append(AnalysisIssue(
+                    code=ISSUE_MLD_INVALID_GROUP_ADDRESS,
+                    severity="medium",
+                    title=f"MLD grupo inválido na interface {name}: {g}",
+                    description=f"O endereço {g} não é um grupo multicast IPv6 válido (deve começar com ff).",
+                ))
+
+    # D) PIM without RP/BSR — only if sparse-mode (or unknown mode) is active
+    def _pim_needs_rp_or_bsr() -> bool:
+        """Check if any PIM sparse-mode is active (needs RP/BSR)."""
+        global_mode = pim_global.get("mode")
+        if global_mode == "sm":
+            return True
+        if global_mode in ("dm", "ssm"):
+            return False
+        # Check per-interface — bare "pim" defaults to sm on Huawei
+        for iface in interfaces:
+            if iface.get("pim_enabled"):
+                mode = iface.get("pim_mode")
+                if mode in (None, "sm"):
+                    return True
+        return False
+
+    has_pim = bool(pim_global.get("static_rps") or any(i.get("pim_enabled") for i in interfaces))
+    if has_pim and not has_rp_or_bsr and _pim_needs_rp_or_bsr():
+        issues.append(AnalysisIssue(
+            code=ISSUE_PIM_WITHOUT_RP_OR_BSR,
+            severity="medium",
+            title="PIM habilitado sem RP/BSR",
+            description="PIM sparse-mode está habilitado mas nenhum RP ou BSR foi configurado.",
+        ))
+
+    # E) PIM static RP not local (low severity - RP may be remote)
+    local_ips = set()
+    for i in interfaces:
+        ip = i.get("ip_address", "")
+        if ip:
+            try:
+                import ipaddress
+                ipaddress.IPv4Address(ip)
+                local_ips.add(ip.split("/")[0] if "/" in ip else ip)
+            except Exception:
+                pass
+    for rp in pim_global.get("static_rps", []):
+        rp_addr = rp.get("rp_address", "")
+        if rp_addr and rp_addr not in local_ips and "." in rp_addr:
+            issues.append(AnalysisIssue(
+                code=ISSUE_PIM_STATIC_RP_NOT_LOCAL,
+                severity="low",
+                title=f"Static RP {rp_addr} nao e endereco local",
+                description=f"O static RP {rp_addr} nao corresponde a nenhum IP de interface local. Pode ser remoto ou haver erro de digitacao.",
+            ))
+
+    # F) IGMP snooping without querier
+    for vlan_entry in igmp_snoop.get("vlans", []):
+        if vlan_entry.get("enabled") and not vlan_entry.get("querier_enabled"):
+            issues.append(AnalysisIssue(
+                code=ISSUE_IGMP_SNOOPING_WITHOUT_QUERIER,
+                severity="low",
+                title=f"IGMP snooping VLAN {vlan_entry['vlan_id']} sem querier",
+                description=f"IGMP snooping está habilitado na VLAN {vlan_entry['vlan_id']} mas querier não está configurado.",
+            ))
+
+    # I) Multicast VPN-instance not found
+    for v in mc.get("vpn_instances", []):
+        if v["name"] and v["name"] not in vpn_instance_names:
+            issues.append(AnalysisIssue(
+                code=ISSUE_MULTICAST_VPN_INSTANCE_NOT_FOUND,
+                severity="high",
+                title=f"Multicast VPN-instance inexistente: {v['name']}",
+                description=f"Multicast está configurado com VPN-instance {v['name']} que não está definida no equipamento.",
+            ))
+    for v in pim_vpn_list:
+        if v["name"] and v["name"] not in vpn_instance_names:
+            issues.append(AnalysisIssue(
+                code=ISSUE_MULTICAST_VPN_INSTANCE_NOT_FOUND,
+                severity="high",
+                title=f"PIM VPN-instance inexistente: {v['name']}",
+                description=f"PIM está configurado com VPN-instance {v['name']} que não está definida no equipamento.",
+            ))
+
+    return issues
+
+
+# ── HA / BFD / Graceful Restart / NSR issue codes ─────────────────────────
+
+ISSUE_BFD_SESSION_WITHOUT_COMMIT = "bfd_session_without_commit"
+ISSUE_BFD_SESSION_WITHOUT_DISCRIMINATOR = "bfd_session_without_discriminator"
+ISSUE_BFD_SESSION_INTERFACE_NOT_FOUND = "bfd_session_interface_not_found"
+ISSUE_BFD_ENABLED_WITHOUT_GLOBAL = "bfd_enabled_without_global"
+ISSUE_BGP_CORE_PEER_WITHOUT_BFD = "bgp_core_peer_without_bfd"
+ISSUE_BFD_TIMERS_TOO_AGGRESSIVE = "bfd_timers_too_aggressive"
+ISSUE_GRACEFUL_RESTART_WITHOUT_NSR = "graceful_restart_without_nsr"
+ISSUE_LDP_WITHOUT_GRACEFUL_RESTART = "ldp_without_graceful_restart"
+ISSUE_IGP_CORE_INTERFACE_WITHOUT_BFD = "igp_core_interface_without_bfd"
+
+
+def _detect_ha_issues(parsed_data):
+    """Detect HA / BFD / GR / NSR issues."""
+    issues = []
+    ha = parsed_data.get("ha", {})
+    bfd = ha.get("bfd", {})
+    interfaces = parsed_data.get("interfaces", [])
+    iface_names = {i["name"] for i in interfaces}
+    gr = ha.get("graceful_restart", {})
+    nsr = ha.get("nsr", {})
+
+    # Collect BGP data
+    bgp_local_as = None
+    bgp_peers = []
+    for bgp in parsed_data.get("bgp", []):
+        bgp_local_as = bgp.get("local_as")
+        bgp_peers.extend(bgp.get("peers", []))
+
+    # A) BFD session without commit
+    for s in bfd.get("sessions", []):
+        if not s.get("committed"):
+            issues.append(AnalysisIssue(
+                code=ISSUE_BFD_SESSION_WITHOUT_COMMIT,
+                severity="high",
+                title=f"Sessão BFD {s.get('name', '?')} sem commit",
+                description=f"A sessão BFD {s.get('name', '?')} não possui commit. A sessão pode não estar ativa.",
+            ))
+
+        # B) BFD session without discriminator
+        if not s.get("local_discriminator") and not s.get("remote_discriminator"):
+            issues.append(AnalysisIssue(
+                code=ISSUE_BFD_SESSION_WITHOUT_DISCRIMINATOR,
+                severity="medium",
+                title=f"Sessão BFD {s.get('name', '?')} sem discriminator",
+                description=f"A sessão BFD {s.get('name', '?')} não possui local/remote discriminator.",
+            ))
+
+        # C) BFD session references non-existent interface
+        iface_ref = s.get("interface", "")
+        if iface_ref and iface_ref not in iface_names:
+            issues.append(AnalysisIssue(
+                code=ISSUE_BFD_SESSION_INTERFACE_NOT_FOUND,
+                severity="high",
+                title=f"Sessão BFD {s.get('name', '?')} referencia interface inexistente: {iface_ref}",
+                description=f"A interface {iface_ref} referenciada pela sessão BFD {s.get('name', '?')} não está definida na configuração.",
+            ))
+
+        # F) BFD timers too aggressive
+        tx = s.get("min_tx_interval")
+        rx = s.get("min_rx_interval")
+        mult = s.get("detect_multiplier")
+        if (tx is not None and tx < 50) or (rx is not None and rx < 50) or (mult is not None and mult < 3):
+            issues.append(AnalysisIssue(
+                code=ISSUE_BFD_TIMERS_TOO_AGGRESSIVE,
+                severity="low",
+                title=f"Sessão BFD {s.get('name', '?')} com timers agressivos (tx={tx}ms rx={rx}ms mult={mult})",
+                description=f"Timers BFD muito agressivos podem causar flapping. Mínimo recomendado: 50ms/3x.",
+            ))
+
+    # D) BFD enabled in protocol/peer without BFD global
+    bfd_global = bfd.get("global_enabled", False)
+    has_bfd_in_protocol = False
+    for iface in interfaces:
+        if iface.get("isis_bfd_enabled") or iface.get("ospf_bfd_enabled") or iface.get("isis_ipv6_bfd_enabled") or iface.get("mpls_ldp_bfd_enabled"):
+            has_bfd_in_protocol = True
+            break
+    for p in bgp_peers:
+        if p.get("bfd_enabled"):
+            has_bfd_in_protocol = True
+            break
+    if has_bfd_in_protocol and not bfd_global:
+        issues.append(AnalysisIssue(
+            code=ISSUE_BFD_ENABLED_WITHOUT_GLOBAL,
+            severity="medium",
+            title="BFD habilitado em protocolo/peer sem BFD global ativo",
+            description="Há peers ou interfaces com BFD habilitado, mas o BFD global não está configurado (comando 'bfd').",
+        ))
+
+    # E) BGP core peer without BFD
+    for p in bgp_peers:
+        is_core = False
+        ci = p.get("connect_interface", "")
+        if ci and "loopback" in ci.lower():
+            is_core = True
+        if bgp_local_as and p.get("remote_as") == bgp_local_as:
+            is_core = True
+        if is_core and not p.get("bfd_enabled"):
+            issues.append(AnalysisIssue(
+                code=ISSUE_BGP_CORE_PEER_WITHOUT_BFD,
+                severity="medium",
+                title=f"BGP core peer {p.get('ip', '?')} sem BFD",
+                description=f"O BGP peer {p.get('ip', '?')} é core (iBGP/LoopBack) mas não tem BFD habilitado. Falhas podem demorar mais para convergir.",
+            ))
+
+    # G) GR without NSR in core
+    for isis in parsed_data.get("isis", []):
+        if isis.get("graceful_restart") and not isis.get("nsr_enabled"):
+            issues.append(AnalysisIssue(
+                code=ISSUE_GRACEFUL_RESTART_WITHOUT_NSR,
+                severity="low",
+                title=f"ISIS processo {isis.get('process_id', '?')} com GR sem NSR",
+                description=f"Graceful Restart habilitado em ISIS {isis.get('process_id', '?')} mas NSR não está ativo. NSR garante reconvergência sem depender de vizinhos.",
+            ))
+            break
+    for ospf in parsed_data.get("ospf", []):
+        if ospf.get("graceful_restart") and not ospf.get("nsr_enabled"):
+            issues.append(AnalysisIssue(
+                code=ISSUE_GRACEFUL_RESTART_WITHOUT_NSR,
+                severity="low",
+                title=f"OSPF processo {ospf.get('process_id', '?')} com GR sem NSR",
+                description=f"Graceful Restart habilitado em OSPF {ospf.get('process_id', '?')} mas NSR não está ativo.",
+            ))
+            break
+
+    # H) LDP without graceful-restart in core MPLS
+    if ha.get("graceful_restart", {}).get("ldp") is False and parsed_data.get("mpls_ldp", {}).get("enabled"):
+        issues.append(AnalysisIssue(
+            code=ISSUE_LDP_WITHOUT_GRACEFUL_RESTART,
+            severity="low",
+            title="LDP sem graceful-restart em core MPLS",
+            description="O MPLS LDP está habilitado sem graceful-restart. Falhas em link MPLS podem causar flapping de LSP.",
+        ))
+
+    # I) IGP core interface without BFD
+    for iface in interfaces:
+        name = iface.get("name", "")
+        part_of_igp = iface.get("isis_enabled") or iface.get("ospfv3_enabled")
+        if not part_of_igp:
+            continue
+        is_core_interface = bool(
+            (iface.get("isis_enabled") or iface.get("ospfv3_enabled"))
+            and not iface.get("bas")
+            and not iface.get("pppoe_server", {}).get("enabled")
+        )
+        if not is_core_interface:
+            continue
+        has_bfd_on_iface = bool(
+            iface.get("isis_bfd_enabled")
+            or iface.get("ospf_bfd_enabled")
+            or iface.get("ospfv3_bfd_enabled")
+            or iface.get("isis_ipv6_bfd_enabled")
+        )
+        has_bfd_all_interfaces = False
+        for isis in parsed_data.get("isis", []):
+            if isis.get("bfd_all_interfaces"):
+                has_bfd_all_interfaces = True
+        if not has_bfd_on_iface and not has_bfd_all_interfaces:
+            issues.append(AnalysisIssue(
+                code=ISSUE_IGP_CORE_INTERFACE_WITHOUT_BFD,
+                severity="low",
+                title=f"Interface core {name} sem BFD",
+                description=f"A interface {name} participa de IGP core mas não tem BFD habilitado. Convergência pode ser mais lenta.",
+            ))
+
     return issues
 
 
@@ -2206,6 +2732,147 @@ ISSUE_BAS_WITHOUT_USER_VLAN = "bas_interface_without_user_vlan"
 ISSUE_BAS_WITHOUT_AUTH_METHOD = "bas_interface_without_authentication_method"
 ISSUE_DOMAIN_WITHOUT_ACCT = "domain_without_accounting"
 ISSUE_BAS_MISSING_DESCRIPTION = "bas_interface_missing_description"
+
+# ── PPPoE / Virtual-Template issue codes ────────────────────────────────
+ISSUE_PPPOE_VT_NOT_FOUND = "pppoe_virtual_template_not_found"
+ISSUE_VIRTUAL_TEMPLATE_ORPHAN = "virtual_template_orphan"
+ISSUE_PPPOE_WITHOUT_BAS = "pppoe_interface_without_bas"
+ISSUE_PPPOE_WITHOUT_DOMAIN = "pppoe_interface_without_domain"
+ISSUE_PPPOE_WITHOUT_USER_VLAN = "pppoe_interface_without_user_vlan"
+ISSUE_VT_WITHOUT_PPP_AUTH = "virtual_template_without_ppp_authentication"
+ISSUE_PPP_AUTH_PAP_ENABLED = "ppp_authentication_pap_enabled"
+ISSUE_PPPOE_WITHOUT_MAX_SESSIONS = "pppoe_without_max_sessions"
+ISSUE_VT_POOL_NOT_FOUND = "virtual_template_pool_not_found"
+ISSUE_VT_MTU_NOT_1492 = "virtual_template_mtu_not_1492"
+
+
+def _detect_pppoe_issues(parsed_data):
+    """Detect PPPoE / Virtual-Template issues."""
+    issues = []
+    interfaces = parsed_data.get("interfaces", [])
+    pools = {p.get("name") for p in parsed_data.get("ip_pools", [])}
+
+    # Collect Virtual-Template names and data
+    vt_names = set()
+    vt_data = {}
+    for iface in interfaces:
+        name = iface.get("name", "")
+        if name.lower().startswith("virtual-template"):
+            vt_names.add(name)
+            vt_data[name] = iface
+
+    # Track which VTs are used
+    used_vts = set()
+
+    # Check each interface with PPPoE server bind
+    for iface in interfaces:
+        pppoe = iface.get("pppoe_server")
+        if not pppoe or not pppoe.get("enabled"):
+            continue
+        iface_name = iface.get("name", "")
+        vt_ref = pppoe.get("virtual_template", "")
+        if vt_ref:
+            used_vts.add(vt_ref)
+
+        # A) Virtual-Template not found
+        if vt_ref and vt_ref not in vt_names:
+            issues.append(AnalysisIssue(
+                code=ISSUE_PPPOE_VT_NOT_FOUND,
+                severity="high",
+                title=f"PPPoE interface {iface_name} referencia Virtual-Template inexistente: {vt_ref}",
+                description=f"A interface {iface_name} faz bind para {vt_ref}, mas ela não está definida na configuração.",
+            ))
+
+        # C) PPPoE interface without BAS
+        bas = iface.get("bas")
+        if not bas or not bas.get("enabled"):
+            issues.append(AnalysisIssue(
+                code=ISSUE_PPPOE_WITHOUT_BAS,
+                severity="high",
+                title=f"Interface PPPoE {iface_name} sem BAS configurado",
+                description=f"A interface {iface_name} tem pppoe-server bind mas não possui bloco BAS. Assinantes PPPoE não serão autenticados.",
+            ))
+
+        # D) PPPoE without default-domain
+        if bas and bas.get("enabled") and not bas.get("default_domain"):
+            issues.append(AnalysisIssue(
+                code=ISSUE_PPPOE_WITHOUT_DOMAIN,
+                severity="high",
+                title=f"Interface PPPoE {iface_name} sem default-domain no BAS",
+                description=f"A interface {iface_name} tem BAS mas nenhum default-domain definido.",
+            ))
+
+        # E) PPPoE without user-vlan
+        if not iface.get("user_vlan"):
+            issues.append(AnalysisIssue(
+                code=ISSUE_PPPOE_WITHOUT_USER_VLAN,
+                severity="medium",
+                title=f"Interface PPPoE {iface_name} sem user-vlan",
+                description=f"A interface {iface_name} tem PPPoE server mas não tem user-vlan definida.",
+            ))
+
+        # H) PPPoE without max-sessions
+        if not pppoe.get("max_sessions"):
+            issues.append(AnalysisIssue(
+                code=ISSUE_PPPOE_WITHOUT_MAX_SESSIONS,
+                severity="info" if False else "low",
+                title=f"Interface PPPoE {iface_name} sem max-sessions",
+                description=f"A interface {iface_name} tem PPPoE server mas não define max-sessions.",
+            ))
+
+    # Check each Virtual-Template
+    for name, vt in vt_data.items():
+        # F) VT without PPP authentication-mode
+        if not vt.get("ppp_authentication_modes"):
+            issues.append(AnalysisIssue(
+                code=ISSUE_VT_WITHOUT_PPP_AUTH,
+                severity="high",
+                title=f"Virtual-Template {name} sem ppp authentication-mode",
+                description=f"A Virtual-Template {name} não possui ppp authentication-mode configurado.",
+            ))
+
+        # G) PAP enabled
+        modes = vt.get("ppp_authentication_modes", [])
+        if any(m.lower() == "pap" for m in modes):
+            issues.append(AnalysisIssue(
+                code=ISSUE_PPP_AUTH_PAP_ENABLED,
+                severity="medium",
+                title=f"Virtual-Template {name} com ppp authentication-mode pap",
+                description=f"PAP pode ser aceito por compatibilidade, mas validar segurança. Preferir CHAP.",
+            ))
+
+        # I) Remote address pool not found
+        pool = vt.get("remote_address_pool")
+        if pool and pool not in pools:
+            issues.append(AnalysisIssue(
+                code=ISSUE_VT_POOL_NOT_FOUND,
+                severity="high",
+                title=f"Virtual-Template {name} referencia IP pool inexistente: {pool}",
+                description=f"A Virtual-Template {name} usa remote address pool {pool}, mas ele não está definido.",
+            ))
+
+        # J) MTU not 1492 when used for PPPoE
+        if name in used_vts:
+            vt_mtu = vt.get("mtu")
+            if vt_mtu is not None and vt_mtu != 1492:
+                issues.append(AnalysisIssue(
+                    code=ISSUE_VT_MTU_NOT_1492,
+                    severity="info",
+                    title=f"Virtual-Template {name} com MTU {vt_mtu} (esperado 1492 para PPPoE)",
+                    description=f"A MTU recomendada para PPPoE é 1492. MTU {vt_mtu} pode causar fragmentação.",
+                ))
+
+    # B) Orphan Virtual-Templates
+    for name in vt_names:
+        if name not in used_vts:
+            issues.append(AnalysisIssue(
+                code=ISSUE_VIRTUAL_TEMPLATE_ORPHAN,
+                severity="low",
+                title=f"Virtual-Template {name} órfã",
+                description=f"A Virtual-Template {name} está definida mas nenhuma interface PPPoE a referencia.",
+            ))
+
+    return issues
 
 
 def _detect_bng_issues(parsed_data):

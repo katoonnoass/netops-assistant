@@ -11,7 +11,7 @@ import re
 from collections.abc import Sequence
 from typing import Any
 
-from django.db.models import Q, QuerySet
+from django.db.models import Prefetch, Q, QuerySet
 
 from apps.analysis.models import (
     AnalysisIssue,
@@ -276,7 +276,13 @@ def _search_snapshots(
 ) -> list[dict]:
     """Search in ConfigSnapshot model — raw_config + vendor + device."""
     q = classification["query"]
-    qs = ConfigSnapshot.objects.select_related("device").all()
+    qs = ConfigSnapshot.objects.select_related("device").prefetch_related(
+        Prefetch(
+            "parsed_configs",
+            queryset=ParsedConfig.objects.only("pk", "snapshot_id"),
+            to_attr="search_parsed_configs",
+        )
+    )
 
     if filters:
         if filters.get("vendor"):
@@ -314,10 +320,11 @@ def _search_snapshots(
         if score == 0.0:
             continue
 
-        # Get parsed_config if exists
-        parsed = ParsedConfig.objects.filter(snapshot=snap).first()
-        parsed_pk = parsed.pk if parsed else None
-
+        parsed_pk = (
+            snap.search_parsed_configs[0].pk
+            if snap.search_parsed_configs
+            else None
+        )
         results.append(
             {
                 "type": "snapshot",
@@ -1583,7 +1590,13 @@ def _search_raw_matches(
     """Search raw config text for matching lines."""
     q = classification["query"]
 
-    qs = ConfigSnapshot.objects.select_related("device").all()
+    qs = ConfigSnapshot.objects.select_related("device").prefetch_related(
+        Prefetch(
+            "parsed_configs",
+            queryset=ParsedConfig.objects.only("pk", "snapshot_id"),
+            to_attr="search_parsed_configs",
+        )
+    )
 
     if filters:
         if filters.get("vendor"):
@@ -1606,6 +1619,11 @@ def _search_raw_matches(
         if not evidence:
             continue
 
+        parsed_config_id = (
+            snap.search_parsed_configs[0].pk
+            if snap.search_parsed_configs
+            else None
+        )
         results.append(
             {
                 "type": "raw_match",
@@ -1614,9 +1632,7 @@ def _search_raw_matches(
                 "device": snap.device.name if snap.device else "",
                 "device_pk": snap.device.pk if snap.device else None,
                 "snapshot": snap.pk,
-                "parsed_config": ParsedConfig.objects.filter(snapshot=snap).first().pk
-                if ParsedConfig.objects.filter(snapshot=snap).exists()
-                else None,
+                "parsed_config": parsed_config_id,
                 "url": None,
                 "score": 0.6,
                 "metadata": {"vendor": snap.vendor},
@@ -1918,6 +1934,318 @@ def _search_bng(
             for s in ab.get("accounting_schemes", []):
                 if q_lower and q_lower == s["name"].lower():
                     results.append({"type": "aaa_scheme", "title": f"Acct-scheme {s['name']}", "device": device_name, "score": 0.9, "snapshot": snapshot.pk})
+
+    seen = set()
+    unique = []
+    for r in results:
+        key = f"{r.get('type', '')}|{r.get('title', '')}"
+        if key not in seen:
+            seen.add(key)
+            unique.append(r)
+    unique.sort(key=lambda x: x.get("score", 0), reverse=True)
+    return unique
+
+
+def _search_pppoe(
+    classification: dict, filters: dict | None, only_last_snapshot: bool = False
+) -> list[dict]:
+    """Search PPPoE / Virtual-Template data."""
+    q = classification["query"]
+    q_lower = q.lower()
+    results: list[dict] = []
+    is_pppoe_keyword = any(k in q_lower for k in ("pppoe", "virtual-template", "vt", "ppp", "chap", "pap", "max-session"))
+
+    parsed_qs = ParsedConfig.objects.select_related("snapshot__device").all()
+    if filters:
+        if filters.get("vendor"):
+            parsed_qs = parsed_qs.filter(snapshot__vendor=filters["vendor"])
+        if filters.get("device"):
+            parsed_qs = parsed_qs.filter(snapshot__device__name__icontains=filters["device"])
+        if filters.get("last_snapshot_only") or only_last_snapshot:
+            from django.db.models import Max
+            latest_ids = (parsed_qs.values("snapshot__device_id").annotate(max_id=Max("pk")).values_list("max_id", flat=True))
+            parsed_qs = parsed_qs.filter(pk__in=list(latest_ids))
+
+    for parsed in parsed_qs:
+        data = parsed.parsed_data
+        snapshot = parsed.snapshot
+        device_name = snapshot.device.name if snapshot.device else "?"
+
+        # PPPoE interfaces
+        for iface in data.get("interfaces", []):
+            pppoe = iface.get("pppoe_server")
+            if not pppoe or not pppoe.get("enabled"):
+                continue
+            score = 0.5 if is_pppoe_keyword else 0.0
+            iface_name = iface.get("name", "")
+            if q_lower and (q_lower in iface_name.lower() or q_lower in pppoe.get("virtual_template", "").lower()):
+                score = 0.9
+            if q_lower and "pppoe" in iface_name.lower():
+                score = max(score, 0.9)
+            if score:
+                results.append({
+                    "type": "pppoe_interface",
+                    "title": f"PPPoE {iface_name} -> {pppoe.get('virtual_template', '?')}",
+                    "device": device_name,
+                    "score": score,
+                    "snapshot": snapshot.pk,
+                    "interface": iface_name,
+                    "virtual_template": pppoe.get("virtual_template"),
+                    "max_sessions": pppoe.get("max_sessions"),
+                    "user_vlan": iface.get("user_vlan"),
+                    "description": iface.get("description", ""),
+                })
+
+            # Virtual-Templates
+            name = iface.get("name", "")
+            if not name.lower().startswith("virtual-template"):
+                continue
+            score = 0.5 if is_pppoe_keyword else 0.0
+            if q_lower and q_lower in name.lower():
+                score = 0.9
+            if score:
+                modes = iface.get("ppp_authentication_modes", [])
+                results.append({
+                    "type": "virtual_template",
+                    "title": f"Virtual-Template {name} (auth: {', '.join(modes) if modes else 'N/A'})",
+                    "device": device_name,
+                    "score": score,
+                    "snapshot": snapshot.pk,
+                    "name": name,
+                    "ppp_authentication_modes": modes,
+                    "remote_address_pool": iface.get("remote_address_pool"),
+                    "mtu": iface.get("mtu"),
+                })
+
+            # PPP authentication modes
+            for mode in iface.get("ppp_authentication_modes", []):
+                if q_lower and q_lower == mode.lower():
+                    results.append({
+                        "type": "ppp_authentication",
+                        "title": f"PPP auth-mode {mode} em {name}",
+                        "device": device_name,
+                        "score": 0.9,
+                        "snapshot": snapshot.pk,
+                    })
+
+            # max-sessions
+            ms = (iface.get("pppoe_server") or {}).get("max_sessions")
+            if ms and q_lower and str(ms) in q:
+                results.append({
+                    "type": "pppoe_interface",
+                    "title": f"PPPoE {iface_name} max-sessions {ms}",
+                    "device": device_name,
+                    "score": 0.85,
+                    "snapshot": snapshot.pk,
+                })
+
+    seen = set()
+    unique = []
+    for r in results:
+        key = f"{r.get('type', '')}|{r.get('title', '')}"
+        if key not in seen:
+            seen.add(key)
+            unique.append(r)
+    unique.sort(key=lambda x: x.get("score", 0), reverse=True)
+    return unique
+
+
+def _search_ha(
+    classification: dict, filters: dict | None, only_last_snapshot: bool = False
+) -> list[dict]:
+    """Search HA/BFD/GR/NSR data."""
+    q = classification["query"]
+    q_lower = q.lower()
+    results: list[dict] = []
+    is_ha_keyword = any(k in q_lower for k in ("bfd", "graceful-restart", "graceful", "nsr", "non-stop", "ha"))
+
+    parsed_qs = ParsedConfig.objects.select_related("snapshot__device").all()
+    if filters:
+        if filters.get("vendor"):
+            parsed_qs = parsed_qs.filter(snapshot__vendor=filters["vendor"])
+        if filters.get("device"):
+            parsed_qs = parsed_qs.filter(snapshot__device__name__icontains=filters["device"])
+        if filters.get("last_snapshot_only") or only_last_snapshot:
+            from django.db.models import Max
+            latest_ids = (parsed_qs.values("snapshot__device_id").annotate(max_id=Max("pk")).values_list("max_id", flat=True))
+            parsed_qs = parsed_qs.filter(pk__in=list(latest_ids))
+
+    for parsed in parsed_qs:
+        data = parsed.parsed_data
+        snapshot = parsed.snapshot
+        device_name = snapshot.device.name if snapshot.device else "?"
+        ha = data.get("ha", {})
+        bfd = ha.get("bfd", {})
+
+        # BFD global
+        if bfd.get("global_enabled") and (is_ha_keyword or q_lower == "bfd"):
+            results.append({
+                "type": "ha",
+                "title": "BFD global habilitado",
+                "device": device_name,
+                "score": 0.7 if q_lower == "bfd" else 0.3,
+                "snapshot": snapshot.pk,
+                "description": "BFD global está habilitado.",
+            })
+
+        # BFD sessions
+        for s in bfd.get("sessions", []):
+            score = 0.0
+            if is_ha_keyword:
+                score = 0.5
+            if q_lower and (q_lower in s.get("name", "").lower() or q_lower in (s.get("peer_ip") or "") or q_lower in s.get("interface", "").lower() or q_lower in (s.get("peer_ipv6") or "")):
+                score = 0.9
+            if score:
+                results.append({
+                    "type": "bfd_session",
+                    "title": f"BFD {s['name']} -> {s.get('peer_ip') or s.get('peer_ipv6', '?')} via {s.get('interface', '?')}",
+                    "device": device_name,
+                    "score": score,
+                    "snapshot": snapshot.pk,
+                    "description": f"Local-disc: {s.get('local_discriminator')}, Remote-disc: {s.get('remote_discriminator')}, Tx: {s.get('min_tx_interval')}, Rx: {s.get('min_rx_interval')}, Mult: {s.get('detect_multiplier')}",
+                })
+
+        # BGP peers with BFD/GR
+        for bgp in data.get("bgp", []):
+            for p in bgp.get("peers", []):
+                if not p.get("bfd_enabled") and not p.get("graceful_restart"):
+                    continue
+                score = 0.5 if is_ha_keyword else 0.0
+                peer_ip = p.get("ip", "")
+                if q_lower and q_lower in peer_ip:
+                    score = 0.9
+                if score:
+                    results.append({
+                        "type": "bgp_bfd" if p.get("bfd_enabled") else "graceful_restart",
+                        "title": f"BGP {peer_ip} {'BFD' if p.get('bfd_enabled') else 'GR'}",
+                        "device": device_name,
+                        "score": score,
+                        "snapshot": snapshot.pk,
+                    })
+
+        # GR/NSR per protocol
+        for proto in ("bgp", "isis", "ospf", "ldp"):
+            if ha.get("graceful_restart", {}).get(proto) and (is_ha_keyword or "graceful" in q_lower):
+                results.append({
+                    "type": "graceful_restart",
+                    "title": f"Graceful Restart {proto.upper()}",
+                    "device": device_name,
+                    "score": 0.8 if "graceful" in q_lower else 0.4,
+                    "snapshot": snapshot.pk,
+                })
+            if ha.get("nsr", {}).get(proto) and (is_ha_keyword or "nsr" in q_lower or "non-stop" in q_lower):
+                results.append({
+                    "type": "nsr",
+                    "title": f"NSR {proto.upper()}",
+                    "device": device_name,
+                    "score": 0.8 if "nsr" in q_lower else 0.4,
+                    "snapshot": snapshot.pk,
+                })
+
+        # LDP HA
+        ldp_bfd = ha.get("bfd", {}).get("ldp_enabled")
+        ldp_gr = ha.get("graceful_restart", {}).get("ldp")
+        if (ldp_bfd or ldp_gr) and (is_ha_keyword or "ldp" in q_lower):
+            results.append({
+                "type": "ldp_ha",
+                "title": f"LDP {'BFD' if ldp_bfd else ''} {'GR' if ldp_gr else ''}".strip(),
+                "device": device_name,
+                "score": 0.6,
+                "snapshot": snapshot.pk,
+            })
+
+        # BFD per-interface (IGP)
+        for iface in data.get("interfaces", []):
+            has_bfd_iface = iface.get("isis_bfd_enabled") or iface.get("ospf_bfd_enabled") or iface.get("ospfv3_bfd_enabled") or iface.get("isis_ipv6_bfd_enabled") or iface.get("mpls_ldp_bfd_enabled")
+            if not has_bfd_iface:
+                continue
+            if not is_ha_keyword and q_lower not in iface.get("name", "").lower():
+                continue
+            results.append({
+                "type": "igp_bfd",
+                "title": f"Interface {iface['name']} com BFD",
+                "device": device_name,
+                "score": 0.8 if q_lower in iface.get("name", "").lower() else 0.4,
+                "snapshot": snapshot.pk,
+            })
+
+    seen = set()
+    unique = []
+    for r in results:
+        key = f"{r.get('type', '')}|{r.get('title', '')}"
+        if key not in seen:
+            seen.add(key)
+            unique.append(r)
+    unique.sort(key=lambda x: x.get("score", 0), reverse=True)
+    return unique
+
+
+def _search_multicast(
+    classification: dict, filters: dict | None, only_last_snapshot: bool = False
+) -> list[dict]:
+    """Search multicast/PIM/IGMP/MLD data."""
+    q = classification["query"]
+    q_lower = q.lower()
+    results: list[dict] = []
+    is_mc_keyword = any(k in q_lower for k in ("multicast", "pim", "igmp", "mld", "rp", "bsr", "snooping"))
+
+    parsed_qs = ParsedConfig.objects.select_related("snapshot__device").all()
+    if filters:
+        if filters.get("vendor"):
+            parsed_qs = parsed_qs.filter(snapshot__vendor=filters["vendor"])
+        if filters.get("device"):
+            parsed_qs = parsed_qs.filter(snapshot__device__name__icontains=filters["device"])
+        if filters.get("last_snapshot_only") or only_last_snapshot:
+            from django.db.models import Max
+            latest_ids = (parsed_qs.values("snapshot__device_id").annotate(max_id=Max("pk")).values_list("max_id", flat=True))
+            parsed_qs = parsed_qs.filter(pk__in=list(latest_ids))
+
+    for parsed in parsed_qs:
+        data = parsed.parsed_data
+        snapshot = parsed.snapshot
+        device_name = snapshot.device.name if snapshot.device else "?"
+        mc = data.get("multicast", {})
+
+        # Global routing
+        for key, label in [("ipv4_routing_enabled", "Multicast IPv4"), ("ipv6_routing_enabled", "Multicast IPv6")]:
+            if mc.get(key) and (is_mc_keyword or q_lower in label.lower()):
+                results.append({"type": "multicast_global", "title": f"{label} routing habilitado", "device": device_name, "score": 0.7, "snapshot": snapshot.pk})
+
+        # PIM global (static RPs, BSR)
+        pim_global = mc.get("pim", {}).get("global", {})
+        for rp in pim_global.get("static_rps", []):
+            if q_lower and (q_lower in rp["rp_address"] or (is_mc_keyword and "rp" in q_lower)):
+                results.append({"type": "multicast_global", "title": f"Static RP {rp['rp_address']}", "device": device_name, "score": 0.9, "snapshot": snapshot.pk, "description": f"ACL: {rp.get('acl', 'N/A')}"})
+        for bsr in pim_global.get("bsr_candidates", []):
+            if is_mc_keyword or "bsr" in q_lower or q_lower in bsr.lower():
+                results.append({"type": "multicast_global", "title": f"BSR candidate {bsr}", "device": device_name, "score": 0.8, "snapshot": snapshot.pk})
+
+        # Interfaces
+        for iface in data.get("interfaces", []):
+            name = iface.get("name", "")
+            if iface.get("pim_enabled") and (is_mc_keyword or q_lower in name.lower() or q_lower in (iface.get("pim_mode") or "")):
+                results.append({"type": "pim_interface", "title": f"PIM {iface.get('pim_mode', '?')} em {name}", "device": device_name, "score": 0.8, "snapshot": snapshot.pk})
+            if iface.get("igmp_enabled") and (is_mc_keyword or q_lower in name.lower() or "igmp" in q_lower):
+                results.append({"type": "igmp_interface", "title": f"IGMP v{iface.get('igmp_version', '?')} em {name}", "device": device_name, "score": 0.8, "snapshot": snapshot.pk})
+            for g in iface.get("igmp_static_groups", []) + iface.get("igmp_join_groups", []):
+                if q_lower and q_lower in g:
+                    results.append({"type": "igmp_interface", "title": f"Grupo IGMP {g} em {name}", "device": device_name, "score": 0.9, "snapshot": snapshot.pk})
+            if iface.get("mld_enabled") and (is_mc_keyword or q_lower in name.lower() or "mld" in q_lower):
+                results.append({"type": "mld_interface", "title": f"MLD v{iface.get('mld_version', '?')} em {name}", "device": device_name, "score": 0.8, "snapshot": snapshot.pk})
+            for g in iface.get("mld_static_groups", []):
+                if q_lower and q_lower in g:
+                    results.append({"type": "mld_interface", "title": f"Grupo MLD {g} em {name}", "device": device_name, "score": 0.9, "snapshot": snapshot.pk})
+
+        # IGMP snooping
+        snoop = mc.get("igmp_snooping", {})
+        if snoop.get("global_enabled") and (is_mc_keyword or "snooping" in q_lower):
+            results.append({"type": "multicast_global", "title": "IGMP snooping global habilitado", "device": device_name, "score": 0.6, "snapshot": snapshot.pk})
+        for v in snoop.get("vlans", []):
+            if q_lower and (q_lower in v["vlan_id"] or "snooping" in q_lower):
+                desc = f"Versão: {v.get('version', 'N/A')}"
+                if v.get("querier_enabled"):
+                    desc += " | Querier: Sim"
+                results.append({"type": "igmp_snooping_vlan", "title": f"IGMP snooping VLAN {v['vlan_id']}", "device": device_name, "score": 0.7, "snapshot": snapshot.pk, "description": desc})
 
     seen = set()
     unique = []
@@ -2451,6 +2779,181 @@ def _search_vrf(
     return unique_results[:20]
 
 
+def _search_huawei_advanced(
+    classification: dict, filters: dict | None, only_last_snapshot: bool = False
+) -> list[dict]:
+    query = classification["query"].lower()
+    category_labels = {
+        "evpn_vxlan": "EVPN / VXLAN",
+        "segment_routing": "Segment Routing / SRv6",
+        "mpls_te": "MPLS-TE / RSVP-TE",
+        "cgnat": "CGNAT Avançado",
+        "msdp": "MSDP",
+        "telemetry": "Telemetria / Streaming",
+        "bgp_advanced": "BGP Avançado",
+    }
+    aliases = {
+        "evpn_vxlan": ("evpn", "vxlan", "vni", "nve", "bridge-domain"),
+        "segment_routing": ("segment-routing", "segment routing", "srv6", "locator", "prefix-sid"),
+        "mpls_te": ("mpls te", "mpls-te", "rsvp-te", "explicit-path", "tunnel-policy"),
+        "cgnat": ("cgnat", "nat instance", "port-block", "session-limit"),
+        "msdp": ("msdp",),
+        "telemetry": ("telemetry", "grpc", "netstream", "sflow", "sensor-group", "subscription"),
+        "bgp_advanced": ("route-reflector", "reflect-client", "confederation", "add-path", "dampening", "route-limit"),
+    }
+    parsed_qs = ParsedConfig.objects.select_related("snapshot__device").all()
+    if filters:
+        if filters.get("vendor"):
+            parsed_qs = parsed_qs.filter(snapshot__vendor=filters["vendor"])
+        if filters.get("device"):
+            parsed_qs = parsed_qs.filter(snapshot__device__name__icontains=filters["device"])
+    if only_last_snapshot or (filters and filters.get("last_snapshot_only")):
+        from django.db.models import Max
+        latest_ids = (
+            parsed_qs.values("snapshot__device_id")
+            .annotate(max_id=Max("snapshot_id"))
+            .values_list("max_id", flat=True)
+        )
+        parsed_qs = parsed_qs.filter(snapshot_id__in=list(latest_ids))
+
+    results = []
+    for parsed in parsed_qs:
+        advanced = parsed.parsed_data.get("huawei_advanced", {})
+        for category, label in category_labels.items():
+            payload = advanced.get(category, {})
+            enabled = payload.get("enabled", False) or any(
+                value for key, value in payload.items() if key.endswith("_enabled")
+            )
+            active = enabled or any(
+                value
+                for key, value in payload.items()
+                if key != "enabled" and not key.endswith("_enabled")
+            )
+            if not active:
+                continue
+            searchable = f"{label} {category} {payload}".lower()
+            alias_match = any(query in alias or alias in query for alias in aliases[category])
+            if query not in searchable and not (enabled and alias_match):
+                continue
+            evidence_query = next((alias for alias in aliases[category] if alias in parsed.snapshot.raw_config.lower()), query)
+            results.append({
+                "type": category,
+                "title": label,
+                "description": f"Recursos detectados: {payload}",
+                "device": parsed.snapshot.device.name if parsed.snapshot.device else "",
+                "device_pk": parsed.snapshot.device_id,
+                "snapshot": parsed.snapshot_id,
+                "parsed_config": parsed.pk,
+                "url": f"/analysis/{parsed.pk}/documentation/",
+                "score": 0.9 if query in searchable else 0.7,
+                "metadata": payload,
+                "evidence": _get_evidence_lines(parsed.snapshot.raw_config, evidence_query)[:3],
+            })
+    return results[:20]
+
+
+def _search_zte_olt(
+    classification: dict, filters: dict | None, only_last_snapshot: bool = False
+) -> list[dict]:
+    """Search ZTE OLT entities: PON, ONU serial, VLAN and service-port."""
+    q = classification["query"]
+    q_lower = q.lower()
+    qtype = classification["type"]
+    qval = str(classification.get("value", q))
+
+    parsed_qs = ParsedConfig.objects.select_related("snapshot__device").all()
+    if filters:
+        if filters.get("vendor"):
+            parsed_qs = parsed_qs.filter(snapshot__vendor=filters["vendor"])
+        if filters.get("device"):
+            parsed_qs = parsed_qs.filter(snapshot__device__name__icontains=filters["device"])
+        if filters.get("last_snapshot_only") or only_last_snapshot:
+            from django.db.models import Max
+            latest_ids = (
+                parsed_qs.values("snapshot__device_id")
+                .annotate(max_id=Max("pk"))
+                .values_list("max_id", flat=True)
+            )
+            parsed_qs = parsed_qs.filter(pk__in=list(latest_ids))
+
+    results: list[dict] = []
+    for parsed in parsed_qs:
+        olt = parsed.parsed_data.get("zte_olt", {})
+        if not olt.get("enabled"):
+            continue
+        device_name = parsed.snapshot.device.name if parsed.snapshot.device else ""
+        for pon in olt.get("pon_ports", []):
+            searchable = " ".join([
+                pon.get("name", ""),
+                pon.get("pon", ""),
+                pon.get("description", ""),
+            ]).lower()
+            if q_lower in searchable:
+                results.append({
+                    "type": "zte_pon",
+                    "title": pon.get("name", pon.get("pon", "")),
+                    "description": f"{pon.get('onu_count', 0)} ONU(s)",
+                    "device": device_name,
+                    "snapshot": parsed.snapshot.pk,
+                    "parsed_config": parsed.pk,
+                    "url": f"/analysis/{parsed.pk}/",
+                    "score": 0.9,
+                    "evidence": [pon.get("raw", "")[:300]],
+                })
+        for onu in olt.get("onus", []):
+            service_vlans = {str(s.get("vlan") or s.get("user_vlan") or "") for s in onu.get("service_ports", [])}
+            searchable = " ".join([
+                onu.get("interface", ""),
+                onu.get("serial", ""),
+                onu.get("name", ""),
+                onu.get("description", ""),
+                onu.get("type", ""),
+                onu.get("pon", ""),
+                onu.get("onu_id", ""),
+                " ".join(service_vlans),
+            ]).lower()
+            vlan_match = qtype in ("vlan", "asn") and qval in service_vlans
+            if q_lower in searchable or vlan_match:
+                results.append({
+                    "type": "zte_onu",
+                    "title": onu.get("interface", ""),
+                    "description": f"{onu.get('serial', '-')} — VLAN(s): {', '.join(sorted(v for v in service_vlans if v)) or '-'}",
+                    "device": device_name,
+                    "snapshot": parsed.snapshot.pk,
+                    "parsed_config": parsed.pk,
+                    "url": f"/analysis/{parsed.pk}/",
+                    "score": 1.0 if q_lower in onu.get("serial", "").lower() else 0.85,
+                    "evidence": [onu.get("raw", "")[:400]],
+                })
+        for service in olt.get("service_ports", []):
+            fields = [
+                service.get("id", ""),
+                service.get("onu", ""),
+                service.get("vlan", ""),
+                service.get("user_vlan", ""),
+                service.get("gemport", ""),
+                service.get("vport", ""),
+            ]
+            vlan_match = qtype in ("vlan", "asn") and qval in {
+                str(service.get("vlan", "")),
+                str(service.get("user_vlan", "")),
+            }
+            if q_lower in " ".join(fields).lower() or vlan_match:
+                results.append({
+                    "type": "zte_service_port",
+                    "title": f"Service-port {service.get('id', '-')}",
+                    "description": f"{service.get('onu', '-')} — VLAN {service.get('vlan') or service.get('user_vlan') or '-'}",
+                    "device": device_name,
+                    "snapshot": parsed.snapshot.pk,
+                    "parsed_config": parsed.pk,
+                    "url": f"/analysis/{parsed.pk}/",
+                    "score": 0.8,
+                    "evidence": [service.get("raw", "")],
+                })
+    results.sort(key=lambda item: item["score"], reverse=True)
+    return results[:30]
+
+
 def global_network_search(
     query: str, filters: dict | None = None
 ) -> dict[str, Any]:
@@ -2520,6 +3023,15 @@ def global_network_search(
         classification, effective_filters, only_last_snapshot
     )
     bng_results = _search_bng(classification, effective_filters, only_last_snapshot)
+    ha_results = _search_ha(classification, effective_filters, only_last_snapshot)
+    multicasts_results = _search_multicast(classification, effective_filters, only_last_snapshot)
+    pppoe_results = _search_pppoe(classification, effective_filters, only_last_snapshot)
+    huawei_advanced_results = _search_huawei_advanced(
+        classification, effective_filters, only_last_snapshot
+    )
+    zte_olt_results = _search_zte_olt(
+        classification, effective_filters, only_last_snapshot
+    )
     ipv6_results = _search_ipv6(classification, effective_filters, only_last_snapshot)
     nat_results = _search_nat(
         classification, effective_filters, only_last_snapshot
@@ -2542,6 +3054,11 @@ def global_network_search(
         "nat": len(nat_results),
         "ipv6": len(ipv6_results),
         "bng": len(bng_results),
+        "ha": len(ha_results),
+        "multicast": len(multicasts_results),
+        "pppoe": len(pppoe_results),
+        "huawei_advanced": len(huawei_advanced_results),
+        "zte_olt": len(zte_olt_results),
         "raw_matches": len(raw_matches),
     }
 
@@ -2566,5 +3083,10 @@ def global_network_search(
         "nat": nat_results,
         "ipv6": ipv6_results,
         "bng": bng_results,
+        "ha": ha_results,
+        "multicast": multicasts_results,
+        "pppoe": pppoe_results,
+        "huawei_advanced": huawei_advanced_results,
+        "zte_olt": zte_olt_results,
         "raw_matches": raw_matches,
     }

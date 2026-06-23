@@ -1,0 +1,65 @@
+#
+sysname NE40-ADVANCED
+#
+mpls lsr-id 10.0.0.1
+mpls
+ mpls te
+ mpls rsvp-te
+#
+segment-routing
+ global-block 16000 23999
+ prefix-sid 16001
+ segment-routing ipv6
+ locator LOC-CORE ipv6-prefix 2001:db8:100::/64
+#
+evpn
+ evpn-overlay enable
+#
+bridge-domain 100
+ vxlan vni 50100
+#
+interface Nve1
+ source 10.0.0.1
+ vni 50100 head-end peer-list protocol bgp
+ peer-ip 10.0.0.2
+#
+interface Tunnel0/0/1
+ tunnel-protocol mpls te
+ destination 10.0.0.2
+#
+explicit-path PATH-PRIMARY
+ next hop 10.0.0.2
+#
+tunnel-policy TE-POLICY
+ tunnel select-seq cr-lsp load-balance-number 1
+#
+nat instance CGN-CLIENTES id 1
+ port-block dynamic 1024
+ session-limit 65535
+ nat log host 192.0.2.10
+#
+multicast routing-enable
+#
+msdp
+ peer 10.0.0.2 connect-interface LoopBack0
+ source-interface LoopBack0
+ peer 10.0.0.2 sa-policy import acl 3000
+#
+telemetry
+ sensor-group SENSOR-CPU
+ destination-group COLLECTORS
+ subscription SUB-CPU
+#
+grpc
+#
+netstream
+#
+bgp 65000
+ group RR-CLIENTS internal
+ peer 192.0.2.2 as-number 65000
+ peer 192.0.2.2 reflect-client
+ peer 192.0.2.2 route-limit 100000 80
+ add-path enable
+ dampening
+#
+return

@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+{% block title %}Backup - NetOps Assistant{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Exportação de Backup</h1>
+    <p>Exportar dados operacionais do NetOps Assistant.</p>
+</div>
+
+<div class="card-grid" style="grid-template-columns:1fr 1fr;">
+    <div class="card">
+        <h3 style="margin-bottom:0.5rem;">Exportar Backup (metadados)</h3>
+        <p style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:0.75rem;">
+            Exporta dispositivos, snapshots (sem configurações brutas), análises, circuitos, serviços,
+            issues, comparações e logs de auditoria.
+        </p>
+        <div class="help-text" style="margin-bottom:0.75rem;">
+            Recomendado para backup rotineiro. Não inclui configurações sensíveis.
+        </div>
+        <a href="{% url 'backup_page' %}" class="btn btn-primary"
+           onclick="alert('Use o comando: python manage.py export_operational_backup --output backup.json'); return false;">
+            Exportar Backup
+        </a>
+    </div>
+
+    <div class="card">
+        <h3 style="margin-bottom:0.5rem;">Exportar Backup Completo</h3>
+        <p style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:0.75rem;">
+            Inclui configurações brutas dos snapshots.
+        </p>
+        <div class="alert alert-error" style="margin-bottom:0.75rem;padding:0.5rem;">
+            ⚠ O arquivo pode conter configurações sensíveis (senhas, communities SNMP, etc).
+            Mantenha o arquivo em local seguro.
+        </div>
+        <a href="{% url 'backup_page' %}" class="btn btn-outline"
+           onclick="alert('Use o comando: python manage.py export_operational_backup --output backup_full.json --include-raw-config'); return false;">
+            Exportar com Configs
+        </a>
+    </div>
+</div>
+
+<div class="card mb-2">
+    <h3>Comandos CLI</h3>
+    <pre style="background:var(--bg-secondary);padding:0.75rem;border-radius:4px;font-size:0.85rem;">
+# Backup metadados (recomendado)
+python manage.py export_operational_backup --output backups/netops_backup.json
+
+# Backup completo (inclui configurações brutas)
+python manage.py export_operational_backup --output backups/netops_backup_full.json --include-raw-config
+    </pre>
+</div>
+{% endblock %}

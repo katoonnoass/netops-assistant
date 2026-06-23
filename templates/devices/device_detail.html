@@ -14,6 +14,11 @@
     </div>
     <div class="flex gap-1">
         <a href="{% url 'device_list' %}" class="btn btn-outline">Dispositivos</a>
+        <a href="{% url 'device_snapshot_list' s.device.pk %}" class="btn btn-outline">Snapshots</a>
+        <a href="{% url 'device_snapshot_upload' s.device.pk %}" class="btn btn-primary">Novo Snapshot</a>
+        {% if s.total_snapshots >= 2 %}
+        <a href="{% url 'device_compare' s.device.pk %}" class="btn btn-outline">Comparar</a>
+        {% endif %}
         {% if s.last_parsed %}
         <a href="{% url 'analysis_detail' s.last_parsed.pk %}" class="btn btn-primary">Ver Análise</a>
         {% endif %}
@@ -92,14 +97,16 @@
     {% if s.snapshots %}
     <div class="table-container">
         <table>
-            <thead><tr><th>ID</th><th>Data</th><th>Vendor</th><th>Origem</th><th>Circuitos</th><th>Issues</th><th></th></tr></thead>
+            <thead><tr><th>ID</th><th>Nome</th><th>Data</th><th>Hash</th><th>Vendor</th><th>Baseline</th><th>Circuitos</th><th>Issues</th><th></th></tr></thead>
             <tbody>
             {% for snap in s.snapshots|slice:":10" %}
             <tr>
                 <td>#{{ snap.pk }}</td>
+                <td>{{ snap.name|default:"—" }}</td>
                 <td>{{ snap.created_at|date:"d/m/Y H:i" }}</td>
+                <td><code title="{{ snap.config_hash }}">{{ snap.hash_short }}</code></td>
                 <td><span class="badge badge-primary">{{ snap.vendor }}</span></td>
-                <td>{{ snap.get_source_display }}</td>
+                <td>{% if snap.is_baseline %}<span class="badge badge-success">Sim</span>{% else %}—{% endif %}</td>
                 <td>{{ snap.detected_circuits.count }}</td>
                 <td>{{ snap.analysis_issues.count }}</td>
                 <td class="text-right">
@@ -116,7 +123,10 @@
         </table>
     </div>
     {% else %}
-    <p class="empty-state">Nenhum snapshot.</p>
+    <p class="empty-state">Nenhum snapshot. <a href="{% url 'device_snapshot_upload' s.device.pk %}">Enviar primeiro snapshot</a>.</p>
+    {% endif %}
+    {% if s.snapshots|length > 10 %}
+    <div style="margin-top:0.5rem;"><a href="{% url 'device_snapshot_list' s.device.pk %}" class="btn btn-outline btn-sm">Ver todos {{ s.total_snapshots }} snapshots →</a></div>
     {% endif %}
 </div>
 

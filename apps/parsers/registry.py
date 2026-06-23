@@ -6,6 +6,7 @@ Central point for discovering which parsers are available.
 
 from apps.parsers.cisco import CiscoIOSParser
 from apps.parsers.huawei import HuaweiVRPParser
+from apps.parsers.zte import ZTEOLTParser
 
 # Known vendor aliases mapped to canonical vendor name and parser class
 PARSER_REGISTRY: dict[str, tuple[str, type]] = {
@@ -17,6 +18,12 @@ PARSER_REGISTRY: dict[str, tuple[str, type]] = {
     "cisco_ios_xe": ("cisco", CiscoIOSParser),
     "ios": ("cisco", CiscoIOSParser),
     "ios_xe": ("cisco", CiscoIOSParser),
+    "zte": ("zte", ZTEOLTParser),
+    "zte_olt": ("zte", ZTEOLTParser),
+    "zxa10": ("zte", ZTEOLTParser),
+    "c300": ("zte", ZTEOLTParser),
+    "c320": ("zte", ZTEOLTParser),
+    "c600": ("zte", ZTEOLTParser),
 }
 
 

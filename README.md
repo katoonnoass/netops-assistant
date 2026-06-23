@@ -4,7 +4,7 @@
   <p>
     <img src="https://img.shields.io/badge/Python-3.12-blue?logo=python" alt="Python 3.12">
     <img src="https://img.shields.io/badge/Django-5.0+-green?logo=django" alt="Django 5.0+">
-    <img src="https://img.shields.io/badge/Tests-939_✔️-brightgreen" alt="939 testes">
+    <img src="https://img.shields.io/badge/Tests-1232_✔️-brightgreen" alt="1232 testes">
     <img src="https://img.shields.io/badge/License-Proprietary-red" alt="License">
     <img src="https://img.shields.io/badge/Status-Development-yellow" alt="Status">
   </p>
@@ -40,7 +40,22 @@ O sistema interpreta configurações de roteadores e switches, extrai blocos est
 | **IPv6 / BGP IPv6** | Interfaces IPv6 (enable, address, link-local, auto, global), rotas estáticas IPv6 (global + vpn-instance), IPv6 prefix-list, BGP IPv6 unicast (peers, networks com prefix length, route-policy), VPNv6, ipv6-family vpn-instance, OSPFv3 (processos, interfaces), ISIS IPv6 (enable, cost) |
 | **Circuitos** | L3 Transit, VLAN Transport, QinQ, L2VPN/VSI |
 | **Serviços** | BNG/BAS, AAA, RADIUS, IP Pool, SNMP, NTP, Syslog, VTY/SSH, local-users, L2 Switching, STP/MSTP |
-| **Issues** | Descrições ausentes, next-hop inalcançável, SNMP sem ACL, Telnet ativo, trunk allow all, STP desabilitado, redistribuição sem filtro, VPN-instance sem RD/RT, VRF sem interface/rota, RD duplicado, VPNv4 peer não habilitado, referência a VPN-instance inexistente, traffic-policy/classifier/behavior não encontrado, classifier/behavior/policy órfão, QoS profile não encontrado, cliente sem QoS, NAT outbound sem address-group/ACL inexistente, address-group órfão, NAT static com IP privado, NAT server expondo porta sensível, NAT server sem protocolo, NAT em interface sem descrição, NAT em VRF inexistente, ALG SIP habilitado, IPv6 address sem ipv6 enable, BGP IPv6 peer sem enable, rota IPv6 next-hop inalcançável, IPv6 default route, IPv6 prefix-list permit any, OSPFv3/ISIS IPv6 processo inexistente, VPNv6 peer sem enable, BGP ipv6-family vpn-instance inexistente, etc. |
+| **Issues** | Descrições ausentes, next-hop inalcançável, SNMP sem ACL, Telnet ativo, trunk allow all, STP desabilitado, redistribuição sem filtro, VPN-instance sem RD/RT, VRF sem interface/rota, RD duplicado, VPNv4 peer não habilitado, referência a VPN-instance inexistente, traffic-policy/classifier/behavior não encontrado, classifier/behavior/policy órfão, QoS profile não encontrado, cliente sem QoS, NAT outbound sem address-group/ACL inexistente, address-group órfão, NAT static com IP privado, NAT server expondo porta sensível, NAT server sem protocolo, NAT em interface sem descrição, NAT em VRF inexistente, ALG SIP habilitado, IPv6 address sem ipv6 enable, BGP IPv6 peer sem enable, rota IPv6 next-hop inalcançável, IPv6 default route, IPv6 prefix-list permit any, OSPFv3/ISIS IPv6 processo inexistente, VPNv6 peer sem enable, BGP ipv6-family vpn-instance inexistente, BNG/BAS issues (domain, RADIUS, AAA, pool, interface), PIM sem multicast routing-enable, IGMP sem multicast routing, MLD sem IPv6 multicast routing, PIM sem RP/BSR, IGMP version 1, PIM interface sem descrição, IGMP snooping sem querier, multicast VPN-instance inexistente, grupo IGMP/MLD inválido etc. |
+| **BNG/BAS Avançado** | AAA schemes (auth/acct/authz), domínios de assinante, RADIUS server groups (auth+acct servers, shared-key cipher/simple), IP pools (local/remote, gateway, sections, DNS, lease), BAS interfaces (access-type, default-domain, authentication-method, triggers, accounting-copy, QinQ), dependency map, busca, documentação, comparação, validation/rollback plan |
+| **PPPoE Server** | Virtual-Template (PPP auth-mode, keepalive, MTU/MRU, ip unnumbered, remote address pool), PPPoE server bind, max-sessions, relação PPPoE → interface BAS → Virtual-Template → domain → AAA/RADIUS/IP pool, dependency map, busca, documentação, comparação, validation/rollback plan |
+| **BFD / HA** | BFD global, BFD sessions (peer-ip/ipv6, discriminators, timers, commit), BFD em BGP peers + timers, BFD em ISIS/OSPF/OSPFv3 all-interfaces e por interface, BFD em LDP, Graceful Restart (BGP/ISIS/OSPF/LDP), NSR (ISIS/BGP/OSPF), dependency map, busca, documentação, comparação, validation/rollback plan |
+| **Multicast / PIM / IGMP / MLD** | Multicast routing-enable (IPv4/IPv6), PIM (global mode, static-RP, BSR candidate, RP candidate), PIM por interface (sm/dm/ssm, hello-holdtime), IGMP (enable, version, static-group, join-group, limit), MLD (enable, version, static-group), IGMP snooping (global/VLAN, version, querier), multicast em VPN-instance, dependency map, busca, documentação, comparação, validation/rollback plan |
+| **Huawei VRP Avançado** | EVPN/VXLAN (VNI, bridge-domain, NVE e peers), Segment Routing MPLS/SRv6 (locator, prefix-SID e label blocks), MPLS-TE/RSVP-TE (túneis, explicit-path e tunnel-policy), CGNAT (instances, port-block, session limit e logging), MSDP, telemetria/gRPC/NetStream/sFlow e BGP avançado (RR, confederação, add-path, dampening e route-limit) |
+
+### ZTE OLT / ZXA10 — Cobertura inicial
+
+| Categoria | Itens detectados |
+|-----------|-----------------|
+| **Inventário GPON** | Portas PON (gpon-olt_*), ONUs (gpon-onu_*), ONU ID, serial, tipo, name/description e estado administrativo |
+| **Serviços de cliente** | TCONT, GEMPORT, service-port, vport, user-vlan, VLAN de serviço e blocos pon-onu-mng |
+| **Rede da OLT** | Uplinks gei_/xgei_, VLANs, trunks, IP de interface e rotas estáticas |
+| **Busca Global** | Busca por PON, interface ONU, serial, cliente/descrição, VLAN e service-port |
+| **Issues ZTE OLT** | PON sem ONU, ONU sem serial, ONU sem identificação, ONU sem service-port e service-port sem VLAN |
 
 ### Cisco IOS/IOS-XE — Suporte inicial
 
@@ -70,13 +85,13 @@ python manage.py compare_config_files before.txt after.txt --vendor huawei --dev
 
 ### Segurança
 
-O sistema **nunca armazena** communities SNMP, senhas de usuários locais ou secrets de autenticação. Apenas flags e evidências mascaradas são preservadas.
+O `parsed_data`, os metadados de serviços e as telas nunca armazenam nem exibem communities SNMP, senhas de usuários locais ou secrets de autenticação; somente flags e tipos mascarados são preservados. A configuração bruta do snapshot é armazenada integralmente para auditoria e deve ser protegida por acesso restrito, criptografia e política de retenção no ambiente de produção.
 
 ---
 
 ## Testes
 
-**722 testes automatizados** — 0 falhas, 0 migrations pendentes.
+**1232 testes automatizados** — 0 falhas, 0 migrations pendentes (validação em 21/06/2026).
 
 ```bash
 # Todos os testes
@@ -203,6 +218,47 @@ python manage.py network_search "vpnv6"
 python manage.py compare_config_files sample_configs/huawei_ipv6_change_before.txt sample_configs/huawei_ipv6_change_after.txt --vendor huawei --device-name "NE40-IPV6-DIFF"
 ```
 
+### Exemplos BNG / BAS
+
+```bash
+python manage.py analyze_config_file sample_configs/huawei_bng_advanced_basic.txt --vendor huawei --device-name "NE40-BNG"
+python manage.py analyze_config_file sample_configs/huawei_bng_advanced_risky.txt --vendor huawei --device-name "NE40-BNG-RISK"
+python manage.py network_search "cliente-pppoe"
+python manage.py network_search "RAD-CLIENTES"
+python manage.py network_search "POOL-CLIENTES"
+python manage.py compare_config_files sample_configs/huawei_bng_advanced_change_before.txt sample_configs/huawei_bng_advanced_change_after.txt --vendor huawei --device-name "NE40-BNG-DIFF"
+```
+
+### Exemplos PPPoE Server / Virtual-Template
+
+```bash
+python manage.py analyze_config_file sample_configs/huawei_pppoe_basic.txt --vendor huawei --device-name "NE40-PPPOE"
+python manage.py analyze_config_file sample_configs/huawei_pppoe_risky.txt --vendor huawei --device-name "NE40-PPPOE-RISK"
+python manage.py network_search "pppoe"
+python manage.py network_search "Virtual-Template1"
+python manage.py compare_config_files sample_configs/huawei_pppoe_change_before.txt sample_configs/huawei_pppoe_change_after.txt --vendor huawei --device-name "NE40-PPPOE-DIFF"
+```
+
+### Exemplos Multicast / PIM / IGMP / MLD
+
+```bash
+python manage.py analyze_config_file sample_configs/huawei_multicast_basic.txt --vendor huawei --device-name "NE40-MCAST"
+python manage.py analyze_config_file sample_configs/huawei_multicast_risky.txt --vendor huawei --device-name "NE40-MCAST-RISK"
+python manage.py network_search "multicast"
+python manage.py network_search "pim"
+python manage.py compare_config_files sample_configs/huawei_multicast_change_before.txt sample_configs/huawei_multicast_change_after.txt --vendor huawei --device-name "NE40-MCAST-DIFF"
+```
+
+### Exemplos BFD / HA / Graceful Restart / NSR
+
+```bash
+python manage.py analyze_config_file sample_configs/huawei_ha_bfd_basic.txt --vendor huawei --device-name "NE40-HA-BFD"
+python manage.py analyze_config_file sample_configs/huawei_ha_bfd_risky.txt --vendor huawei --device-name "NE40-HA-BFD-RISK"
+python manage.py network_search "bfd"
+python manage.py network_search "graceful-restart"
+python manage.py network_search "nsr"
+```
+
 ### Exemplos de busca
 
 ```bash
@@ -222,6 +278,19 @@ python manage.py network_search "Eth-Trunk100.1234"        # Interface específi
 python manage.py network_search "isis"                     # ISIS configuração
 python manage.py network_search "mpls"                     # MPLS / LDP
 python manage.py network_search "network-entity"           # Network-entity ISIS
+python manage.py network_search "cliente-pppoe"            # Domínio de assinante BNG
+python manage.py network_search "RAD-CLIENTES"            # RADIUS group BNG
+python manage.py network_search "POOL-CLIENTES"           # IP pool BNG
+python manage.py network_search "pppoe"                   # PPPoE / Virtual-Template
+python manage.py network_search "Virtual-Template1"       # Virtual-Template específica
+python manage.py network_search "bfd"                     # BFD / Fast Convergence
+python manage.py network_search "graceful-restart"        # Graceful Restart
+python manage.py network_search "nsr"                     # NSR / Non-Stop Routing
+python manage.py network_search "multicast"               # Multicast routing
+python manage.py network_search "pim"                     # PIM / RP / BSR
+python manage.py network_search "239.1.1.1"               # Grupo IGMP específico
+python manage.py network_search "ff3e::1"                 # Grupo MLD específico
+python manage.py compare_config_files sample_configs/huawei_ha_bfd_change_before.txt sample_configs/huawei_ha_bfd_change_after.txt --vendor huawei --device-name "NE40-HA-BFD-DIFF"
 ```
 
 ---
@@ -280,12 +349,12 @@ O fluxo é **idempotente** — reanalisar o mesmo snapshot não duplica registro
 
 | Fase | Objetivo |
 |------|----------|
-| **Fechamento Huawei MVP** | ✔ BGP, policies, ACLs, OSPF, **ISIS, MPLS/LDP, VRF/L3VPN, QoS/Traffic Policy/CAR, NAT/PAT, IPv6/BGP IPv6/VPNv6/OSPFv3/ISIS IPv6**, diff, documentação, busca, 939 testes |
+| **Fechamento Huawei MVP** | ✔ BGP, policies, ACLs, OSPF, **ISIS, MPLS/LDP, VRF/L3VPN, QoS/Traffic Policy/CAR, NAT/PAT, IPv6/BGP IPv6/VPNv6/OSPFv3/ISIS IPv6, BNG/BAS, PPPoE, BFD/HA, multicast, EVPN/VXLAN, Segment Routing/SRv6, MPLS-TE, CGNAT, MSDP, telemetria e BGP avançado**, diff, documentação, busca, suíte com 1232 testes |
 | **Inventário e Snapshots** | Cadastro de devices, upload de configs, versões |
 | **Produção** | Docker, deploy, autenticação, permissões, backup |
 | **Mapa Físico/Lógico** | PoPs, OLTs, DIOs, fibras, CTOs, clientes no mapa |
-| **Cobertura Huawei Avançada** | VPNv4/L3VPN, QoS, NAT, IPv6 |
-| **Multi-vendor** | Cisco completo, ZTE, Datacom |
+| **Cobertura Huawei Avançada** | EVPN/VXLAN, Segment Routing/SRv6, MPLS-TE/RSVP-TE, CGNAT, MSDP, telemetria/streaming e BGP avançado |
+| **Multi-vendor** | Huawei/VRP, ZTE OLT/ZXA10, Cisco em pausa, Datacom planejado |
 | **Automação Assistida** | Pré-check, pós-check, templates com aprovação |
 
 ---

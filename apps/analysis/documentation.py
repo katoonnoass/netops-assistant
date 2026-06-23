@@ -77,6 +77,12 @@ def generate_analysis_documentation(
         "has_isis": bool(parsed_data.get("isis", [])),
         "has_mpls": parsed_data.get("mpls", {}).get("enabled", False),
         "has_mpls_ldp": parsed_data.get("mpls_ldp", {}).get("enabled", False),
+        "has_huawei_advanced": any(
+            section.get("enabled", False)
+            or any(value for key, value in section.items() if key.endswith("_enabled"))
+            for section in parsed_data.get("huawei_advanced", {}).values()
+        ),
+        "has_zte_olt": parsed_data.get("zte_olt", {}).get("enabled", False),
     }
 
     # ── Detected roles ──────────────────────────────────────────────
@@ -166,6 +172,11 @@ def generate_analysis_documentation(
         "recommendations": recommendations,
         "ipv6": _document_ipv6_section(parsed_data),
         "bng": _document_bng_section(parsed_data),
+        "ha": _document_ha_section(parsed_data),
+        "multicast": _document_multicast_section(parsed_data),
+        "zte_olt": _document_zte_olt_section(parsed_data),
+        "pppoe": _document_pppoe_section(parsed_data),
+        "huawei_advanced": parsed_data.get("huawei_advanced", {}),
         # Management
         "management": {
             "snmp": mgmt_snmp,
@@ -1156,6 +1167,154 @@ def _ip_str_to_network(ip_str: str) -> ipaddress.IPv4Network | None:
         except ValueError:
             return None
     return None
+
+
+def _document_ha_section(parsed_data: dict) -> dict | None:
+    """Gera documentação estruturada para HA / BFD / GR / NSR."""
+    ha = parsed_data.get("ha", {})
+    bfd = ha.get("bfd", {})
+    gr = ha.get("graceful_restart", {})
+    nsr = ha.get("nsr", {})
+    interfaces = parsed_data.get("interfaces", [])
+
+    has_bfd = bfd.get("global_enabled") or bool(bfd.get("sessions"))
+    has_gr = any(gr.values())
+    has_nsr = any(nsr.values())
+
+    if not has_bfd and not has_gr and not has_nsr:
+        return None
+
+    # BGP peers with BFD/GR
+    bgp_bfd_peers = []
+    bgp_gr_peers = []
+    for bgp in parsed_data.get("bgp", []):
+        for p in bgp.get("peers", []):
+            if p.get("bfd_enabled"):
+                bgp_bfd_peers.append(p.get("ip"))
+            if p.get("graceful_restart"):
+                bgp_gr_peers.append(p.get("ip"))
+
+    # Interfaces with per-protocol BFD
+    iface_bfd_list = []
+    for iface in interfaces:
+        bfd_types = []
+        if iface.get("isis_bfd_enabled"): bfd_types.append("ISIS")
+        if iface.get("isis_ipv6_bfd_enabled"): bfd_types.append("ISIS IPv6")
+        if iface.get("ospf_bfd_enabled"): bfd_types.append("OSPF")
+        if iface.get("ospfv3_bfd_enabled"): bfd_types.append("OSPFv3")
+        if iface.get("mpls_ldp_bfd_enabled"): bfd_types.append("LDP")
+        if bfd_types:
+            iface_bfd_list.append({"name": iface["name"], "types": bfd_types})
+
+    return {
+        "bfd": {
+            "global_enabled": bfd.get("global_enabled", False),
+            "sessions": bfd.get("sessions", []),
+        },
+        "graceful_restart": {k: v for k, v in gr.items() if v},
+        "nsr": {k: v for k, v in nsr.items() if v},
+        "bgp_bfd_peers": bgp_bfd_peers,
+        "bgp_gr_peers": bgp_gr_peers,
+        "iface_bfd": iface_bfd_list,
+    }
+
+
+def _document_multicast_section(parsed_data: dict) -> dict | None:
+    """Gera documentação estruturada para Multicast / PIM / IGMP / MLD."""
+    mc = parsed_data.get("multicast", {})
+    interfaces = parsed_data.get("interfaces", [])
+
+    if not mc.get("ipv4_routing_enabled") and not mc.get("ipv6_routing_enabled") and not mc.get("pim", {}).get("global", {}).get("static_rps"):
+        return None
+
+    pim_ifaces = [{"name": i["name"], "mode": i.get("pim_mode"), "hello_holdtime": i.get("pim_hello_holdtime")} for i in interfaces if i.get("pim_enabled")]
+    igmp_ifaces = [{"name": i["name"], "version": i.get("igmp_version"), "static_groups": i.get("igmp_static_groups", []), "join_groups": i.get("igmp_join_groups", [])} for i in interfaces if i.get("igmp_enabled")]
+    mld_ifaces = [{"name": i["name"], "version": i.get("mld_version"), "static_groups": i.get("mld_static_groups", [])} for i in interfaces if i.get("mld_enabled")]
+
+    return {
+        "ipv4_routing": mc.get("ipv4_routing_enabled", False),
+        "ipv6_routing": mc.get("ipv6_routing_enabled", False),
+        "pim_global": mc.get("pim", {}).get("global", {}),
+        "pim_interfaces": pim_ifaces,
+        "igmp_interfaces": igmp_ifaces,
+        "mld_interfaces": mld_ifaces,
+        "igmp_snooping": mc.get("igmp_snooping", {}),
+    }
+
+
+def _document_zte_olt_section(parsed_data: dict) -> dict | None:
+    """Gera documentação estruturada para ZTE OLT / GPON."""
+    olt = parsed_data.get("zte_olt", {})
+    if not olt.get("enabled"):
+        return None
+    return {
+        "enabled": True,
+        "pon_ports": olt.get("pon_ports", []),
+        "onus": [
+            {
+                **onu,
+                "service_vlans": sorted({
+                    str(service.get("vlan") or service.get("user_vlan") or "")
+                    for service in onu.get("service_ports", [])
+                    if service.get("vlan") or service.get("user_vlan")
+                }),
+            }
+            for onu in olt.get("onus", [])
+        ],
+        "service_ports": olt.get("service_ports", []),
+        "vlans": olt.get("vlans", []),
+        "profiles": olt.get("profiles", {}),
+    }
+
+
+def _document_pppoe_section(parsed_data: dict) -> dict | None:
+    """Gera documentação estruturada para PPPoE Server / Virtual-Template / PPP Access."""
+    interfaces = parsed_data.get("interfaces", [])
+    pppoe_data = parsed_data.get("pppoe", {})
+
+    # Collect Virtual-Templates
+    vts = []
+    for iface in interfaces:
+        name = iface.get("name", "")
+        if not name.lower().startswith("virtual-template"):
+            continue
+        vts.append({
+            "name": name,
+            "description": iface.get("description", ""),
+            "ppp_authentication_modes": iface.get("ppp_authentication_modes", []),
+            "ppp_keepalive": iface.get("ppp_keepalive", False),
+            "ppp_mru": iface.get("ppp_mru"),
+            "mtu": iface.get("mtu"),
+            "ip_unnumbered_interface": iface.get("ip_unnumbered_interface"),
+            "remote_address_pool": iface.get("remote_address_pool"),
+            "ipv6_enabled": iface.get("ipv6_enabled", False),
+        })
+
+    # Collect PPPoE interfaces
+    pppoe_ifaces = []
+    for iface in interfaces:
+        pppoe = iface.get("pppoe_server")
+        if not pppoe or not pppoe.get("enabled"):
+            continue
+        bas = iface.get("bas", {})
+        pppoe_ifaces.append({
+            "name": iface.get("name", ""),
+            "description": iface.get("description", ""),
+            "virtual_template": pppoe.get("virtual_template"),
+            "max_sessions": pppoe.get("max_sessions"),
+            "user_vlan": iface.get("user_vlan"),
+            "qinq_vlan": iface.get("qinq_vlan"),
+            "domain": bas.get("default_domain") if bas else None,
+            "authentication_method": bas.get("authentication_method") if bas else None,
+        })
+
+    if not vts and not pppoe_ifaces:
+        return None
+
+    return {
+        "virtual_templates": vts,
+        "pppoe_interfaces": pppoe_ifaces,
+    }
 
 
 # ── Policy documentation ────────────────────────────────────────────────

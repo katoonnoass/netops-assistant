@@ -19,9 +19,12 @@ from apps.analysis.operational import (
     get_operational_summary,
     get_recommended_actions,
 )
+from apps.core.permissions import viewer_required
 from apps.config_archive.models import ConfigSnapshot
+from apps.devices.models import Device
 
 
+@viewer_required
 def inventory_circuit_list(request):
     circuit_type = request.GET.get("type", "")
     device = request.GET.get("device", "")
@@ -42,11 +45,7 @@ def inventory_circuit_list(request):
     )
 
     circuit_type_choices = DetectedCircuit.CircuitType.choices
-    vendor_choices = [("", "Todos")] + [
-        (v, l) for v, l in [("huawei", "Huawei"), ("cisco", "Cisco"),
-                            ("zte", "ZTE"), ("datacom", "Datacom"),
-                            ("mikrotik", "MikroTik"), ("other", "Outro")]
-    ]
+    vendor_choices = [("", "Todos")] + list(Device.Vendor.choices)
     return render(request, "analysis/circuit_list.html", {
         "circuits": circuits,
         "circuit_type_choices": circuit_type_choices,
@@ -59,6 +58,7 @@ def inventory_circuit_list(request):
     })
 
 
+@viewer_required
 def inventory_circuit_detail(request, pk):
     circuit = get_object_or_404(
         DetectedCircuit.objects.select_related("snapshot__device"),
@@ -76,6 +76,7 @@ def inventory_circuit_detail(request, pk):
     })
 
 
+@viewer_required
 def inventory_circuit_export(request):
     circuit_type = request.GET.get("type", "")
     circuits = filter_circuits(circuit_type=circuit_type)
@@ -102,6 +103,7 @@ def inventory_circuit_export(request):
     return response
 
 
+@viewer_required
 def inventory_service_list(request):
     service_type = request.GET.get("type", "")
     device = request.GET.get("device", "")
@@ -121,11 +123,7 @@ def inventory_service_list(request):
         q=q,
     )
     service_type_choices = DetectedService.ServiceType.choices
-    vendor_choices = [("", "Todos")] + [
-        (v, l) for v, l in [("huawei", "Huawei"), ("cisco", "Cisco"),
-                            ("zte", "ZTE"), ("datacom", "Datacom"),
-                            ("mikrotik", "MikroTik"), ("other", "Outro")]
-    ]
+    vendor_choices = [("", "Todos")] + list(Device.Vendor.choices)
     return render(request, "analysis/service_list.html", {
         "services": services,
         "service_type_choices": service_type_choices,
@@ -138,6 +136,7 @@ def inventory_service_list(request):
     })
 
 
+@viewer_required
 def inventory_service_detail(request, pk):
     svc = get_object_or_404(
         DetectedService.objects.select_related("snapshot__device"),
@@ -150,6 +149,7 @@ def inventory_service_detail(request, pk):
     })
 
 
+@viewer_required
 def inventory_service_export(request):
     service_type = request.GET.get("type", "")
     services = filter_services(service_type=service_type)
@@ -172,6 +172,7 @@ def inventory_service_export(request):
     return response
 
 
+@viewer_required
 def inventory_issue_list(request):
     severity = request.GET.get("severity", "")
     code = request.GET.get("code", "")
@@ -186,11 +187,7 @@ def inventory_issue_list(request):
         vendor=vendor,
         q=q,
     )
-    vendor_choices = [("", "Todos")] + [
-        (v, l) for v, l in [("huawei", "Huawei"), ("cisco", "Cisco"),
-                            ("zte", "ZTE"), ("datacom", "Datacom"),
-                            ("mikrotik", "MikroTik"), ("other", "Outro")]
-    ]
+    vendor_choices = [("", "Todos")] + list(Device.Vendor.choices)
     return render(request, "analysis/issue_list.html", {
         "issues": issues,
         "vendor_choices": vendor_choices,
@@ -202,6 +199,7 @@ def inventory_issue_list(request):
     })
 
 
+@viewer_required
 def inventory_issue_detail(request, pk):
     issue = get_object_or_404(
         AnalysisIssue.objects.select_related("snapshot__device"),
@@ -216,6 +214,7 @@ def inventory_issue_detail(request, pk):
     })
 
 
+@viewer_required
 def inventory_issue_export(request):
     severity = request.GET.get("severity", "")
     code = request.GET.get("code", "")

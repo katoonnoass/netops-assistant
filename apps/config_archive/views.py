@@ -5,9 +5,11 @@ from django.shortcuts import redirect, render
 from apps.analysis.services import analyze_config_snapshot
 from apps.config_archive.forms import NewAnalysisForm
 from apps.config_archive.models import ConfigSnapshot
+from apps.core.permissions import operator_required, viewer_required
 from apps.devices.models import Device
 
 
+@operator_required
 def new_analysis(request):
     """Cria um novo snapshot e executa a análise."""
     if request.method == "POST":
@@ -40,6 +42,7 @@ def new_analysis(request):
     return render(request, "config_archive/config_form.html", {"form": form})
 
 
+@viewer_required
 def snapshot_list(request):
     """Lista todos os snapshots de configuração."""
     snapshots = (

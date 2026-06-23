@@ -1,0 +1,10 @@
+#
+sysname NE40-ADVANCED-DIFF
+#
+evpn
+ vxlan vni 50001
+#
+interface Nve1
+ peer-ip 10.0.0.2
+#
+return

@@ -20,6 +20,12 @@
             <option value="{{ val }}" {% if filter_vendor == val %}selected{% endif %}>{{ label }}</option>
             {% endfor %}
         </select>
+        <select name="role" class="form-control" style="width:auto;min-width:120px;">
+            <option value="">Todas funções</option>
+            {% for val, label in role_choices %}
+            <option value="{{ val }}" {% if filter_role == val %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
         <select name="status" class="form-control" style="width:auto;min-width:120px;">
             <option value="">Todos status</option>
             <option value="critical" {% if filter_status == 'critical' %}selected{% endif %}>Crítico</option>
@@ -28,32 +34,41 @@
             <option value="no_data" {% if filter_status == 'no_data' %}selected{% endif %}>Sem análise</option>
         </select>
         <input type="text" name="q" class="form-control" style="width:auto;min-width:180px;" placeholder="Buscar nome/IP..." value="{{ filter_q }}">
+        <input type="text" name="site" class="form-control" style="width:auto;min-width:120px;" placeholder="Site..." value="{{ filter_site }}">
         <button type="submit" class="btn btn-primary btn-sm">Filtrar</button>
+        <a href="{% url 'device_list' %}" class="btn btn-outline btn-sm">Limpar</a>
     </form>
 </div>
 
 {% if devices %}
 <div class="table-container">
     <table>
-        <thead><tr><th>Nome</th><th>Vendor</th><th>IP</th><th>Snapshots</th><th>Último Snapshot</th><th>Circuitos</th><th>Serviços</th><th>Issues</th><th>Status</th><th></th></tr></thead>
+        <thead><tr><th>Nome</th><th>Vendor</th><th>Função</th><th>Site</th><th>IP</th><th>Snapshots</th><th>Análise</th><th>Status</th><th></th></tr></thead>
         <tbody>
         {% for d in devices %}
         <tr>
-            <td><strong>{{ d.device.name }}</strong></td>
+            <td><strong>{{ d.device.name }}</strong>{% if d.device.platform %}<br><span style="font-size:0.8rem;color:var(--text-secondary);">{{ d.device.platform }}</span>{% endif %}</td>
             <td><span class="badge badge-primary">{{ d.device.vendor }}</span></td>
+            <td>{{ d.device.get_role_display|default:"—" }}</td>
+            <td>{{ d.device.site|default:"—" }}</td>
             <td>{{ d.device.ip_address|default:"—" }}</td>
             <td>{{ d.total_snapshots }}</td>
-            <td>{{ d.last_snapshot_date|date:"d/m/Y H:i"|default:"—" }}</td>
-            <td>{{ d.circuits_count }}</td>
-            <td>{{ d.services_count }}</td>
-            <td>{{ d.issues_count }}</td>
+            <td>
+                {% if d.last_snapshot_date %}
+                    {{ d.last_snapshot_date|date:"d/m/Y" }}
+                    <span style="font-size:0.8rem;color:var(--text-secondary);"><br>{{ d.circuits_count }} circ, {{ d.services_count }} svc</span>
+                {% else %}—{% endif %}
+            </td>
             <td>
                 {% if d.status == 'critical' %}<span class="badge badge-critical">Crítico</span>
                 {% elif d.status == 'warning' %}<span class="badge badge-warning">Atenção</span>
                 {% elif d.status == 'ok' %}<span class="badge badge-success">OK</span>
                 {% else %}<span class="badge badge-info">Sem análise</span>{% endif %}
             </td>
-            <td class="text-right"><a href="{% url 'device_detail' d.device.pk %}" class="btn btn-primary btn-sm">Detalhes</a></td>
+            <td class="text-right">
+                <a href="{% url 'device_detail' d.device.pk %}" class="btn btn-primary btn-sm">Detalhes</a>
+                <a href="{% url 'device_snapshot_list' d.device.pk %}" class="btn btn-outline btn-sm">Snapshots</a>
+            </td>
         </tr>
         {% endfor %}
         </tbody>

@@ -5,6 +5,7 @@
 # django
 - Use Django templates with direct ORM queries instead of frontend frameworks (React, SPA). Confidence: 0.85
 - Implement filters manually with QuerySet instead of using django-filter. Confidence: 0.70
+- Use Django signals (user_logged_in, user_logged_out) for auditing login/logout events. Confidence: 0.70
 
 # css
 - Use only built-in CSS without external frameworks or dependencies. Confidence: 0.70
@@ -14,6 +15,7 @@
 
 # testing
 - Create dedicated test files per feature domain (e.g., test_management.py for management/observability tests) instead of adding to monolithic test files. Confidence: 0.80
+- Do not use fake auto-auth middleware for tests — make tests authenticate realistically by creating users and logging in. Confidence: 0.75
 
 # i18n
 - Use Portuguese (Brazilian) for all user-facing descriptions, documentation, issue titles, and CLI help text in this project. Confidence: 0.80

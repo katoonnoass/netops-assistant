@@ -16,13 +16,14 @@ See @README.md for project overview and @package.json for available npm/pnpm com
 ## Architecture Notes
 
 ### Search System (`apps/analysis/search.py`)
-- `global_network_search()` is the single entry point; returns 11 sections including `policies`
+- `global_network_search()` is the single entry point; returns 12 sections including `multicast` and `policies`
+- `_search_multicast()` searches multicast routing, PIM static-RPs/BSR/RP-candidates, PIM/IGMP/MLD interfaces, IGMP snooping global/VLANs, multicast VPN-instances
 - `_search_policies()` searches route-policies, ip-prefixes, ACLs, as-path-filters, community-filters, and BGP policy dependencies
 - Smart matching strips common prefixes (`acl `, `route-policy `, `ip-prefix `, `as-path-filter `, `community-filter `) for broader results
 - Generic type-only queries (`route-policy`, `ip-prefix`, `acl`) match ALL items of that type
 - Evidence is extracted from raw config text via `_get_evidence_lines()` with ±2 lines context
 - Query classification handles: ip, prefix, vlan, interface, asn, text types
-- CLI `python manage.py network_search "<query>"` now displays policies section
+- CLI `python manage.py network_search "<query>"` now displays policies and multicast sections
 
 ### Policy Data Structures (`apps/parsers/huawei/parser.py`)
 All stored in `parsed_data` dict:
@@ -32,21 +33,67 @@ All stored in `parsed_data` dict:
 - `as_path_filters`: list of dicts with name, rules[] (action, pattern, raw) — merged by name
 - `community_filters`: list of dicts with name, type, rules[] (index, action, value, raw) — merged by name, index optional
 
-### Policy Dependencies (`apps/analysis/policy_utils.py`)
-- `build_policy_reference_map()` builds: BGP peer → route-policy → ip-prefix/ACL/as-path/community
-- `find_policy_issues()` detects: orphan policies, permit-any, missing filters, etc.
-- Dependency chain is used by search, documentation, and comparison
+### Multicast Data Structures (`apps/parsers/huawei/parser.py`)
+Stored in `parsed_data["multicast"]`:
+- `ipv4_routing_enabled`: bool — `multicast routing-enable`
+- `ipv6_routing_enabled`: bool — `multicast ipv6 routing-enable`
+- `pim`: dict with `global` (static_rps[], bsr_candidates[], rp_candidates[], mode) and `vpn_instances[]` (name) — parsed from `pim { ... }` blocks
+- `igmp_snooping`: dict with `global_enabled` (bool), `vlans[]` (vlan_id, enabled, version, querier_enabled) — parsed from `igmp-snooping` lines
+- `vpn_instances[]`: list of dicts with name — parsed from `multicast vpn-instance` blocks
+Per-interface post-processing (`_enrich_multicast` in parser) adds: `pim_enabled`, `pim_mode`, `pim_hello_holdtime`, `igmp_enabled`, `igmp_version`, `igmp_static_groups[]`, `igmp_join_groups[]`, `igmp_limit`, `mld_enabled`, `mld_version`, `mld_static_groups[]`
+
+### Multicast Utils (`apps/analysis/multicast_utils.py`)
+- `build_multicast_summary()` returns counts of PIM/IGMP/MLD interfaces, groups, static RPs, snooping VLANs
+- `build_multicast_dependency_map()` returns dependencies: PIM/IGMP/MLD interface lists, missing VPN-instance references
+
+### Multicast Comparison (`apps/analysis/comparison.py`)
+- `_compare_multicast(base_data, target_data)` returns:
+```python
+{
+  "global": {"added": [], "removed": [], "changed": [{"key": "...", "before": ..., "after": ...}]},
+  "pim": {"added": [{"name": ..., "mode": ...}], "removed": [...], "changed": [{"section": "global", "before": ..., "after": ...}, {"name": ..., "changes": {...}}]},
+  "igmp": {"added": [], "removed": [], "changed": []},
+  "igmp_snooping": {"added": [], "removed": [], "changed": []},
+  "mld": {"added": [], "removed": [], "changed": []},
+  "vpn_instances": {"added": [], "removed": [], "changed": []}
+}
+```
+- `_build_multicast_impacts()` generates impact descriptions from the diff dict
+- Validation/rollback plans only added when `_has_multicast_changes()` returns True (before == after → no plans)
+
+### Multicast Issues (`apps/analysis/detectors/issues.py`)
+11 issue codes in `_detect_multicast_issues()`:
+```python
+pim_without_multicast_routing       # high: PIM interface without global routing-enable
+igmp_without_multicast_routing      # medium: IGMP interface without routing-enable
+mld_without_ipv6_multicast_routing  # medium: MLD interface without IPv6 routing-enable
+pim_without_rp_or_bsr              # medium: PIM sparse-mode without RP/BSR
+pim_static_rp_not_local            # low: RP IP not found on any local interface
+igmp_snooping_without_querier      # low: snooping VLAN without querier
+igmp_version_1                     # low: deprecated IGMP version
+pim_interface_missing_description  # low: PIM interface without description
+multicast_vpn_instance_not_found   # high: multicast references nonexistent VPN
+igmp_invalid_group_address         # medium: not in 224.0.0.0/4 range
+mld_invalid_group_address          # medium: does not start with ff
+```
+
+### Multicast Services (`apps/analysis/detectors/services.py`)
+5 service types: `MULTICAST`, `PIM`, `IGMP`, `IGMP_SNOOPING`, `MLD`
+- Metadata includes routing flags, interface counts, static RPs, groups, VLANs
 
 ### Documentation System (`apps/analysis/documentation.py`)
-- `generate_analysis_documentation()` returns structured dict with all sections
-- `_build_policy_documentation()` handles route-policies, ip-prefixes, ACLs, as-path/community filters, dependencies, orphans
-- Community-filter rules include optional `index` field
-- Template at `templates/analysis/documentation.html` renders policies section with badges
+- `generate_analysis_documentation()` returns structured dict with all sections including `multicast`
+- `_document_multicast_section()` generates PIM global/RPs/interfaces, IGMP/MLD interfaces, IGMP snooping VLANs
+- Template at `templates/analysis/documentation.html` renders multicast section with routing badges, PIM/IGMP/MLD tables, snooping VLANs
 
 ### Template Structure
-- `templates/analysis/search.html` — renders all 11 search sections with evidence, badges, and links
-- `templates/analysis/documentation.html` — renders structured technical documentation
-- Policy section in search template uses colored badges per type (route_policy=#e91e63, ip_prefix=#9c27b0, acl=#ff5722, as_path_filter=#009688, community_filter=#00bcd4, bgp_policy_dependency=#ff9800)
+- `templates/analysis/search.html` — renders all 12 search sections with evidence, badges, and links (includes `Multicast / PIM / IGMP / MLD` section)
+- `templates/analysis/documentation.html` — renders structured technical documentation with multicast section (PIM global/RPs, PIM interfaces table, IGMP interfaces table, MLD interfaces table, snooping VLANs table)
+- `templates/analysis/comparison_detail.html` — renders comparison with multicast section showing PIM/IGMP/MLD/snooping/VPN changes
+- Policy section in search template uses colored badges per type
+
+### Test File: `apps/analysis/tests/test_multicast.py`
+47 tests covering: parser (routing, PIM, IGMP, MLD, snooping), services (all 5 types + metadata), search (PIM, IGMP, MLD, group IP → web), web (detail, documentation, search, comparison), comparison (diff_data key, PIM/IGMP changes, impacts, validation/rollback), issues (11 individual codes + severity checks + before==after conditional)
 
 ## Common Workflows
 
@@ -59,6 +106,18 @@ All stored in `parsed_data` dict:
 6. Add tests in `apps/analysis/tests/test_policy_integration.py` (or dedicated file)
 7. Add web tests checking actual HTML content (not just 200 status)
 
+### Adding a new multicast feature (e.g. MSDP)
+1. Add parsing in `apps/parsers/huawei/parser.py` `_parse_multicast_block()` and `_enrich_multicast()`
+2. Add issue codes in `apps/analysis/detectors/issues.py` `_detect_multicast_issues()`
+3. Add service detection in `apps/analysis/detectors/services.py`
+4. Add service type in `apps/analysis/models.py` `DetectedService.ServiceType`
+5. Add documentation in `apps/analysis/documentation.py` `_document_multicast_section()`
+6. Add search in `apps/analysis/search.py` `_search_multicast()`
+7. Add comparison in `apps/analysis/comparison.py` `_compare_multicast()` + `_build_multicast_impacts()`
+8. Add samples in `sample_configs/` (basic, risky, change_before, change_after)
+9. Add tests in `apps/analysis/tests/test_multicast.py`
+10. Run `python manage.py makemigrations && python manage.py migrate`
+
 ### Running searches
 ```powershell
 # CLI
@@ -66,14 +125,21 @@ python manage.py network_search "EXPORT-CLIENTE"
 python manage.py network_search "acl 3001"
 python manage.py network_search "as-path-filter 10"
 python manage.py network_search "200.200.200.0/30"
+python manage.py network_search "multicast"
+python manage.py network_search "pim"
+python manage.py network_search "239.1.1.1"
+python manage.py network_search "ff3e::1"
 
 # Web: http://127.0.0.1:8000/search/?q=EXPORT-CLIENTE
 ```
 
 ### Running tests
 ```powershell
-# All tests
+# All tests (1232)
 python manage.py test
+
+# Multicast-specific
+python manage.py test apps.analysis.tests.test_multicast
 
 # Policy-specific
 python manage.py test apps.analysis.tests.test_policy_integration

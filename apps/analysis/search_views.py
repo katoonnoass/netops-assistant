@@ -3,9 +3,11 @@
 from django.shortcuts import render
 
 from apps.analysis.search import global_network_search
+from apps.core.permissions import viewer_required
 from apps.devices.models import Device
 
 
+@viewer_required
 def search_view(request):
     """Página de busca técnica global."""
     q = request.GET.get("q", "").strip()
@@ -26,17 +28,7 @@ def search_view(request):
         results = global_network_search(q, filters=filters if filters else None)
 
     devices_qs = Device.objects.all()
-    vendor_choices = [("", "Todos")] + [
-        (v, l)
-        for v, l in [
-            ("huawei", "Huawei"),
-            ("cisco", "Cisco"),
-            ("zte", "ZTE"),
-            ("datacom", "Datacom"),
-            ("mikrotik", "MikroTik"),
-            ("other", "Outro"),
-        ]
-    ]
+    vendor_choices = [("", "Todos")] + list(Device.Vendor.choices)
 
     return render(request, "analysis/search.html", {
         "query": q,

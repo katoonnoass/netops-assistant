@@ -1,0 +1,34 @@
+#
+sysname NE40-MCAST-DIFF
+#
+multicast routing-enable
+multicast ipv6 routing-enable
+#
+pim
+ static-rp 10.255.0.2
+#
+interface GigabitEthernet0/0/0
+ description CORE-UPLINK-ALTERADO
+ ip address 10.0.0.1 255.255.255.252
+ pim sm
+ pim hello-option holdtime 200
+#
+interface Vlanif100
+ description IPTV-CLIENTES
+ ip address 192.168.100.1 255.255.255.0
+ igmp enable
+ igmp version 3
+ igmp static-group 239.1.1.1
+ igmp static-group 239.1.1.2
+#
+interface Vlanif200
+ description IPV6-MLD
+ ipv6 enable
+ mld enable
+ mld version 2
+ mld static-group ff3e::1
+#
+igmp-snooping enable
+igmp-snooping vlan 100 enable
+igmp-snooping vlan 200 enable
+#

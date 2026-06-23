@@ -459,7 +459,263 @@
 </div>
 {% endif %}
 
+<!-- Multicast / PIM / IGMP / MLD Changes -->
+{% if diff.multicast %}
+{% with mc=diff.multicast %}
+{% if mc.global.changed or mc.pim.added or mc.pim.removed or mc.pim.changed or mc.igmp.added or mc.igmp.removed or mc.igmp.changed or mc.igmp_snooping.added or mc.igmp_snooping.removed or mc.igmp_snooping.changed or mc.mld.added or mc.mld.removed or mc.mld.changed or mc.vpn_instances.added or mc.vpn_instances.removed %}
+<div class="card mb-2">
+    <h3 class="section-title">Multicast / PIM / IGMP / MLD <span class="badge badge-warning">alterado</span></h3>
+
+    {% if mc.global.changed %}
+    <h4 style="margin-top:0.5rem;">Global</h4>
+    {% for c in mc.global.changed %}
+    <div style="font-size:0.85rem;"><strong>{{ c.label }}</strong>: <span style="color:var(--danger);">{{ c.before }}</span> &rarr; <span style="color:var(--success);">{{ c.after }}</span></div>
+    {% endfor %}
+    {% endif %}
+
+    {% if mc.pim.changed or mc.pim.added or mc.pim.removed %}
+    <h4 style="margin-top:0.5rem;">PIM</h4>
+    {% for c in mc.pim.added %}
+    <div style="font-size:0.85rem;"><span style="color:var(--success);">+</span> {{ c.name }} ({{ c.mode|default:"sm" }})</div>
+    {% endfor %}
+    {% for c in mc.pim.removed %}
+    <div style="font-size:0.85rem;"><span style="color:var(--danger);">-</span> {{ c.name }}</div>
+    {% endfor %}
+    {% for c in mc.pim.changed %}
+    <div class="card" style="margin-bottom:0.25rem;padding:0.4rem;border-left:4px solid var(--warning);font-size:0.85rem;">
+        <strong>PIM alterado</strong>
+        {% if c.changes %}
+        {% for key, ch in c.changes.items %}
+        <div><code>{{ key }}</code>: <span style="color:var(--danger);">{{ ch.before|default:"—" }}</span> &rarr; <span style="color:var(--success);">{{ ch.after|default:"—" }}</span></div>
+        {% endfor %}
+        {% endif %}
+        {% if c.before and c.after and not c.changes %}
+        <div>Configuracao global alterada</div>
+        {% endif %}
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if mc.igmp.added or mc.igmp.removed or mc.igmp.changed %}
+    <h4 style="margin-top:0.5rem;">IGMP</h4>
+    {% for c in mc.igmp.added %}
+    <div style="font-size:0.85rem;"><span style="color:var(--success);">+</span> {{ c.name }} (v{{ c.version|default:"2" }})</div>
+    {% endfor %}
+    {% for c in mc.igmp.removed %}
+    <div style="font-size:0.85rem;"><span style="color:var(--danger);">-</span> {{ c.name }}</div>
+    {% endfor %}
+    {% for c in mc.igmp.changed %}
+    <div class="card" style="margin-bottom:0.25rem;padding:0.4rem;border-left:4px solid var(--warning);font-size:0.85rem;">
+        <strong>{{ c.name }}</strong>
+        {% for key, ch in c.changes.items %}
+        <div><code>{{ key }}</code>: <span style="color:var(--danger);">{{ ch.before }}</span> &rarr; <span style="color:var(--success);">{{ ch.after }}</span></div>
+        {% endfor %}
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if mc.mld.added or mc.mld.removed or mc.mld.changed %}
+    <h4 style="margin-top:0.5rem;">MLD</h4>
+    {% for c in mc.mld.added %}
+    <div style="font-size:0.85rem;"><span style="color:var(--success);">+</span> {{ c.name }}</div>
+    {% endfor %}
+    {% for c in mc.mld.removed %}
+    <div style="font-size:0.85rem;"><span style="color:var(--danger);">-</span> {{ c.name }}</div>
+    {% endfor %}
+    {% for c in mc.mld.changed %}
+    <div class="card" style="margin-bottom:0.25rem;padding:0.4rem;border-left:4px solid var(--warning);font-size:0.85rem;">
+        <strong>{{ c.name }}</strong>
+        {% for key, ch in c.changes.items %}
+        <div><code>{{ key }}</code>: <span style="color:var(--danger);">{{ ch.before }}</span> &rarr; <span style="color:var(--success);">{{ ch.after }}</span></div>
+        {% endfor %}
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if mc.igmp_snooping.added or mc.igmp_snooping.removed or mc.igmp_snooping.changed %}
+    <h4 style="margin-top:0.5rem;">IGMP Snooping</h4>
+    {% for c in mc.igmp_snooping.added %}
+    <div style="font-size:0.85rem;"><span style="color:var(--success);">+</span> VLAN {{ c.vlan_id }}</div>
+    {% endfor %}
+    {% for c in mc.igmp_snooping.removed %}
+    <div style="font-size:0.85rem;"><span style="color:var(--danger);">-</span> VLAN {{ c.vlan_id }}</div>
+    {% endfor %}
+    {% for c in mc.igmp_snooping.changed %}
+    <div class="card" style="margin-bottom:0.25rem;padding:0.4rem;border-left:4px solid var(--warning);font-size:0.85rem;">
+        <strong>VLAN {{ c.vlan_id }}</strong>
+        {% for key, ch in c.changes.items %}
+        <div><code>{{ key }}</code>: <span style="color:var(--danger);">{{ ch.before }}</span> &rarr; <span style="color:var(--success);">{{ ch.after }}</span></div>
+        {% endfor %}
+    </div>
+    {% endfor %}
+    {% endif %}
+</div>
+{% endif %}
+{% endwith %}
+{% endif %}
+
 <!-- Validation Plan -->
+{% if diff.bng %}
+{% with bng=diff.bng %}
+<div class="card mb-2">
+    <h3 class="section-title">BNG / AAA / RADIUS / IP Pool</h3>
+    <div class="card-grid" style="margin-bottom:0.5rem;">
+        <div class="card stat-card"><div class="stat-value" style="color:var(--success);">+{{ bng.bas_interfaces.added|length }}</div><div class="stat-label">BAS adicionadas</div></div>
+        <div class="card stat-card"><div class="stat-value" style="color:var(--danger);">-{{ bng.bas_interfaces.removed|length }}</div><div class="stat-label">BAS removidas</div></div>
+        <div class="card stat-card"><div class="stat-value" style="color:var(--warning);">{{ bng.bas_interfaces.changed|length }}</div><div class="stat-label">BAS alteradas</div></div>
+        <div class="card stat-card"><div class="stat-value" style="color:var(--warning);">{{ bng.subscriber_domains.changed|length }}</div><div class="stat-label">Domínios alterados</div></div>
+        <div class="card stat-card"><div class="stat-value" style="color:var(--warning);">{{ bng.radius_groups.changed|length }}</div><div class="stat-label">RADIUS alterados</div></div>
+        <div class="card stat-card"><div class="stat-value" style="color:var(--warning);">{{ bng.ip_pools.changed|length }}</div><div class="stat-label">Pools alterados</div></div>
+    </div>
+
+    {% if bng.bas_interfaces.changed %}
+    <h4 style="margin-top:0.75rem;">BAS Interfaces Alteradas</h4>
+    {% for item in bng.bas_interfaces.changed %}
+    <div class="card" style="margin-bottom:0.5rem;padding:0.5rem;border-left:4px solid var(--warning);">
+        <strong>{{ item.name }}</strong>
+        <div style="font-size:0.85rem;">
+        {% for key, ch in item.changes.items %}
+            <div><strong>{{ ch.label }}</strong>: <span style="color:var(--danger);">{{ ch.before|default:"—"|stringformat:"s" }}</span> &rarr; <span style="color:var(--success);">{{ ch.after|default:"—"|stringformat:"s" }}</span></div>
+        {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if bng.subscriber_domains.changed %}
+    <h4 style="margin-top:0.75rem;">Domínios Alterados</h4>
+    {% for item in bng.subscriber_domains.changed %}
+    <div class="card" style="margin-bottom:0.5rem;padding:0.5rem;border-left:4px solid var(--warning);">
+        <strong>{{ item.name }}</strong>
+        <div style="font-size:0.85rem;">
+        {% for key, ch in item.changes.items %}
+            <div><strong>{{ ch.label }}</strong>: <span style="color:var(--danger);">{{ ch.before|default:"—"|stringformat:"s" }}</span> &rarr; <span style="color:var(--success);">{{ ch.after|default:"—"|stringformat:"s" }}</span></div>
+        {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if bng.radius_groups.changed %}
+    <h4 style="margin-top:0.75rem;">RADIUS Groups Alterados</h4>
+    {% for item in bng.radius_groups.changed %}
+    <div class="card" style="margin-bottom:0.5rem;padding:0.5rem;border-left:4px solid var(--warning);">
+        <strong>{{ item.name }}</strong>
+        <div style="font-size:0.85rem;">
+        {% for key, ch in item.changes.items %}
+            <div><strong>{{ ch.label }}</strong>: <span style="color:var(--danger);">{{ ch.before|default:"—"|stringformat:"s" }}</span> &rarr; <span style="color:var(--success);">{{ ch.after|default:"—"|stringformat:"s" }}</span></div>
+        {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if bng.ip_pools.changed %}
+    <h4 style="margin-top:0.75rem;">IP Pools Alterados</h4>
+    {% for item in bng.ip_pools.changed %}
+    <div class="card" style="margin-bottom:0.5rem;padding:0.5rem;border-left:4px solid var(--warning);">
+        <strong>{{ item.name }}</strong>
+        <div style="font-size:0.85rem;">
+        {% for key, ch in item.changes.items %}
+            <div><strong>{{ ch.label }}</strong>: <span style="color:var(--danger);">{{ ch.before|default:"—"|stringformat:"s" }}</span> &rarr; <span style="color:var(--success);">{{ ch.after|default:"—"|stringformat:"s" }}</span></div>
+        {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+    {% endif %}
+</div>
+{% endwith %}
+{% endif %}
+
+{% if diff.bng.bfd or diff.bng.bgp_ha.changed or diff.bng.isis_ha.changed or diff.bng.nsr.changed %}
+<div class="card mb-2">
+    <h3 class="section-title">Alta Disponibilidade / BFD / GR / NSR</h3>
+    {% with ha=diff.bng %}
+    <div class="card-grid" style="margin-bottom:0.5rem;">
+        <div class="card stat-card"><div class="stat-value" style="color:var(--success);">+{{ ha.bfd.added|length }}</div><div class="stat-label">BFD adicionadas</div></div>
+        <div class="card stat-card"><div class="stat-value" style="color:var(--danger);">-{{ ha.bfd.removed|length }}</div><div class="stat-label">BFD removidas</div></div>
+        <div class="card stat-card"><div class="stat-value" style="color:var(--warning);">{{ ha.bfd.changed|length }}</div><div class="stat-label">BFD alteradas</div></div>
+        <div class="card stat-card"><div class="stat-value" style="color:var(--warning);">{{ ha.bgp_ha.changed|length }}</div><div class="stat-label">BGP HA alterado</div></div>
+    </div>
+
+    {% if ha.bfd.changed %}
+    <h4 style="margin-top:0.75rem;">Sessões BFD Alteradas</h4>
+    {% for item in ha.bfd.changed %}
+    <div class="card" style="margin-bottom:0.5rem;padding:0.5rem;border-left:4px solid var(--warning);">
+        <strong>{{ item.name }}</strong>
+        <div style="font-size:0.85rem;">
+        {% for key, ch in item.changes.items %}
+            <div><strong>{{ key }}</strong>: <span style="color:var(--danger);">{{ ch.before|default:"—" }}</span> &rarr; <span style="color:var(--success);">{{ ch.after|default:"—" }}</span></div>
+        {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if ha.bfd.added %}
+    <h4 style="margin-top:0.5rem;">Sessões BFD Adicionadas</h4>
+    <ul style="font-size:0.85rem;">{% for name in ha.bfd.added %}<li><strong>{{ name }}</strong></li>{% endfor %}</ul>
+    {% endif %}
+
+    {% if ha.bfd.removed %}
+    <h4 style="margin-top:0.5rem;">Sessões BFD Removidas</h4>
+    <ul style="font-size:0.85rem;">{% for name in ha.bfd.removed %}<li><strong>{{ name }}</strong></li>{% endfor %}</ul>
+    {% endif %}
+
+    {% if ha.bgp_ha.changed %}
+    <h4 style="margin-top:0.5rem;">BGP HA Alterado</h4>
+    {% for item in ha.bgp_ha.changed %}
+    <div class="card" style="margin-bottom:0.5rem;padding:0.5rem;border-left:4px solid var(--warning);">
+        <strong>{{ item.peer }}</strong>
+        <div style="font-size:0.85rem;">
+        {% for key, ch in item.changes.items %}
+            <div><strong>{{ key }}</strong>: <span style="color:var(--danger);">{{ ch.before|default:"—" }}</span> &rarr; <span style="color:var(--success);">{{ ch.after|default:"—" }}</span></div>
+        {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if ha.nsr.changed %}
+    <h4 style="margin-top:0.5rem;">NSR / Non-Stop Routing Alterado</h4>
+    {% for item in ha.nsr.changed %}
+    <div style="font-size:0.85rem;"><strong>{{ item.protocol|upper }}</strong>: <span style="color:var(--danger);">{{ item.before|default:"—" }}</span> &rarr; <span style="color:var(--success);">{{ item.after|default:"—" }}</span></div>
+    {% endfor %}
+    {% endif %}
+    {% endwith %}
+</div>
+{% endif %}
+
+{% if diff.huawei_advanced.added or diff.huawei_advanced.removed or diff.huawei_advanced.changed %}
+<div class="card mb-2">
+    <h3 class="section-title">Huawei VRP Avançado</h3>
+    {% for item in diff.huawei_advanced.added %}<div class="alert alert-success">Adicionado: {{ item.category }}</div>{% endfor %}
+    {% for item in diff.huawei_advanced.removed %}<div class="alert alert-danger">Removido: {{ item.category }}</div>{% endfor %}
+    {% for item in diff.huawei_advanced.changed %}
+    <details style="margin-bottom:0.5rem;"><summary>Alterado: {{ item.category }}</summary><pre>Antes: {{ item.before|pprint }}
+Depois: {{ item.after|pprint }}</pre></details>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if diff.zte_olt.pon_ports.added or diff.zte_olt.pon_ports.removed or diff.zte_olt.pon_ports.changed or diff.zte_olt.onus.added or diff.zte_olt.onus.removed or diff.zte_olt.onus.changed or diff.zte_olt.service_ports.added or diff.zte_olt.service_ports.removed or diff.zte_olt.service_ports.changed %}
+<div class="card mb-2">
+    <h3 class="section-title">ZTE OLT / GPON</h3>
+    {% for item in diff.zte_olt.pon_ports.added %}<div class="alert alert-success">PON adicionada: {{ item.name }}</div>{% endfor %}
+    {% for item in diff.zte_olt.pon_ports.removed %}<div class="alert alert-danger">PON removida: {{ item.name }}</div>{% endfor %}
+    {% for item in diff.zte_olt.pon_ports.changed %}<details style="margin-bottom:0.5rem;"><summary>PON alterada: {{ item.key }}</summary><pre>Antes: {{ item.before|pprint }}
+Depois: {{ item.after|pprint }}</pre></details>{% endfor %}
+    {% for item in diff.zte_olt.onus.added %}<div class="alert alert-success">ONU adicionada: {{ item.interface }}</div>{% endfor %}
+    {% for item in diff.zte_olt.onus.removed %}<div class="alert alert-danger">ONU removida: {{ item.interface }}</div>{% endfor %}
+    {% for item in diff.zte_olt.onus.changed %}<details style="margin-bottom:0.5rem;"><summary>ONU alterada: {{ item.key }}</summary><pre>Antes: {{ item.before|pprint }}
+Depois: {{ item.after|pprint }}</pre></details>{% endfor %}
+    {% for item in diff.zte_olt.service_ports.added %}<div class="alert alert-success">Service-port adicionada: {{ item.id }}</div>{% endfor %}
+    {% for item in diff.zte_olt.service_ports.removed %}<div class="alert alert-danger">Service-port removida: {{ item.id }}</div>{% endfor %}
+    {% for item in diff.zte_olt.service_ports.changed %}<details style="margin-bottom:0.5rem;"><summary>Service-port alterado: {{ item.key }}</summary><pre>Antes: {{ item.before|pprint }}
+Depois: {{ item.after|pprint }}</pre></details>{% endfor %}
+</div>
+{% endif %}
+
 {% if diff.validation_plan %}
 <div class="card mb-2">
     <h3 class="section-title">Plano de Validação Pós-Mudança</h3>

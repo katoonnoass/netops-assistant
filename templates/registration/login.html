@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% block title %}Acesso seguro — NetOps Assistant{% endblock %}
+{% block content %}
+<div class="auth-layout">
+    <section class="auth-art" aria-hidden="true">
+        <div class="network-art"></div>
+        <div class="auth-art-copy">
+            <span class="eyebrow" style="color:var(--accent);">NETWORK INTELLIGENCE</span>
+            <h2>Clareza operacional para redes complexas.</h2>
+            <p>Analise configurações, encontre riscos e documente mudanças com uma visão única da operação.</p>
+        </div>
+    </section>
+    <section class="auth-panel">
+        <div class="auth-brand"><span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span> NetOps Assistant</div>
+        <h1>Bem-vindo</h1>
+        <p>Entre com sua conta para acessar o ambiente operacional.</p>
+        <form method="post">
+            {% csrf_token %}
+            {% if form.errors %}<div class="alert alert-error">Usuário ou senha inválidos.</div>{% endif %}
+            <div class="form-group">
+                <label for="id_username">Usuário</label>
+                <input type="text" name="username" id="id_username" class="form-control" autocomplete="username" required autofocus>
+            </div>
+            <div class="form-group">
+                <label for="id_password">Senha</label>
+                <input type="password" name="password" id="id_password" class="form-control" autocomplete="current-password" required>
+            </div>
+            <button type="submit" class="btn btn-primary" style="width:100%;margin-top:.35rem;">Acessar plataforma</button>
+            <input type="hidden" name="next" value="{{ next }}">
+        </form>
+        <small style="margin-top:1.4rem;color:var(--muted);text-align:center;">Acesso restrito • Atividades auditadas</small>
+    </section>
+</div>
+{% endblock %}

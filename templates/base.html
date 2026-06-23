@@ -3,35 +3,106 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#07111f">
     <title>{% block title %}NetOps Assistant{% endblock %}</title>
     {% load static %}
     <link rel="stylesheet" href="{% static 'css/app.css' %}">
+    {% block extrahead %}{% endblock %}
 </head>
-<body>
-    <nav class="navbar">
-        <a href="{% url 'dashboard' %}" class="navbar-brand">
-            NetOps Assistant
+<body class="{% if user.is_authenticated %}app-body{% else %}auth-body{% endif %}">
+{% if user.is_authenticated %}
+<div class="app-shell">
+    <aside class="sidebar" aria-label="Navegação principal">
+        <a href="{% url 'dashboard' %}" class="brand" aria-label="NetOps Assistant">
+            <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span>
+            <span class="brand-copy"><strong>NetOps</strong><small>ASSISTANT</small></span>
         </a>
-        <ul class="navbar-nav">
-            <li><a href="{% url 'dashboard' %}" {% if request.resolver_match.url_name == 'dashboard' %}class="active"{% endif %}>Dashboard</a></li>
-            <li><a href="{% url 'search' %}" {% if request.resolver_match.url_name == 'search' %}class="active"{% endif %}>Busca</a></li>
-            <li><a href="{% url 'device_list' %}" {% if request.resolver_match.url_name == 'device_list' %}class="active"{% endif %}>Dispositivos</a></li>
-            <li><a href="{% url 'new_analysis' %}" {% if request.resolver_match.url_name == 'new_analysis' %}class="active"{% endif %}>Nova Análise</a></li>
-            <li><a href="{% url 'circuit_list' %}" {% if request.resolver_match.url_name == 'circuit_list' %}class="active"{% endif %}>Circuitos</a></li>
-            <li><a href="{% url 'service_list' %}" {% if request.resolver_match.url_name == 'service_list' %}class="active"{% endif %}>Serviços</a></li>
-            <li><a href="{% url 'issue_list' %}" {% if request.resolver_match.url_name == 'issue_list' %}class="active"{% endif %}>Issues</a></li>
-            <li><a href="{% url 'comparison_list' %}" {% if request.resolver_match.url_name == 'comparison_list' %}class="active"{% endif %}>Comparações</a></li>
-        </ul>
-    </nav>
 
-    <main class="container">
-        {% if messages %}
-            {% for message in messages %}
-                <div class="alert alert-{{ message.tags }}">{{ message }}</div>
-            {% endfor %}
-        {% endif %}
+        <nav class="side-nav">
+            <div class="nav-group">
+                <span class="nav-label">Operação</span>
+                <a href="{% url 'dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13h6V4H4v9Zm0 7h6v-5H4v5Zm10 0h6v-9h-6v9Zm0-16v5h6V4h-6Z"/></svg>
+                    <span>Visão geral</span>
+                </a>
+                <a href="{% url 'search' %}" class="nav-link {% if request.resolver_match.url_name == 'search' %}active{% endif %}">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m20.4 19-4.7-4.7a7 7 0 1 0-1.4 1.4l4.7 4.7 1.4-1.4ZM5 10a5 5 0 1 1 10 0 5 5 0 0 1-10 0Z"/></svg>
+                    <span>Busca técnica</span>
+                </a>
+            </div>
 
-        {% block content %}{% endblock %}
-    </main>
+            <div class="nav-group">
+                <span class="nav-label">Inventário</span>
+                <a href="{% url 'device_list' %}" class="nav-link {% if 'device' in request.resolver_match.url_name %}active{% endif %}">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 3h16a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Zm0 10h16a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2Zm2-7v2h2V6H6Zm0 10v2h2v-2H6Z"/></svg>
+                    <span>Dispositivos</span>
+                </a>
+                <a href="{% url 'circuit_list' %}" class="nav-link {% if 'circuit' in request.resolver_match.url_name %}active{% endif %}">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3a4 4 0 0 1 3.9 3H17a4 4 0 1 1 0 2h-6.1a4 4 0 0 1-7.8 0H1V6h2.1A4 4 0 0 1 7 3Zm10 10a4 4 0 0 1 3.9 3H23v2h-2.1a4 4 0 0 1-7.8 0H7a4 4 0 1 1 0-2h6.1a4 4 0 0 1 3.9-3Z"/></svg>
+                    <span>Circuitos</span>
+                </a>
+                <a href="{% url 'service_list' %}" class="nav-link {% if 'service' in request.resolver_match.url_name %}active{% endif %}">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 2 7l10 5 8-4v6h2V7L12 2Zm-7 9v6l7 4 7-4v-6l-7 3.5L5 11Z"/></svg>
+                    <span>Serviços</span>
+                </a>
+                <a href="{% url 'issue_list' %}" class="nav-link {% if 'issue' in request.resolver_match.url_name %}active{% endif %}">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 2h2v11h-2V2Zm0 15h2v2h-2v-2ZM1 21 12 1l11 20H1Zm3.4-2h15.2L12 5.2 4.4 19Z"/></svg>
+                    <span>Issues</span>
+                </a>
+            </div>
+
+            <div class="nav-group">
+                <span class="nav-label">Mudanças</span>
+                <a href="{% url 'comparison_list' %}" class="nav-link {% if 'comparison' in request.resolver_match.url_name %}active{% endif %}">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 2 4 4-4 4V7H3v10h4v-3l4 4-4 4v-3H1V5h6V2Zm10 0v3h6v14h-6v3l-4-4 4-4v3h4V7h-4v3l-4-4 4-4Z"/></svg>
+                    <span>Comparações</span>
+                </a>
+            </div>
+
+            {% if user.is_superuser or perms.core.view_auditlog %}
+            <div class="nav-group">
+                <span class="nav-label">Administração</span>
+                <a href="{% url 'audit_list' %}" class="nav-link {% if request.resolver_match.url_name == 'audit_list' %}active{% endif %}">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 4 5v6c0 5.1 3.4 9.8 8 11 4.6-1.2 8-5.9 8-11V5l-8-3Zm0 2.1L18 6v5c0 3.9-2.4 7.5-6 8.8C8.4 18.5 6 14.9 6 11V6l6-1.9Zm-1 3.4h2v5h-2v-5Zm0 7h2v2h-2v-2Z"/></svg>
+                    <span>Auditoria</span>
+                </a>
+                <a href="{% url 'backup_page' %}" class="nav-link {% if request.resolver_match.url_name == 'backup_page' %}active{% endif %}">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 3h14l3 3v15H3V3h1Zm1 2v14h14V7.2L16.8 5H5Zm2 0h8v5H7V5Zm1 8h8v5H8v-5Z"/></svg>
+                    <span>Backup</span>
+                </a>
+            </div>
+            {% endif %}
+        </nav>
+
+        <div class="sidebar-user">
+            <span class="user-avatar">{{ user.get_username|slice:":1"|upper }}</span>
+            <span class="user-copy"><strong>{{ user.get_username }}</strong><small>{% if user.is_superuser %}Administrador{% else %}Operador{% endif %}</small></span>
+            <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit" class="logout-button" aria-label="Sair">↗</button></form>
+        </div>
+    </aside>
+
+    <div class="main-column">
+        <header class="topbar">
+            <div>
+                <span class="eyebrow">Network Operations Center</span>
+                <strong>{% block topbar_title %}NetOps Assistant{% endblock %}</strong>
+            </div>
+            <div class="topbar-actions">
+                <a href="{% url 'search' %}" class="topbar-search" aria-label="Abrir busca técnica">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m20.4 19-4.7-4.7a7 7 0 1 0-1.4 1.4l4.7 4.7 1.4-1.4ZM5 10a5 5 0 1 1 10 0 5 5 0 0 1-10 0Z"/></svg>
+                    <span>Buscar na rede</span><kbd>/</kbd>
+                </a>
+                <span class="system-status"><i></i>Sistema operacional</span>
+            </div>
+        </header>
+
+        <main class="content-shell">
+{% else %}
+<main class="auth-shell">
+{% endif %}
+    {% if messages %}<div class="toast-stack">{% for message in messages %}<div class="alert alert-{{ message.tags }}">{{ message }}</div>{% endfor %}</div>{% endif %}
+    {% block content %}{% endblock %}
+</main>
+{% if user.is_authenticated %}</div></div>{% endif %}
 </body>
 </html>

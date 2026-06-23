@@ -89,6 +89,13 @@ def compare_config_snapshots(
     ipv6_impacts = _build_ipv6_impacts(ipv6_data)
     nat_impacts = _build_nat_impacts(nat)
 
+    # ── BNG comparison ─────────────────────────────────────────────
+    bng_data = _compare_bng(base_data, target_data)
+    bng_impacts = _build_bng_impacts(bng_data)
+
+    # ── Multicast comparison ───────────────────────────────────────
+    multicast_data = _compare_multicast(base_data, target_data)
+    multicast_impacts = _build_multicast_impacts(multicast_data)
 
     # Validation and rollback plans
     validation_plan = _build_validation_plan(interfaces, static_routes, bgp, services, issues)
@@ -345,6 +352,8 @@ def compare_config_snapshots(
         })
 
     # Impacts and recommendations
+    multicast_data = _compare_multicast(base_data, target_data)
+    multicast_impacts = _build_multicast_impacts(multicast_data)
     impacts = _build_impacts(interfaces, static_routes, bgp, circuits, issues)
     impacts.extend(service_impacts)
     impacts.extend(switching_impacts)
@@ -354,6 +363,171 @@ def compare_config_snapshots(
     impacts.extend(qos_impacts)
     impacts.extend(nat_impacts)
     impacts.extend(ipv6_impacts)
+
+    impacts.extend(multicast_impacts)
+
+    impacts.extend(bng_impacts)
+
+    # ✦ Add BNG validation/rollback (only if real BNG changes exist)
+    def _has_bng_changes(d):
+        for section in d.values():
+            if isinstance(section, dict):
+                if section.get("added") or section.get("removed") or section.get("changed"):
+                    return True
+        return False
+    if _has_bng_changes(bng_data):
+        validation_plan.append({
+            "category": "bng",
+            "title": "Validar configuração BNG/AAA alterada",
+            "commands": [
+                "display access-user domain ",
+                "display access-user interface ",
+                "display aaa configuration",
+                "display domain",
+                "display radius-server configuration group ",
+                "display ip pool name ",
+                "display ip pool usage",
+            ],
+            "reason": "BNG/AAA/RADIUS/IP pool alterado. Validar autenticação, accounting e pools de assinantes.",
+            "severity": "warning",
+        })
+        rollback_plan.append({
+            "change_type": "bng",
+            "object": "domain/scheme/radius/pool/bas",
+            "suggestion": "Restaurar domínio, AAA schemes, RADIUS group, IP pool e BAS interface anteriores. Validar usuários online e accounting.",
+            "risk_level": "warning",
+            "verification_commands": [
+                "display access-user domain ",
+                "display aaa configuration",
+                "display domain",
+                "display radius-server configuration group ",
+                "display ip pool name ",
+            ],
+        })
+
+    # ✦ Add PPPoE validation/rollback (only if real PPPoE changes exist)
+    def _has_pppoe_changes(d):
+        for section in [d.get("pppoe_interfaces", {}), d.get("virtual_templates", {})]:
+            if section.get("added") or section.get("removed") or section.get("changed"):
+                return True
+        return False
+    # ✦ Add HA validation/rollback (only if real HA changes exist)
+    def _has_ha_changes(d):
+        for section in [d.get("bfd", {}), d.get("bgp_ha", {}), d.get("isis_ha", {}), d.get("nsr", {}), d.get("ldp_ha", {})]:
+            if section.get("added") or section.get("removed") or section.get("changed"):
+                return True
+        return False
+    if _has_ha_changes(bng_data):
+        validation_plan.append({
+            "category": "ha",
+            "title": "Validar configuracao HA/BFD/GR alterada",
+            "commands": [
+                "display bfd session all",
+                "display bfd session all verbose",
+                "display bgp peer",
+                "display isis peer",
+                "display isis interface",
+                "display ospf peer",
+                "display ospf interface",
+                "display ospfv3 peer",
+                "display mpls ldp session",
+                "display current-configuration | include bfd",
+                "display current-configuration | include graceful-restart",
+                "display current-configuration | include nsr",
+                "display current-configuration | include non-stop-routing",
+            ],
+            "reason": "HA/BFD/GR/NSR alterado. Validar convergencia e alta disponibilidade.",
+            "severity": "warning",
+        })
+        rollback_plan.append({
+            "change_type": "ha",
+            "object": "bfd/gr/nsr/ldp",
+            "suggestion": "Restaurar sessoes BFD, timers, GR, NSR e LDP GR anteriores. Validar peers e sessoes apos rollback.",
+            "risk_level": "warning",
+            "verification_commands": [
+                "display bfd session all",
+                "display bgp peer",
+                "display isis peer",
+                "display current-configuration | include bfd",
+                "display current-configuration | include graceful-restart",
+            ],
+        })
+
+    # ✦ Add multicast validation/rollback (only if real multicast changes exist)
+    def _has_multicast_changes(d):
+        for section in ["global", "pim", "igmp", "igmp_snooping", "mld", "vpn_instances"]:
+            s = d.get(section, {})
+            if s.get("added") or s.get("removed") or s.get("changed"):
+                return True
+        return False
+
+    multicast_data = _compare_multicast(base_data, target_data)
+    if _has_multicast_changes(multicast_data):
+        validation_plan.append({
+            "category": "multicast",
+            "title": "Validar configuracao multicast/PIM/IGMP/MLD alterada",
+            "commands": [
+                "display multicast routing-table",
+                "display pim routing-table",
+                "display pim neighbor",
+                "display pim interface",
+                "display igmp group",
+                "display igmp interface",
+                "display igmp-snooping vlan",
+                "display mld group",
+                "display mld interface",
+                "display current-configuration | include multicast",
+                "display current-configuration | include pim",
+                "display current-configuration | include igmp",
+                "display current-configuration | include mld",
+            ],
+            "reason": "Multicast/PIM/IGMP/MLD alterado. Validar tabelas e vizinhanca.",
+            "severity": "warning",
+        })
+        rollback_plan.append({
+            "change_type": "multicast",
+            "object": "multicast/pim/igmp/mld",
+            "suggestion": "Restaurar configuracao multicast/PIM/IGMP/MLD anterior. Validar grupos e vizinhanca apos rollback.",
+            "risk_level": "warning",
+            "verification_commands": [
+                "display multicast routing-table",
+                "display pim routing-table",
+                "display pim neighbor",
+                "display igmp group",
+                "display igmp-snooping vlan",
+                "display current-configuration | include multicast",
+            ],
+        })
+
+    if _has_pppoe_changes(bng_data):
+        validation_plan.append({
+            "category": "pppoe",
+            "title": "Validar configuracao PPPoE alterada",
+            "commands": [
+                "display pppoe-server session summary",
+                "display access-user interface ",
+                "display access-user domain ",
+                "display current-configuration interface ",
+                "display current-configuration interface Virtual-Template",
+                "display aaa configuration",
+                "display radius-server configuration",
+                "display ip pool name ",
+            ],
+            "reason": "PPPoE/Virtual-Template alterado. Validar sessoes e autenticacao PPPoE.",
+            "severity": "warning",
+        })
+        rollback_plan.append({
+            "change_type": "pppoe",
+            "object": "pppoe/virtual-template/bas",
+            "suggestion": "Restaurar bind PPPoE, Virtual-Template, authentication-mode, max-sessions e BAS/domain anteriores. Validar sessoes PPPoE e access-user.",
+            "risk_level": "warning",
+            "verification_commands": [
+                "display pppoe-server session summary",
+                "display access-user interface ",
+                "display current-configuration interface ",
+                "display aaa configuration",
+            ],
+        })
 
     # ✦ Add IPv6 validation commands (only if real IPv6 changes exist)
     def _has_ipv6_changes(d):
@@ -389,6 +563,74 @@ def compare_config_snapshots(
     recommendations = _build_recommendations(interfaces, static_routes, bgp, circuits, issues)
 
     # Build summary
+    huawei_advanced = _compare_huawei_advanced(base_data, target_data)
+    if any(huawei_advanced.values()):
+        changed_categories = [
+            item["category"]
+            for key in ("added", "removed", "changed")
+            for item in huawei_advanced[key]
+        ]
+        impacts.append({
+            "severity": "warning",
+            "category": "huawei_advanced",
+            "description": "Recursos Huawei avançados alterados: " + ", ".join(changed_categories),
+        })
+        validation_plan.append({
+            "severity": "warning",
+            "title": "Validar recursos Huawei avançados",
+            "reason": "EVPN/VXLAN, SR, MPLS-TE, CGNAT, MSDP, telemetria ou BGP avançado foram alterados.",
+            "commands": [
+                "display evpn vpn-instance",
+                "display vxlan vni",
+                "display segment-routing prefix mpls forwarding",
+                "display mpls te tunnel",
+                "display nat session table",
+                "display msdp peer",
+                "display telemetry subscription",
+                "display bgp peer",
+            ],
+        })
+        rollback_plan.append({
+            "change_type": "huawei_advanced",
+            "object": ", ".join(changed_categories),
+            "suggestion": "Restaurar os blocos avançados anteriores e validar control-plane e forwarding.",
+            "risk_level": "warning",
+            "verification_commands": [
+                "display current-configuration | include evpn|vxlan|segment-routing|mpls te|nat instance|msdp|telemetry",
+            ],
+        })
+    zte_olt = _compare_zte_olt(base_data, target_data)
+    if any(section["added"] or section["removed"] or section["changed"] for section in zte_olt.values()):
+        changed_sections = [
+            section
+            for section, changes in zte_olt.items()
+            if changes.get("added") or changes.get("removed") or changes.get("changed")
+        ]
+        impacts.append({
+            "severity": "warning",
+            "category": "zte_olt",
+            "description": "Estrutura ZTE OLT alterada: " + ", ".join(changed_sections),
+        })
+        validation_plan.append({
+            "severity": "warning",
+            "title": "Validar inventário ZTE OLT alterado",
+            "reason": "Portas PON, ONUs, VLANs ou service-ports foram alterados.",
+            "commands": [
+                "show running-config | include gpon-olt|gpon-onu|service-port|tcont|gemport|vlan",
+                "show gpon onu state",
+                "show gpon onu by serial-number",
+            ],
+        })
+        rollback_plan.append({
+            "change_type": "zte_olt",
+            "object": ", ".join(changed_sections),
+            "suggestion": "Restaurar os blocos ZTE OLT anteriores e validar PON/ONU/service-port antes de reabrir clientes.",
+            "risk_level": "warning",
+            "verification_commands": [
+                "show running-config | include gpon-olt|gpon-onu|service-port",
+                "show gpon onu state",
+            ],
+        })
     summary_parts = [
         f"Comparação: {title}" if title else f"Comparação de snapshots.",
         f"Interfaces: {_fmt_summary(interfaces)}.",
@@ -400,6 +642,9 @@ def compare_config_snapshots(
         f"MPLS LDP: {_fmt_mpls_ldp_summary(mpls_ldp)}.",
         f"Circuitos: {_fmt_summary(circuits)}.",
         f"Serviços: {_fmt_summary(services)}.",
+        f"Multicast: {_fmt_multicast_summary(multicast_data)}.",
+        f"Huawei avançado: {len(huawei_advanced.get('changed', []))} seção(ões) alterada(s).",
+        f"ZTE OLT: {sum(len(zte_olt[key]) for key in zte_olt)} alteração(ões).",
         f"Issues: {issues.get('new_count', 0)} nova(s), "
         f"{issues.get('resolved_count', 0)} resolvida(s).",
     ]
@@ -428,6 +673,9 @@ def compare_config_snapshots(
         "issues": issues,
         "ipv6": ipv6_data,
         "bng": _compare_bng(base_data, target_data),
+        "multicast": multicast_data,
+        "huawei_advanced": huawei_advanced,
+        "zte_olt": zte_olt,
         "impacts": impacts,
         "recommendations": recommendations,
         "validation_plan": validation_plan,
@@ -442,6 +690,59 @@ def compare_config_snapshots(
         diff_data=diff_data,
     )
     return comparison
+
+
+def _compare_huawei_advanced(base_data: dict, target_data: dict) -> dict:
+    base = base_data.get("huawei_advanced", {})
+    target = target_data.get("huawei_advanced", {})
+    result = {"added": [], "removed": [], "changed": []}
+    for category in sorted(set(base) | set(target)):
+        before = base.get(category, {})
+        after = target.get(category, {})
+        before_enabled = bool(before.get("enabled")) or any(
+            value for key, value in before.items() if key.endswith("_enabled")
+        )
+        after_enabled = bool(after.get("enabled")) or any(
+            value for key, value in after.items() if key.endswith("_enabled")
+        )
+        if not before_enabled and after_enabled:
+            result["added"].append({"category": category, "after": after})
+        elif before_enabled and not after_enabled:
+            result["removed"].append({"category": category, "before": before})
+        elif before != after:
+            result["changed"].append({"category": category, "before": before, "after": after})
+    return result
+
+
+def _compare_zte_olt(base_data: dict, target_data: dict) -> dict:
+    """Compare ZTE OLT GPON inventory between two snapshots."""
+    base = base_data.get("zte_olt", {})
+    target = target_data.get("zte_olt", {})
+    result = {
+        "pon_ports": {"added": [], "removed": [], "changed": []},
+        "onus": {"added": [], "removed": [], "changed": []},
+        "service_ports": {"added": [], "removed": [], "changed": []},
+        "vlans": {"added": [], "removed": [], "changed": []},
+    }
+
+    def compare_list(section: str, base_items: list[dict], target_items: list[dict], key_fn):
+        base_map = {key_fn(item): item for item in base_items}
+        target_map = {key_fn(item): item for item in target_items}
+        for key in sorted(set(base_map) | set(target_map)):
+            before = base_map.get(key)
+            after = target_map.get(key)
+            if before is None:
+                result[section]["added"].append(after)
+            elif after is None:
+                result[section]["removed"].append(before)
+            elif before != after:
+                result[section]["changed"].append({"key": key, "before": before, "after": after})
+
+    compare_list("pon_ports", base.get("pon_ports", []), target.get("pon_ports", []), lambda item: item.get("name", item.get("pon", "")))
+    compare_list("onus", base.get("onus", []), target.get("onus", []), lambda item: f"{item.get('pon', '')}:{item.get('onu_id', '')}")
+    compare_list("service_ports", base.get("service_ports", []), target.get("service_ports", []), lambda item: str(item.get("id", "")))
+    compare_list("vlans", base.get("vlans", []), target.get("vlans", []), lambda item: str(item.get("vlan_id", "")))
+    return result
 
 
 def _ensure_analyzed(snapshot: ConfigSnapshot) -> ParsedConfig:
@@ -471,18 +772,437 @@ def _fmt_summary(d: dict) -> str:
 # ── NAT comparison ─────────────────────────────────────────────────────
 
 
+def _fmt_multicast_summary(d: dict) -> str:
+    parts = []
+    for section, label in [("pim_global", "PIM global"), ("pim_interfaces", "PIM interfaces"), ("igmp_interfaces", "IGMP"), ("mld_interfaces", "MLD"), ("igmp_snooping", "IGMP snooping")]:
+        s = d.get(section, {})
+        if isinstance(s, dict):
+            a = len(s.get("added", [])); r = len(s.get("removed", [])); c = len(s.get("changed", []))
+            if a or r or c:
+                parts.append(f"{label}: {a}+ {r}- {c}~")
+    if not parts:
+        return "sem mudanças"
+    return "; ".join(parts)
+
+
 def _ag_key(ag: dict) -> str:
     return ag.get("name", "")
 
 
-def _compare_bng(base, target):
-    """Compare BNG/AAA/RADIUS/IP pool config between two parsed configs (basic)."""
-    return {
-        "domains": {"changed": [], "added": [], "removed": []},
-        "radius_groups": {"changed": [], "added": [], "removed": []},
-        "ip_pools": {"changed": [], "added": [], "removed": []},
-        "bas_interfaces": {"changed": [], "added": [], "removed": []},
+# ── BNG comparison ─────────────────────────────────────────────────────
+
+
+def _collect_bng_domains(parsed_data: dict) -> list[dict]:
+    """Collect all domains from AAA blocks and standalone domains."""
+    domains = []
+    seen = set()
+    for ab in parsed_data.get("aaa", []):
+        for d in ab.get("domains", []):
+            dn = d.get("name", "")
+            if dn and dn not in seen:
+                seen.add(dn)
+                domains.append(d)
+    for d in parsed_data.get("aaa_domains", []):
+        dn = d.get("name", "")
+        if dn and dn not in seen:
+            seen.add(dn)
+            domains.append(d)
+    return domains
+
+
+def _collect_bng_auth_schemes(parsed_data: dict) -> list[dict]:
+    """Collect all AAA schemes from AAA blocks."""
+    schemes = []
+    for ab in parsed_data.get("aaa", []):
+        for s in ab.get("authentication_schemes", []):
+            schemes.append(s)
+        for s in ab.get("authorization_schemes", []):
+            schemes.append(s)
+        for s in ab.get("accounting_schemes", []):
+            schemes.append(s)
+    return schemes
+
+
+def _compare_bng_domains(base_domains: list, target_domains: list) -> dict:
+    """Compare subscriber domains."""
+    base_map = {d.get("name", ""): d for d in base_domains}
+    target_map = {d.get("name", ""): d for d in target_domains}
+    base_names = set(base_map.keys())
+    target_names = set(target_map.keys())
+
+    added = sorted(target_names - base_names)
+    removed = sorted(base_names - target_names)
+    common = sorted(base_names & target_names)
+
+    changed = []
+    for name in common:
+        b = base_map[name]
+        t = target_map[name]
+        changes = {}
+        mappings = [
+            ("authentication_scheme", "authentication-scheme"),
+            ("accounting_scheme", "accounting-scheme"),
+            ("authorization_scheme", "authorization-scheme"),
+            ("radius_server_group", "radius-server group"),
+            ("ip_pool", "ip-pool"),
+            ("dns_primary", "DNS primary"),
+            ("dns_secondary", "DNS secondary"),
+        ]
+        for key, label in mappings:
+            if b.get(key) != t.get(key):
+                changes[key] = {"before": b.get(key), "after": t.get(key), "label": label}
+        if changes:
+            changed.append({"name": name, "changes": changes})
+    return {"added": added, "removed": removed, "changed": changed}
+
+
+def _compare_bng_radius_groups(base_radius: list, target_radius: list) -> dict:
+    """Compare RADIUS server groups."""
+    base_map = {r.get("name", ""): r for r in base_radius}
+    target_map = {r.get("name", ""): r for r in target_radius}
+    base_names = set(base_map.keys())
+    target_names = set(target_map.keys())
+
+    added = sorted(target_names - base_names)
+    removed = sorted(base_names - target_names)
+    common = sorted(base_names & target_names)
+
+    changed = []
+    for name in common:
+        b = base_map[name]
+        t = target_map[name]
+        changes = {}
+
+        # Compare auth servers
+        b_auth = b.get("authentication_servers", [])
+        t_auth = t.get("authentication_servers", [])
+        if _server_lists_differ(b_auth, t_auth):
+            changes["authentication_servers"] = {
+                "before": _summarize_servers(b_auth),
+                "after": _summarize_servers(t_auth),
+                "label": "servidores de autenticação",
+            }
+
+        # Compare acct servers
+        b_acct = b.get("accounting_servers", [])
+        t_acct = t.get("accounting_servers", [])
+        if _server_lists_differ(b_acct, t_acct):
+            changes["accounting_servers"] = {
+                "before": _summarize_servers(b_acct),
+                "after": _summarize_servers(t_acct),
+                "label": "servidores de accounting",
+            }
+
+        # Compare retransmit/timeout
+        for key, label in [("retransmit", "retransmit"), ("timeout", "timeout")]:
+            if b.get(key) != t.get(key):
+                changes[key] = {"before": b.get(key), "after": t.get(key), "label": label}
+
+        # Compare shared-key type (never show the actual key)
+        if b.get("shared_key_type") != t.get("shared_key_type"):
+            changes["shared_key_type"] = {
+                "before": b.get("shared_key_type", "unknown"),
+                "after": t.get("shared_key_type", "unknown"),
+                "label": "tipo de shared-key",
+            }
+
+        if changes:
+            changed.append({"name": name, "changes": changes})
+
+    return {"added": added, "removed": removed, "changed": changed}
+
+
+def _server_lists_differ(a: list, b: list) -> bool:
+    """Check if two server lists differ (IP/port/weight)."""
+    if len(a) != len(b):
+        return True
+    key = lambda s: (s.get("ip", ""), s.get("port"), s.get("weight"))
+    return sorted(key(s) for s in a) != sorted(key(s) for s in b)
+
+
+def _summarize_servers(servers: list) -> list:
+    """Summarize servers for display (no secrets)."""
+    return [{"ip": s.get("ip"), "port": s.get("port"), "weight": s.get("weight")} for s in servers]
+
+
+def _compare_bng_ip_pools(base_pools: list, target_pools: list) -> dict:
+    """Compare IP pools."""
+    base_map = {p.get("name", ""): p for p in base_pools}
+    target_map = {p.get("name", ""): p for p in target_pools}
+    base_names = set(base_map.keys())
+    target_names = set(target_map.keys())
+
+    added = sorted(target_names - base_names)
+    removed = sorted(base_names - target_names)
+    common = sorted(base_names & target_names)
+
+    changed = []
+    for name in common:
+        b = base_map[name]
+        t = target_map[name]
+        changes = {}
+
+        for key, label in [
+            ("gateway", "gateway"), ("mask", "máscara"),
+            ("lease", "lease"), ("radius_server_group", "RADIUS group"),
+            ("mode", "modo"), ("type", "tipo"),
+        ]:
+            if b.get(key) != t.get(key):
+                changes[key] = {"before": b.get(key), "after": t.get(key), "label": label}
+
+        # Compare DNS servers
+        b_dns = sorted(b.get("dns_servers", []))
+        t_dns = sorted(t.get("dns_servers", []))
+        if b_dns != t_dns:
+            changes["dns_servers"] = {"before": b_dns, "after": t_dns, "label": "DNS servers"}
+
+        # Compare sections
+        b_sections = sorted(s.get("start_ip", "") for s in b.get("sections", []))
+        t_sections = sorted(s.get("start_ip", "") for s in t.get("sections", []))
+        if b_sections != t_sections:
+            changes["sections"] = {"before": b.get("sections", []), "after": t.get("sections", []), "label": "seções/ranges"}
+
+        if changes:
+            changed.append({"name": name, "changes": changes})
+
+    return {"added": added, "removed": removed, "changed": changed}
+
+
+def _compare_bng_bas_interfaces(base_interfaces: list, target_interfaces: list) -> dict:
+    """Compare BAS interfaces."""
+    base_map = {i.get("name", ""): i for i in base_interfaces if i.get("bas", {}).get("enabled")}
+    target_map = {i.get("name", ""): i for i in target_interfaces if i.get("bas", {}).get("enabled")}
+    base_names = set(base_map.keys())
+    target_names = set(target_map.keys())
+
+    added = sorted(target_names - base_names)
+    removed = sorted(base_names - target_names)
+    common = sorted(base_names & target_names)
+
+    changed = []
+    for name in common:
+        b = base_map[name]
+        t = target_map[name]
+        changes = {}
+
+        # Description
+        if b.get("description") != t.get("description"):
+            changes["description"] = {"before": b.get("description"), "after": t.get("description"), "label": "descrição"}
+
+        # User VLAN / QinQ
+        if b.get("user_vlan") != t.get("user_vlan"):
+            changes["user_vlan"] = {"before": b.get("user_vlan"), "after": t.get("user_vlan"), "label": "user-vlan"}
+        if b.get("qinq_vlan") != t.get("qinq_vlan"):
+            changes["qinq_vlan"] = {"before": b.get("qinq_vlan"), "after": t.get("qinq_vlan"), "label": "qinq-vlan"}
+
+        # BAS attributes
+        b_bas = b.get("bas", {})
+        t_bas = t.get("bas", {})
+        for key, label in [
+            ("default_domain", "default-domain"),
+            ("pre_authentication_domain", "pre-auth domain"),
+            ("authentication_method", "authentication-method"),
+            ("access_type", "access-type"),
+            ("accounting_copy_radius_group", "accounting-copy RADIUS group"),
+        ]:
+            if b_bas.get(key) != t_bas.get(key):
+                changes[key] = {"before": b_bas.get(key), "after": t_bas.get(key), "label": label}
+
+        # Triggers
+        for key, label in [("ip_trigger", "ip-trigger"), ("arp_trigger", "arp-trigger"), ("ipv6_trigger", "ipv6-trigger")]:
+            if b_bas.get(key) != t_bas.get(key):
+                changes[key] = {"before": b_bas.get(key), "after": t_bas.get(key), "label": label}
+
+        if changes:
+            changed.append({"name": name, "changes": changes})
+
+    return {"added": added, "removed": removed, "changed": changed}
+
+
+def _compare_pppoe_virtual_templates(base_vts: list, target_vts: list) -> dict:
+    """Compare Virtual-Templates."""
+    base_map = {vt.get("name", ""): vt for vt in base_vts}
+    target_map = {vt.get("name", ""): vt for vt in target_vts}
+    base_names = set(base_map.keys())
+    target_names = set(target_map.keys())
+
+    added = sorted(target_names - base_names)
+    removed = sorted(base_names - target_names)
+    common = sorted(base_names & target_names)
+
+    changed = []
+    for name in common:
+        b = base_map[name]
+        t = target_map[name]
+        changes = {}
+        for key, label in [
+            ("description", "descrição"),
+            ("mtu", "MTU"),
+            ("ip_unnumbered_interface", "ip unnumbered"),
+            ("remote_address_pool", "remote address pool"),
+            ("ppp_keepalive", "PPP keepalive"),
+            ("ppp_mru", "PPP MRU"),
+            ("ipv6_enabled", "IPv6"),
+        ]:
+            if b.get(key) != t.get(key):
+                changes[key] = {"before": b.get(key), "after": t.get(key), "label": label}
+        # Compare auth modes as sorted list
+        b_modes = sorted(b.get("ppp_authentication_modes", []))
+        t_modes = sorted(t.get("ppp_authentication_modes", []))
+        if b_modes != t_modes:
+            changes["ppp_authentication_modes"] = {
+                "before": b_modes, "after": t_modes,
+                "label": "PPP authentication-mode",
+            }
+        if changes:
+            changed.append({"name": name, "changes": changes})
+    return {"added": added, "removed": removed, "changed": changed}
+
+
+def _compare_pppoe_interfaces(base_interfaces: list, target_interfaces: list) -> dict:
+    """Compare PPPoE server bind on interfaces."""
+    base_map = {}
+    for i in base_interfaces:
+        p = i.get("pppoe_server")
+        if p and p.get("enabled"):
+            base_map[i["name"]] = (i, p)
+    target_map = {}
+    for i in target_interfaces:
+        p = i.get("pppoe_server")
+        if p and p.get("enabled"):
+            target_map[i["name"]] = (i, p)
+
+    base_names = set(base_map.keys())
+    target_names = set(target_map.keys())
+    added = sorted(target_names - base_names)
+    removed = sorted(base_names - target_names)
+    common = sorted(base_names & target_names)
+
+    changed = []
+    for name in common:
+        b_iface, b_pppoe = base_map[name]
+        t_iface, t_pppoe = target_map[name]
+        changes = {}
+
+        # PPPoE attributes
+        for key, label in [
+            ("virtual_template", "Virtual-Template"),
+            ("max_sessions", "max-sessions"),
+        ]:
+            if b_pppoe.get(key) != t_pppoe.get(key):
+                changes[key] = {"before": b_pppoe.get(key), "after": t_pppoe.get(key), "label": label}
+
+        # Interface attributes
+        for key, label in [
+            ("user_vlan", "user-vlan"),
+            ("qinq_vlan", "qinq-vlan"),
+            ("description", "descrição"),
+        ]:
+            if b_iface.get(key) != t_iface.get(key):
+                changes[key] = {"before": b_iface.get(key), "after": t_iface.get(key), "label": label}
+
+        # BAS attributes
+        b_bas = b_iface.get("bas", {})
+        t_bas = t_iface.get("bas", {})
+        if b_bas.get("default_domain") != t_bas.get("default_domain"):
+            changes["default_domain"] = {"before": b_bas.get("default_domain"), "after": t_bas.get("default_domain"), "label": "default-domain"}
+
+        if changes:
+            changed.append({"name": name, "changes": changes})
+
+    return {"added": added, "removed": removed, "changed": changed}
+
+
+def _compare_ha(base, target):
+    """Compare HA/BFD/GR/NSR configuration."""
+    result = {
+        "bfd": {"added": [], "removed": [], "changed": []},
+        "bgp_ha": {"added": [], "removed": [], "changed": []},
+        "ospf_ha": {"changed": []},
+        "isis_ha": {"changed": []},
+        "ldp_ha": {"changed": []},
+        "nsr": {"changed": []},
     }
+
+    # BFD sessions (compare all keys including discriminators)
+    BFD_COMPARE_KEYS = [
+        "peer_ip", "peer_ipv6", "interface",
+        "local_discriminator", "remote_discriminator",
+        "min_tx_interval", "min_rx_interval", "detect_multiplier", "committed",
+    ]
+    b_base = {s.get("name", ""): s for s in base.get("ha", {}).get("bfd", {}).get("sessions", [])}
+    b_target = {s.get("name", ""): s for s in target.get("ha", {}).get("bfd", {}).get("sessions", [])}
+    for name, s in b_target.items():
+        if name not in b_base:
+            result["bfd"]["added"].append(name)
+        elif any(s.get(k) != b_base[name].get(k) for k in BFD_COMPARE_KEYS):
+            result["bfd"]["changed"].append({"name": name, "changes": {k: {"before": b_base[name].get(k), "after": s.get(k)} for k in BFD_COMPARE_KEYS if s.get(k) != b_base[name].get(k)}})
+    for name in b_base:
+        if name not in b_target:
+            result["bfd"]["removed"].append(name)
+
+    # BGP HA (BFD/GR per peer)
+    base_peers = {}
+    target_peers = {}
+    for bgp in base.get("bgp", []):
+        for p in bgp.get("peers", []):
+            base_peers[p["ip"]] = p
+    for bgp in target.get("bgp", []):
+        for p in bgp.get("peers", []):
+            target_peers[p["ip"]] = p
+    for ip, p in target_peers.items():
+        if ip not in base_peers:
+            continue
+        bp = base_peers[ip]
+        changes = {}
+        if bp.get("bfd_enabled") != p.get("bfd_enabled"):
+            changes["bfd_enabled"] = {"before": bp.get("bfd_enabled"), "after": p.get("bfd_enabled")}
+        if bp.get("graceful_restart") != p.get("graceful_restart"):
+            changes["graceful_restart"] = {"before": bp.get("graceful_restart"), "after": p.get("graceful_restart")}
+        if changes:
+            result["bgp_ha"]["changed"].append({"peer": ip, "changes": changes})
+
+    # GR/NSR
+    for k in ("bgp", "isis", "ospf", "ldp"):
+        b_gr = base.get("ha", {}).get("graceful_restart", {}).get(k)
+        t_gr = target.get("ha", {}).get("graceful_restart", {}).get(k)
+        if b_gr != t_gr:
+            result["isis_ha"]["changed"].append({"protocol": k, "key": "graceful_restart", "before": b_gr, "after": t_gr})
+        b_nsr = base.get("ha", {}).get("nsr", {}).get(k)
+        t_nsr = target.get("ha", {}).get("nsr", {}).get(k)
+        if b_nsr != t_nsr:
+            result["nsr"]["changed"].append({"protocol": k, "before": b_nsr, "after": t_nsr})
+
+    return result
+
+
+def _compare_bng(base, target):
+    """Compare BNG/AAA/RADIUS/IP pool config between two parsed configs."""
+    # Collect data from parsed_data
+    base_domains = _collect_bng_domains(base)
+    target_domains = _collect_bng_domains(target)
+    base_radius = base.get("radius_servers", [])
+    target_radius = target.get("radius_servers", [])
+    base_pools = base.get("ip_pools", [])
+    target_pools = target.get("ip_pools", [])
+    base_interfaces = base.get("interfaces", [])
+    target_interfaces = target.get("interfaces", [])
+
+    # PPPoE / Virtual-Template
+    base_vts = [i for i in base_interfaces if i.get("name", "").lower().startswith("virtual-template")]
+    target_vts = [i for i in target_interfaces if i.get("name", "").lower().startswith("virtual-template")]
+
+    # HA comparison
+    ha_data = _compare_ha(base, target)
+
+    return {
+        "subscriber_domains": _compare_bng_domains(base_domains, target_domains),
+        "radius_groups": _compare_bng_radius_groups(base_radius, target_radius),
+        "ip_pools": _compare_bng_ip_pools(base_pools, target_pools),
+        "bas_interfaces": _compare_bng_bas_interfaces(base_interfaces, target_interfaces),
+        "pppoe_interfaces": _compare_pppoe_interfaces(base_interfaces, target_interfaces),
+        "virtual_templates": _compare_pppoe_virtual_templates(base_vts, target_vts),
+    } | ha_data
 
 def _compare_ipv6(base, target):
     """Compare IPv6 configuration between two parsed configs."""
@@ -722,6 +1442,77 @@ def _fmt_nat_summary(nat: dict) -> str:
     if not parts:
         return "sem mudancas"
     return ", ".join(parts)
+
+
+# ── BNG impacts ────────────────────────────────────────────────────────
+
+
+def _build_bng_impacts(bng: dict) -> list[dict]:
+    """Generate impact statements for BNG changes."""
+    impacts = []
+    bas = bng.get("bas_interfaces", {})
+    domains = bng.get("subscriber_domains", {})
+    radius = bng.get("radius_groups", {})
+    pools = bng.get("ip_pools", {})
+
+    if bas.get("added") or bas.get("removed"):
+        impacts.append({"impact": "BAS interface adicionada ou removida.", "detail": "Pode impactar autenticacao de assinantes.", "severity": "warning"})
+    for c in bas.get("changed", []):
+        ch = c.get("changes", {})
+        if "default_domain" in ch:
+            impacts.append({"impact": f"Default-domain alterado na BAS {c['name']}: {ch['default_domain']['before']} -> {ch['default_domain']['after']}.", "detail": "Pode impactar autenticacao e perfil dos assinantes.", "severity": "warning"})
+        if "authentication_method" in ch:
+            impacts.append({"impact": f"Authentication-method alterado na BAS {c['name']}: {ch['authentication_method']['before']} -> {ch['authentication_method']['after']}.", "detail": "Pode impactar metodo de login dos assinantes.", "severity": "warning"})
+        if "user_vlan" in ch:
+            impacts.append({"impact": f"User-VLAN alterada na BAS {c['name']}: {ch['user_vlan']['before']} -> {ch['user_vlan']['after']}.", "detail": "Pode impactar assinantes dessa VLAN.", "severity": "warning"})
+    if domains.get("changed"):
+        impacts.append({"impact": "Domain de assinante alterado.", "detail": "Pode impactar autenticacao, accounting ou pool de IPs.", "severity": "warning"})
+    if radius.get("changed"):
+        has_auth = any("authentication_servers" in c.get("changes", {}) for c in radius.get("changed", []))
+        has_acct = any("accounting_servers" in c.get("changes", {}) for c in radius.get("changed", []))
+        if has_auth:
+            impacts.append({"impact": "Servidor RADIUS de autenticacao alterado.", "detail": "Pode impactar login dos assinantes.", "severity": "high"})
+        if has_acct:
+            impacts.append({"impact": "Servidor RADIUS de accounting alterado.", "detail": "Pode impactar bilhetagem/controle.", "severity": "high"})
+    if pools.get("changed"):
+        impacts.append({"impact": "IP pool alterado.", "detail": "Pode impactar entrega de IP aos assinantes.", "severity": "warning"})
+
+    # PPPoE impacts
+    vt = bng.get("virtual_templates", {})
+    pppoe_if = bng.get("pppoe_interfaces", {})
+    if vt.get("changed") or vt.get("added") or vt.get("removed"):
+        impacts.append({"impact": "Virtual-Template alterada.", "detail": "Pode impactar sessoes PPPoE.", "severity": "warning"})
+    for c in vt.get("changed", []):
+        ch = c.get("changes", {})
+        if "ppp_authentication_modes" in ch:
+            impacts.append({"impact": f"PPP authentication-mode alterado na Virtual-Template {c['name']}.", "detail": "Pode impactar login dos assinantes.", "severity": "high"})
+    if pppoe_if.get("changed") or pppoe_if.get("added") or pppoe_if.get("removed"):
+        impacts.append({"impact": "PPPoE server bind alterado.", "detail": "Pode impactar autenticacao de assinantes.", "severity": "warning"})
+    for c in pppoe_if.get("changed", []):
+        ch = c.get("changes", {})
+        if "max_sessions" in ch:
+            impacts.append({"impact": f"Max-sessions alterado na PPPoE {c['name']}: {ch['max_sessions']['before']} -> {ch['max_sessions']['after']}.", "detail": "Pode impactar capacidade de acesso.", "severity": "warning"})
+        if "user_vlan" in ch:
+            impacts.append({"impact": f"User-VLAN alterada na PPPoE {c['name']}: {ch['user_vlan']['before']} -> {ch['user_vlan']['after']}.", "detail": "Pode impactar assinantes dessa VLAN.", "severity": "warning"})
+
+    # HA impacts
+    bfd = bng.get("bfd", {})
+    bgp_ha = bng.get("bgp_ha", {})
+    isis_ha = bng.get("isis_ha", {})
+    nsr = bng.get("nsr", {})
+    ldp_ha = bng.get("ldp_ha", {})
+    if bfd.get("changed") or bfd.get("added") or bfd.get("removed"):
+        impacts.append({"impact": "BFD alterado. Pode impactar tempo de convergencia.", "detail": "Sessoes BFD foram adicionadas, removidas ou alteradas.", "severity": "warning"})
+    for c in bgp_ha.get("changed", []):
+        if c.get("changes", {}).get("bfd_enabled", {}).get("after") is False:
+            impacts.append({"impact": f"BFD removido de peer BGP {c['peer']}. Falhas podem demorar mais para convergir.", "detail": "", "severity": "warning"})
+    if any(c.get("changes", {}).get("graceful_restart") for c in bgp_ha.get("changed", [])):
+        impacts.append({"impact": "Graceful Restart alterado. Pode impactar reconvergencia sem flap.", "detail": "", "severity": "warning"})
+    if nsr.get("changed"):
+        impacts.append({"impact": "NSR alterado. Pode impactar alta disponibilidade.", "detail": "", "severity": "warning"})
+    if any(c.get("key") == "graceful_restart" for c in isis_ha.get("changed", []) if c.get("protocol") == "ldp"):
+        impacts.append({"impact": "LDP GR alterado. Pode impactar estabilidade MPLS apos falha.", "detail": "", "severity": "warning"})
+    return impacts
 
 
 # ── NAT comparison ─────────────────────────────────────────────────────
@@ -2471,3 +3262,201 @@ def _fmt_qos_summary(qos: dict) -> str:
     if not parts:
         return "sem mudancas"
     return ", ".join(parts)
+
+
+# ── Multicast comparison ──────────────────────────────────────────────
+
+
+def _compare_multicast(base: dict, target: dict) -> dict:
+    """Compare multicast/PIM/IGMP/MLD configuration between two snapshots."""
+    result: dict = {
+        "global": {"added": [], "removed": [], "changed": []},
+        "pim": {"added": [], "removed": [], "changed": []},
+        "igmp": {"added": [], "removed": [], "changed": []},
+        "igmp_snooping": {"added": [], "removed": [], "changed": []},
+        "mld": {"added": [], "removed": [], "changed": []},
+        "vpn_instances": {"added": [], "removed": [], "changed": []},
+    }
+
+    b_mc = base.get("multicast", {})
+    t_mc = target.get("multicast", {})
+    b_ifaces = base.get("interfaces", [])
+    t_ifaces = target.get("interfaces", [])
+
+    # ── Global routing ────────────────────────────────────────────────
+    for key, label in [
+        ("ipv4_routing_enabled", "multicast routing IPv4"),
+        ("ipv6_routing_enabled", "multicast routing IPv6"),
+    ]:
+        bv = b_mc.get(key, False)
+        tv = t_mc.get(key, False)
+        if bv != tv:
+            result["global"]["changed"].append({"key": key, "label": label, "before": bv, "after": tv})
+
+    # ── PIM: global (static-RP, BSR, RP-candidate) ────────────────────
+    def _build_pim_key(pim_global: dict) -> dict:
+        return {
+            "static_rps": sorted(pim_global.get("static_rps", []), key=lambda x: x.get("rp_address", "") if isinstance(x, dict) else str(x)),
+            "bsr_candidates": sorted(pim_global.get("bsr_candidates", []), key=str),
+            "rp_candidates": sorted(pim_global.get("rp_candidates", []), key=lambda x: x.get("group", "") if isinstance(x, dict) else str(x)),
+            "mode": pim_global.get("mode", "sm"),
+        }
+
+    b_pim_key = _build_pim_key(b_mc.get("pim", {}).get("global", {}))
+    t_pim_key = _build_pim_key(t_mc.get("pim", {}).get("global", {}))
+    if b_pim_key != t_pim_key:
+        result["pim"]["changed"].append({"section": "global", "before": b_pim_key, "after": t_pim_key})
+
+    # PIM: interfaces
+    def _pim_key(iface: dict) -> str:
+        return iface.get("name", "")
+
+    b_pim_ifaces = {i["name"]: i for i in b_ifaces if i.get("pim_enabled")}
+    t_pim_ifaces = {i["name"]: i for i in t_ifaces if i.get("pim_enabled")}
+    b_pim_names = set(b_pim_ifaces)
+    t_pim_names = set(t_pim_ifaces)
+    for name in sorted(t_pim_names - b_pim_names):
+        result["pim"]["added"].append({"name": name, "mode": t_pim_ifaces[name].get("pim_mode")})
+    for name in sorted(b_pim_names - t_pim_names):
+        result["pim"]["removed"].append({"name": name, "mode": b_pim_ifaces[name].get("pim_mode")})
+    for name in sorted(b_pim_names & t_pim_names):
+        bi, ti = b_pim_ifaces[name], t_pim_ifaces[name]
+        changes = {}
+        for field in ["pim_mode", "pim_hello_holdtime"]:
+            if bi.get(field) != ti.get(field):
+                changes[field] = {"before": bi.get(field), "after": ti.get(field)}
+        if changes:
+            result["pim"]["changed"].append({"name": name, "changes": changes})
+
+    # ── IGMP: interfaces ──────────────────────────────────────────────
+    b_igmp = {i["name"]: i for i in b_ifaces if i.get("igmp_enabled")}
+    t_igmp = {i["name"]: i for i in t_ifaces if i.get("igmp_enabled")}
+    b_igmp_names = set(b_igmp)
+    t_igmp_names = set(t_igmp)
+    for name in sorted(t_igmp_names - b_igmp_names):
+        result["igmp"]["added"].append({"name": name, "version": t_igmp[name].get("igmp_version")})
+    for name in sorted(b_igmp_names - t_igmp_names):
+        result["igmp"]["removed"].append({"name": name, "version": b_igmp[name].get("igmp_version")})
+    for name in sorted(b_igmp_names & t_igmp_names):
+        bi, ti = b_igmp[name], t_igmp[name]
+        changes = {}
+        for field in ["igmp_version", "igmp_limit"]:
+            if bi.get(field) != ti.get(field):
+                changes[field] = {"before": bi.get(field), "after": ti.get(field)}
+        for g_field in ["igmp_static_groups", "igmp_join_groups"]:
+            bg = sorted(bi.get(g_field, []))
+            tg = sorted(ti.get(g_field, []))
+            if bg != tg:
+                changes[g_field] = {"before": bg, "after": tg}
+        if changes:
+            result["igmp"]["changed"].append({"name": name, "changes": changes})
+
+    # ── MLD: interfaces ──────────────────────────────────────────────
+    b_mld = {i["name"]: i for i in b_ifaces if i.get("mld_enabled")}
+    t_mld = {i["name"]: i for i in t_ifaces if i.get("mld_enabled")}
+    b_mld_names = set(b_mld)
+    t_mld_names = set(t_mld)
+    for name in sorted(t_mld_names - b_mld_names):
+        result["mld"]["added"].append({"name": name, "version": t_mld[name].get("mld_version")})
+    for name in sorted(b_mld_names - t_mld_names):
+        result["mld"]["removed"].append({"name": name, "version": b_mld[name].get("mld_version")})
+    for name in sorted(b_mld_names & t_mld_names):
+        bi, ti = b_mld[name], t_mld[name]
+        changes = {}
+        if bi.get("mld_version") != ti.get("mld_version"):
+            changes["mld_version"] = {"before": bi.get("mld_version"), "after": ti.get("mld_version")}
+        bg = sorted(bi.get("mld_static_groups", []))
+        tg = sorted(ti.get("mld_static_groups", []))
+        if bg != tg:
+            changes["mld_static_groups"] = {"before": bg, "after": tg}
+        if changes:
+            result["mld"]["changed"].append({"name": name, "changes": changes})
+
+    # ── IGMP snooping: global + VLANs ─────────────────────────────────
+    b_snoop_global = b_mc.get("igmp_snooping", {}).get("global_enabled", False)
+    t_snoop_global = t_mc.get("igmp_snooping", {}).get("global_enabled", False)
+    if b_snoop_global != t_snoop_global:
+        result["igmp_snooping"]["changed"].append({
+            "section": "global",
+            "field": "enabled",
+            "before": b_snoop_global,
+            "after": t_snoop_global,
+        })
+
+    b_snoop_vlans = {v["vlan_id"]: v for v in b_mc.get("igmp_snooping", {}).get("vlans", [])}
+    t_snoop_vlans = {v["vlan_id"]: v for v in t_mc.get("igmp_snooping", {}).get("vlans", [])}
+    b_vids = set(b_snoop_vlans)
+    t_vids = set(t_snoop_vlans)
+    for vid in sorted(t_vids - b_vids):
+        result["igmp_snooping"]["added"].append(t_snoop_vlans[vid])
+    for vid in sorted(b_vids - t_vids):
+        result["igmp_snooping"]["removed"].append(b_snoop_vlans[vid])
+    for vid in sorted(b_vids & t_vids):
+        bv, tv = b_snoop_vlans[vid], t_snoop_vlans[vid]
+        vchanges = {}
+        for field in ["enabled", "version", "querier_enabled"]:
+            if bv.get(field) != tv.get(field):
+                vchanges[field] = {"before": bv.get(field), "after": tv.get(field)}
+        if vchanges:
+            result["igmp_snooping"]["changed"].append({"vlan_id": vid, "changes": vchanges})
+
+    # ── VPN-instance multicast ────────────────────────────────────────
+    def _vpn_key(v: dict) -> tuple:
+        return (v.get("name", ""),)
+
+    b_vpns = {_vpn_key(v): v for v in b_mc.get("pim", {}).get("vpn_instances", [])}
+    t_vpns = {_vpn_key(v): v for v in t_mc.get("pim", {}).get("vpn_instances", [])}
+    for k in sorted(set(t_vpns) - set(b_vpns)):
+        result["vpn_instances"]["added"].append(t_vpns[k])
+    for k in sorted(set(b_vpns) - set(t_vpns)):
+        result["vpn_instances"]["removed"].append(b_vpns[k])
+    for k in sorted(set(b_vpns) & set(t_vpns)):
+        if b_vpns[k] != t_vpns[k]:
+            result["vpn_instances"]["changed"].append({"name": dict(k) if isinstance(k, tuple) and len(k) == 1 else k, "before": b_vpns[k], "after": t_vpns[k]})
+
+    return result
+
+
+def _build_multicast_impacts(multicast: dict) -> list[dict]:
+    """Build impact descriptions for multicast changes."""
+    impacts = []
+
+    for c in multicast.get("global", {}).get("changed", []):
+        impacts.append({"impact": f"Multicast {c['label']}: {c['before']} -> {c['after']}.", "detail": "Ativa/desativa roteamento multicast global.", "severity": "warning"})
+
+    for c in multicast.get("pim", {}).get("changed", []):
+        if c.get("section") == "global":
+            impacts.append({"impact": f"PIM global alterado.", "detail": "Parametros PIM (static-RP, BSR, RP-candidate) foram alterados.", "severity": "warning"})
+
+    for iface in multicast.get("pim", {}).get("added", []):
+        impacts.append({"impact": f"PIM adicionado na interface {iface.get('name')}.", "detail": "Nova interface PIM altera vizinhanca multicast.", "severity": "info"})
+    for iface in multicast.get("pim", {}).get("removed", []):
+        impacts.append({"impact": f"PIM removido da interface {iface.get('name')}.", "detail": "Interface sem PIM pode isolar vizinhanca multicast.", "severity": "warning"})
+    for iface in multicast.get("pim", {}).get("changed", []):
+        impacts.append({"impact": f"PIM alterado na interface {iface.get('name', '?')}.", "detail": "Modo/hello-holdtime PIM alterado.", "severity": "info"})
+
+    for iface in multicast.get("igmp", {}).get("added", []):
+        impacts.append({"impact": f"IGMP adicionado na interface {iface.get('name')}.", "detail": "Novos grupos multicast podem ser recebidos.", "severity": "info"})
+    for iface in multicast.get("igmp", {}).get("removed", []):
+        impacts.append({"impact": f"IGMP removido da interface {iface.get('name')}.", "detail": "Interface perde grupos multicast.", "severity": "warning"})
+    for iface in multicast.get("igmp", {}).get("changed", []):
+        impacts.append({"impact": f"IGMP alterado na interface {iface.get('name', '?')}.", "detail": "Versao ou grupos IGMP alterados.", "severity": "info"})
+
+    for vlan in multicast.get("igmp_snooping", {}).get("added", []):
+        impacts.append({"impact": f"IGMP snooping adicionado VLAN {vlan.get('vlan_id', '?')}.", "detail": "Nova VLAN com snooping.", "severity": "info"})
+    for vlan in multicast.get("igmp_snooping", {}).get("removed", []):
+        impacts.append({"impact": f"IGMP snooping removido VLAN {vlan.get('vlan_id', '?')}.", "detail": "VLAN pode inundar trafego multicast.", "severity": "warning"})
+    for vlan in multicast.get("igmp_snooping", {}).get("changed", []):
+        impacts.append({"impact": f"IGMP snooping alterado VLAN {vlan.get('vlan_id', '?')}.", "detail": "Parametros IGMP snooping alterados.", "severity": "info"})
+
+    for iface in multicast.get("mld", {}).get("added", []):
+        impacts.append({"impact": f"MLD adicionado interface {iface.get('name')}.", "detail": "Novos grupos IPv6 multicast.", "severity": "info"})
+    for iface in multicast.get("mld", {}).get("removed", []):
+        impacts.append({"impact": f"MLD removido interface {iface.get('name')}.", "detail": "Interface perde grupos IPv6 multicast.", "severity": "warning"})
+
+    for v in multicast.get("vpn_instances", {}).get("added", []):
+        impacts.append({"impact": f"VPN-instance multicast adicionado: {v.get('name', '?')}.", "detail": "Nova VPN com multicast.", "severity": "info"})
+    for v in multicast.get("vpn_instances", {}).get("removed", []):
+        impacts.append({"impact": f"VPN-instance multicast removido: {v.get('name', '?')}.", "detail": "VPN perdeu multicast.", "severity": "warning"})
+
+    return impacts

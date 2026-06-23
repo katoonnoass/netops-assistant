@@ -1,0 +1,21 @@
+#
+sysname NE40-ADVANCED-RISKY
+#
+evpn
+#
+vxlan
+#
+segment-routing ipv6
+#
+interface Tunnel0/0/99
+ tunnel-protocol mpls te
+#
+nat instance CGN-RISKY id 10
+ port-block dynamic 512
+#
+msdp
+#
+telemetry
+ sensor-group SENSOR-ONLY
+#
+return

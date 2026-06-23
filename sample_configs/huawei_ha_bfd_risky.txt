@@ -1,0 +1,66 @@
+#
+sysname NE40-HA-BFD-RISK
+#
+# BFD session sem commit
+bfd NO-COMMIT bind peer-ip 10.0.0.2 interface GigabitEthernet0/0/0
+ discriminator local 100
+ discriminator remote 200
+ min-tx-interval 300
+ min-rx-interval 300
+ detect-multiplier 3
+#
+# BFD session sem discriminator
+bfd NO-DISCRIMINATOR bind peer-ip 10.0.0.3 interface Eth-Trunk100
+ commit
+#
+# BFD session referencia interface inexistente
+bfd BAD-INTERFACE bind peer-ip 10.0.0.4 interface NonExistent0/0/0
+ commit
+#
+# BFD timers agressivos (50ms/multiplier 2)
+bfd AGGRESSIVE bind peer-ip 10.0.0.5 interface GigabitEthernet0/0/1
+ discriminator local 300
+ discriminator remote 400
+ min-tx-interval 50
+ min-rx-interval 50
+ detect-multiplier 2
+ commit
+#
+interface GigabitEthernet0/0/0
+ description CORE-LINK
+ ip address 10.0.0.1 255.255.255.252
+#
+# BGP core peer sem BFD (10.255.0.3)
+bgp 65000
+ peer 10.255.0.2 as-number 65000
+ peer 10.255.0.2 connect-interface LoopBack0
+ peer 10.255.0.2 bfd enable
+ peer 10.255.0.3 as-number 65000
+ peer 10.255.0.3 connect-interface LoopBack0
+ graceful-restart
+ #
+ ipv4-family unicast
+  peer 10.255.0.2 enable
+  peer 10.255.0.3 enable
+#
+# BFD em protocolo sem BFD global - BFD global NAO esta habilitado aqui
+# (mas os testes acima usam bfd global do arquivo basico)
+# GR sem NSR
+isis 1
+ is-level level-2
+ cost-style wide
+ network-entity 49.0001.0100.0000.0001.00
+ graceful-restart
+#
+# IGP core interface sem BFD
+interface Eth-Trunk200
+ description CORE-SEM-BFD
+ isis enable 1
+#
+# LDP sem graceful-restart
+mpls lsr-id 10.255.0.1
+mpls
+ mpls te
+#
+mpls ldp
+#

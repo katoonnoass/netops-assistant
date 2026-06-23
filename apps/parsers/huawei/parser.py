@@ -90,6 +90,13 @@ class HuaweiVRPParser(BaseParser):
         "ospfv3",
         "ip ipv6-prefix",
         "qos-profile",
+        # HA convergence
+        "bfd",
+        # Multicast
+        "pim",
+        "multicast",
+        "igmp-snooping",
+        "igmp_snooping",
     )
 
     # BNG indicator keywords
@@ -232,6 +239,21 @@ class HuaweiVRPParser(BaseParser):
             "bgp_ipv6": [],
             "vpnv6": [],
             "vpn_instances_ipv6": [],
+            "ha": {
+                "bfd": {"global_enabled": False, "sessions": []},
+                "graceful_restart": {"bgp": False, "isis": False, "ospf": False, "ldp": False},
+                "nsr": {"bgp": False, "isis": False, "ospf": False},
+                "raw_lines": [],
+            },
+            "multicast": {
+                "ipv4_routing_enabled": False,
+                "ipv6_routing_enabled": False,
+                "pim": {"global": {"static_rps": [], "bsr_candidates": [], "rp_candidates": []}, "vpn_instances": []},
+                "igmp_snooping": {"global_enabled": False, "vlans": []},
+                "vpn_instances": [],
+                "raw_lines": [],
+            },
+            "huawei_advanced": self._empty_huawei_advanced_features(),
             "raw": text,
             "block_count": 0,
         }
@@ -354,8 +376,13 @@ class HuaweiVRPParser(BaseParser):
                     result["ospfv3"].append(parsed)
             elif block["type"] == "mpls":
                 self._parse_mpls_block(block, result)
+            elif block["type"] == "multicast":
+                self._parse_multicast_block(block, result)
+            elif block["type"] == "bfd":
+                self._parse_bfd_block(block, result)
 
         # Post-process: extract ISIS/MPLS/LDP from interfaces
+        self._enrich_ha_data(result)
         self._enrich_interfaces_core(result)
 
         result["static_routes"] = self._extract_static_routes(text)
@@ -390,7 +417,208 @@ class HuaweiVRPParser(BaseParser):
         self._merge_filters_by_name(result, "as_path_filters")
         self._merge_filters_by_name(result, "community_filters")
 
+        # Post-process: collect PPPoE/Virtual-Template data
+        result["pppoe"] = self._collect_pppoe_data(result)
+
+        # Post-process: enrich multicast per-interface data
+        self._enrich_multicast(result)
+
+        # Post-process: Huawei VRP advanced feature families
+        result["huawei_advanced"] = self._parse_huawei_advanced_features(text)
+
         return result
+
+    @staticmethod
+    def _empty_huawei_advanced_features() -> dict:
+        return {
+            "evpn_vxlan": {
+                "enabled": False,
+                "evpn_enabled": False,
+                "vxlan_enabled": False,
+                "vnis": [],
+                "bridge_domains": [],
+                "nve_interfaces": [],
+                "peers": [],
+            },
+            "segment_routing": {
+                "enabled": False,
+                "srv6_enabled": False,
+                "locators": [],
+                "prefix_sids": [],
+                "global_blocks": [],
+            },
+            "mpls_te": {
+                "enabled": False,
+                "rsvp_te_enabled": False,
+                "tunnel_interfaces": [],
+                "explicit_paths": [],
+                "tunnel_policies": [],
+            },
+            "cgnat": {
+                "enabled": False,
+                "instances": [],
+                "address_groups": [],
+                "session_limits": [],
+                "port_blocks": [],
+                "logging_enabled": False,
+            },
+            "msdp": {
+                "enabled": False,
+                "peers": [],
+                "source_interfaces": [],
+                "policies": [],
+            },
+            "telemetry": {
+                "enabled": False,
+                "sensor_groups": [],
+                "destination_groups": [],
+                "subscriptions": [],
+                "grpc_enabled": False,
+                "netstream_enabled": False,
+                "sflow_enabled": False,
+            },
+            "bgp_advanced": {
+                "route_reflector_clients": [],
+                "confederation": None,
+                "add_path_enabled": False,
+                "dampening_enabled": False,
+                "load_balancing": [],
+                "route_limits": [],
+                "peer_groups": [],
+            },
+        }
+
+    def _parse_huawei_advanced_features(self, text: str) -> dict:
+        """Parse advanced VRP feature families not tied to one legacy block."""
+        data = self._empty_huawei_advanced_features()
+        lines = [line.strip() for line in text.splitlines() if line.strip() and not line.strip().startswith("#")]
+
+        def add_unique(target: list, value):
+            if value not in target:
+                target.append(value)
+
+        current_interface = None
+        for line in lines:
+            lower = line.lower()
+            interface_match = re.match(r"interface\s+(\S+)", line, re.IGNORECASE)
+            if interface_match:
+                current_interface = interface_match.group(1)
+
+            evpn = data["evpn_vxlan"]
+            if "evpn" in lower:
+                evpn["enabled"] = True
+                evpn["evpn_enabled"] = True
+            if "vxlan" in lower or re.search(r"\bvni\s+\d+", lower):
+                evpn["enabled"] = True
+                evpn["vxlan_enabled"] = True
+            for vni in re.findall(r"\b(?:vni|vxlan\s+vni)\s+(\d+)", lower):
+                add_unique(evpn["vnis"], int(vni))
+            bd_match = re.search(r"\bbridge-domain\s+(\d+)", lower)
+            if bd_match:
+                add_unique(evpn["bridge_domains"], int(bd_match.group(1)))
+            if current_interface and current_interface.lower().startswith(("nve", "vxlan")):
+                add_unique(evpn["nve_interfaces"], current_interface)
+            peer_match = re.search(r"\bpeer-ip\s+([0-9a-f:.]+)", lower)
+            if peer_match and ("vni" in lower or current_interface and current_interface.lower().startswith("nve")):
+                add_unique(evpn["peers"], peer_match.group(1))
+
+            sr = data["segment_routing"]
+            if "segment-routing" in lower or "segment routing" in lower:
+                sr["enabled"] = True
+            if "srv6" in lower or "segment-routing ipv6" in lower:
+                sr["enabled"] = True
+                sr["srv6_enabled"] = True
+            locator_match = re.search(r"\blocator\s+(\S+)(?:\s+ipv6-prefix\s+(\S+))?", line, re.IGNORECASE)
+            if locator_match:
+                add_unique(sr["locators"], {"name": locator_match.group(1), "prefix": locator_match.group(2)})
+            prefix_sid_match = re.search(r"\bprefix-sid\s+(\S+)", line, re.IGNORECASE)
+            if prefix_sid_match:
+                add_unique(sr["prefix_sids"], prefix_sid_match.group(1))
+            block_match = re.search(r"\b(?:global-block|label-block)\s+(\d+)\s+(\d+)", lower)
+            if block_match:
+                add_unique(sr["global_blocks"], {"start": int(block_match.group(1)), "end": int(block_match.group(2))})
+
+            te = data["mpls_te"]
+            if "mpls te" in lower or "tunnel-protocol mpls te" in lower:
+                te["enabled"] = True
+            if "rsvp-te" in lower or "mpls rsvp" in lower:
+                te["enabled"] = True
+                te["rsvp_te_enabled"] = True
+            if current_interface and current_interface.lower().startswith("tunnel") and "tunnel-protocol mpls te" in lower:
+                add_unique(te["tunnel_interfaces"], current_interface)
+            explicit_match = re.match(r"explicit-path\s+(\S+)", line, re.IGNORECASE)
+            if explicit_match:
+                add_unique(te["explicit_paths"], explicit_match.group(1))
+            policy_match = re.match(r"tunnel-policy\s+(\S+)", line, re.IGNORECASE)
+            if policy_match:
+                add_unique(te["tunnel_policies"], policy_match.group(1))
+
+            cgnat = data["cgnat"]
+            instance_match = re.match(r"nat\s+instance\s+(\S+)", line, re.IGNORECASE)
+            if instance_match:
+                cgnat["enabled"] = True
+                add_unique(cgnat["instances"], instance_match.group(1))
+            address_match = re.match(r"nat\s+address-group\s+(\S+)", line, re.IGNORECASE)
+            if address_match:
+                add_unique(cgnat["address_groups"], address_match.group(1))
+            if any(token in lower for token in ("port-block", "port-range-size", "port block-size")):
+                cgnat["enabled"] = True
+                add_unique(cgnat["port_blocks"], line)
+            if "session-limit" in lower or "user-session" in lower:
+                cgnat["enabled"] = True
+                add_unique(cgnat["session_limits"], line)
+            if lower.startswith("nat log") or "nat syslog" in lower:
+                cgnat["logging_enabled"] = True
+
+            msdp = data["msdp"]
+            if lower == "msdp" or lower.startswith("msdp "):
+                msdp["enabled"] = True
+            msdp_peer = re.match(r"peer\s+([0-9.]+)\s+(?:connect-interface|source-interface)", lower)
+            if msdp["enabled"] and msdp_peer:
+                add_unique(msdp["peers"], msdp_peer.group(1))
+            if msdp["enabled"] and "source-interface" in lower:
+                add_unique(msdp["source_interfaces"], line.split()[-1])
+            if msdp["enabled"] and any(token in lower for token in ("sa-policy", "import-source", "export-source")):
+                add_unique(msdp["policies"], line)
+
+            telemetry = data["telemetry"]
+            if lower == "telemetry" or lower.startswith("telemetry "):
+                telemetry["enabled"] = True
+            sensor_match = re.match(r"sensor-group\s+(\S+)", line, re.IGNORECASE)
+            destination_match = re.match(r"destination-group\s+(\S+)", line, re.IGNORECASE)
+            subscription_match = re.match(r"subscription\s+(\S+)", line, re.IGNORECASE)
+            if sensor_match:
+                telemetry["enabled"] = True
+                add_unique(telemetry["sensor_groups"], sensor_match.group(1))
+            if destination_match:
+                telemetry["enabled"] = True
+                add_unique(telemetry["destination_groups"], destination_match.group(1))
+            if subscription_match:
+                telemetry["enabled"] = True
+                add_unique(telemetry["subscriptions"], subscription_match.group(1))
+            telemetry["grpc_enabled"] |= "grpc" in lower
+            telemetry["netstream_enabled"] |= "netstream" in lower
+            telemetry["sflow_enabled"] |= lower.startswith("sflow") or " sflow" in lower
+
+            bgp = data["bgp_advanced"]
+            rr_match = re.match(r"peer\s+(\S+)\s+reflect-client", line, re.IGNORECASE)
+            if rr_match:
+                add_unique(bgp["route_reflector_clients"], rr_match.group(1))
+            confed_match = re.search(r"confederation\s+(?:id|peer-as)\s+(.+)$", line, re.IGNORECASE)
+            if confed_match:
+                bgp["confederation"] = confed_match.group(1).strip()
+            bgp["add_path_enabled"] |= "add-path" in lower
+            bgp["dampening_enabled"] |= "dampening" in lower
+            if "maximum load-balancing" in lower:
+                add_unique(bgp["load_balancing"], line)
+            route_limit_match = re.match(r"peer\s+(\S+)\s+route-limit\s+(\d+)", line, re.IGNORECASE)
+            if route_limit_match:
+                add_unique(bgp["route_limits"], {"peer": route_limit_match.group(1), "limit": int(route_limit_match.group(2))})
+            group_match = re.match(r"group\s+(\S+)\s+(internal|external)", line, re.IGNORECASE)
+            if group_match:
+                add_unique(bgp["peer_groups"], {"name": group_match.group(1), "type": group_match.group(2).lower()})
+
+        return data
 
     def _extract_sysname(self, text: str) -> str:
         """Extract the device sysname (hostname) from config."""
@@ -584,6 +812,10 @@ class HuaweiVRPParser(BaseParser):
             return "vpn_instance"
         if header_lower.startswith("nat "):
             return "nat"
+        if header_lower in ("bfd",) or header_lower.startswith("bfd "):
+            return "bfd"
+        if header_lower.startswith("pim") or header_lower.startswith("multicast") or header_lower.startswith("igmp-snooping"):
+            return "multicast"
         if header_lower.startswith("traffic classifier"):
             return "traffic_classifier"
         if header_lower.startswith("traffic behavior"):
@@ -821,6 +1053,54 @@ class HuaweiVRPParser(BaseParser):
                 parsed["arp_trigger"] = True
             if stripped == "ipv6-trigger":
                 parsed["ipv6_trigger"] = True
+
+            # ── PPPoE server per-interface ──────────────────────────
+            pppoe_bind = re.match(
+                r"^pppoe-server\s+bind\s+(?:virtual-template|Virtual-Template)\s+(\d+)",
+                stripped, re.I
+            )
+            if pppoe_bind:
+                vt_id = pppoe_bind.group(1)
+                parsed["pppoe_server"] = {
+                    "enabled": True,
+                    "virtual_template": f"Virtual-Template{vt_id}",
+                    "virtual_template_id": vt_id,
+                }
+                continue
+            ms = re.match(r"^pppoe-server\s+max-sessions\s+(\d+)", stripped, re.I)
+            if ms:
+                parsed.setdefault("pppoe_server", {}).update({
+                    "enabled": True,
+                    "max_sessions": int(ms.group(1)),
+                })
+                continue
+            # PPP authentication / keepalive / mru (for Virtual-Template interfaces)
+            ppp_auth = re.match(r"^ppp\s+authentication-mode\s+(.+)", stripped, re.I)
+            if ppp_auth:
+                parsed["ppp_authentication_modes"] = ppp_auth.group(1).strip().split()
+                continue
+            if stripped.lower().startswith("ppp keepalive"):
+                parsed["ppp_keepalive"] = True
+                continue
+            ppp_mru = re.match(r"^ppp\s+mru\s+(\d+)", stripped, re.I)
+            if ppp_mru:
+                parsed["ppp_mru"] = int(ppp_mru.group(1))
+                continue
+            # MTU (for any interface, including Virtual-Template)
+            mtu_m = re.match(r"^mtu\s+(\d+)", stripped, re.I)
+            if mtu_m:
+                parsed["mtu"] = int(mtu_m.group(1))
+                continue
+            # remote address pool (for Virtual-Template)
+            ra_pool = re.match(r"^remote\s+address\s+pool\s+(\S+)", stripped, re.I)
+            if ra_pool:
+                parsed["remote_address_pool"] = ra_pool.group(1)
+                continue
+            # ip unnumbered (for Virtual-Template)
+            ip_unn = re.match(r"^ip\s+address\s+unnumbered\s+interface\s+(\S+)", stripped, re.I)
+            if ip_unn:
+                parsed["ip_unnumbered_interface"] = ip_unn.group(1)
+                continue
 
             # ── QoS / Traffic Policy per-interface ─────────────────
             tp_match = re.match(
@@ -1184,7 +1464,8 @@ class HuaweiVRPParser(BaseParser):
         parsed = {
             "process_id": m.group(1),
             "router_id": None,
-            "raw_lines": block["lines"],
+            "raw_lines": block.get("lines", []),
+            "raw": block.get("raw", ""),
         }
         for line in block["lines"][1:]:
             stripped = line.strip()
@@ -1314,6 +1595,396 @@ class HuaweiVRPParser(BaseParser):
             if lsr_m2:
                 result["mpls"]["lsr_id"] = lsr_m2.group(1)
 
+    def _parse_bfd_block(self, block: dict, result: dict) -> None:
+        """Parse a BFD session block."""
+        header = block["header"]
+        result["ha"]["bfd"]["global_enabled"] = True
+        result["ha"]["raw_lines"].append(block.get("raw", ""))
+
+        # BFD session
+        session_m = re.match(
+            r"bfd\s+(\S+)\s+bind\s+peer-ip\s+(\S+)(?:\s+interface\s+(\S+))?",
+            header, re.I
+        )
+        if session_m:
+            name = session_m.group(1)
+            peer_ip = session_m.group(2)
+            iface = session_m.group(3)
+            session = {
+                "name": name,
+                "peer_ip": peer_ip,
+                "peer_ipv6": None,
+                "interface": iface or "",
+                "local_discriminator": None,
+                "remote_discriminator": None,
+                "min_tx_interval": None,
+                "min_rx_interval": None,
+                "detect_multiplier": None,
+                "committed": False,
+                "raw_lines": [block.get("raw", "")],
+            }
+            # Parse sub-lines
+            for line in block.get("lines", [])[1:]:
+                stripped = line.strip()
+                if not stripped or stripped == "#" or stripped == "commit":
+                    if stripped == "commit":
+                        session["committed"] = True
+                    continue
+                ld = re.match(r"discriminator\s+local\s+(\S+)", stripped, re.I)
+                if ld:
+                    session["local_discriminator"] = ld.group(1)
+                    continue
+                rd = re.match(r"discriminator\s+remote\s+(\S+)", stripped, re.I)
+                if rd:
+                    session["remote_discriminator"] = rd.group(1)
+                    continue
+                txi = re.match(r"min-tx-interval\s+(\d+)", stripped, re.I)
+                if txi:
+                    session["min_tx_interval"] = int(txi.group(1))
+                    continue
+                rxi = re.match(r"min-rx-interval\s+(\d+)", stripped, re.I)
+                if rxi:
+                    session["min_rx_interval"] = int(rxi.group(1))
+                    continue
+                dm = re.match(r"detect-multiplier\s+(\d+)", stripped, re.I)
+                if dm:
+                    session["detect_multiplier"] = int(dm.group(1))
+                    continue
+            result["ha"]["bfd"]["sessions"].append(session)
+            return
+
+        # Also try peer-ipv6 variant
+        session_v6 = re.match(
+            r"bfd\s+(\S+)\s+bind\s+peer-ipv6\s+(\S+)(?:\s+interface\s+(\S+))?",
+            header, re.I
+        )
+        if session_v6:
+            name = session_v6.group(1)
+            peer_ip = session_v6.group(2)
+            iface = session_v6.group(3)
+            session = {
+                "name": name,
+                "peer_ip": None,
+                "peer_ipv6": peer_ip,
+                "interface": iface or "",
+                "local_discriminator": None,
+                "remote_discriminator": None,
+                "min_tx_interval": None,
+                "min_rx_interval": None,
+                "detect_multiplier": None,
+                "committed": False,
+                "raw_lines": [block.get("raw", "")],
+            }
+            for line in block.get("lines", [])[1:]:
+                stripped = line.strip()
+                if stripped == "commit":
+                    session["committed"] = True
+                ld = re.match(r"discriminator\s+local\s+(\S+)", stripped, re.I)
+                if ld:
+                    session["local_discriminator"] = ld.group(1)
+                rd = re.match(r"discriminator\s+remote\s+(\S+)", stripped, re.I)
+                if rd:
+                    session["remote_discriminator"] = rd.group(1)
+            result["ha"]["bfd"]["sessions"].append(session)
+
+    def _enrich_ha_data(self, result: dict) -> None:
+        """Post-process HA data: BFD/GR/NSR in BGP, OSPF, ISIS, MPLS/LDP, interfaces."""
+        # Enrich BGP peers with BFD/GR/NSR from BGP block raw text
+        for bgp in result.get("bgp", []):
+            raw = bgp.get("raw", "")
+            for peer in bgp.get("peers", []):
+                peer_ip = peer.get("ip", "")
+                # Search peer lines in raw text
+                for line in raw.splitlines():
+                    stripped = line.strip()
+                    if not stripped.startswith(f"peer {peer_ip}"):
+                        continue
+                    sl = stripped.lower()
+                    if "bfd enable" in sl:
+                        peer["bfd_enabled"] = True
+                    bfd_timers = re.search(
+                        r"bfd\s+min-tx-interval\s+(\d+)\s+min-rx-interval\s+(\d+)\s+detect-multiplier\s+(\d+)",
+                        stripped, re.I
+                    )
+                    if bfd_timers:
+                        peer["bfd_timers"] = {
+                            "min_tx_interval": int(bfd_timers.group(1)),
+                            "min_rx_interval": int(bfd_timers.group(2)),
+                            "detect_multiplier": int(bfd_timers.group(3)),
+                        }
+                    if "graceful-restart" in sl and "timer" not in sl:
+                        peer["graceful_restart"] = True
+
+            # BGP GR/NSR/non-stop-routing global lines (not preceded by "peer")
+            for line in raw.splitlines():
+                sl = line.strip().lower()
+                if sl == "graceful-restart":
+                    result["ha"]["graceful_restart"]["bgp"] = True
+                if sl == "nsr" or "non-stop-routing" in sl:
+                    result["ha"]["nsr"]["bgp"] = True
+                    bgp["nsr_enabled"] = True
+
+        # Enrich OSPF
+        for ospf in result.get("ospf", []):
+            raw = ospf.get("raw", "")
+            for line in raw.splitlines():
+                sl = line.strip().lower()
+                if "bfd all-interfaces enable" in sl:
+                    ospf["bfd_all_interfaces"] = True
+                if sl == "graceful-restart":
+                    ospf["graceful_restart"] = True
+                    result["ha"]["graceful_restart"]["ospf"] = True
+                if sl == "nsr" or "non-stop-routing" in sl:
+                    ospf["nsr_enabled"] = True
+                    result["ha"]["nsr"]["ospf"] = True
+
+        # Enrich OSPFv3
+        for ospfv3 in result.get("ospfv3", []):
+            raw = ospfv3.get("raw", "") or "\n".join(ospfv3.get("raw_lines", []))
+            for line in raw.splitlines():
+                sl = line.strip().lower()
+                if "bfd all-interfaces enable" in sl:
+                    ospfv3["bfd_all_interfaces"] = True
+                if sl == "graceful-restart":
+                    ospfv3["graceful_restart"] = True
+                    result["ha"]["graceful_restart"]["ospf"] = True
+                if sl == "nsr" or "non-stop-routing" in sl:
+                    ospfv3["nsr_enabled"] = True
+                    result["ha"]["nsr"]["ospf"] = True
+
+        # Enrich ISIS
+        for isis in result.get("isis", []):
+            raw = isis.get("raw", "")
+            for line in raw.splitlines():
+                sl = line.strip().lower()
+                if "bfd all-interfaces enable" in sl:
+                    isis["bfd_all_interfaces"] = True
+                if sl == "graceful-restart":
+                    isis["graceful_restart"] = True
+                    result["ha"]["graceful_restart"]["isis"] = True
+                if sl == "nsr" or "non-stop-routing" in sl:
+                    isis["nsr_enabled"] = True
+                    result["ha"]["nsr"]["isis"] = True
+
+        # Enrich MPLS/LDP
+        for raw_line in result.get("mpls_ldp", {}).get("raw_lines", []):
+            for line in raw_line.splitlines():
+                sl = line.strip().lower()
+                if "graceful-restart" in sl:
+                    result["ha"]["graceful_restart"]["ldp"] = True
+                if sl == "bfd enable" or "bfd enable" in sl:
+                    result["ha"].setdefault("bfd", {}).setdefault("ldp_enabled", True)
+
+        # Enrich interfaces: BFD per-interface and OSPF/ISIS BFD
+        for iface in result.get("interfaces", []):
+            raw = iface.get("raw", "")
+            for line in raw.splitlines():
+                sl = line.strip().lower()
+                # OSPF BFD
+                if sl == "ospf bfd enable":
+                    iface["ospf_bfd_enabled"] = True
+                # OSPFv3 BFD
+                if sl == "ospfv3 bfd enable":
+                    iface["ospfv3_bfd_enabled"] = True
+                # ISIS BFD
+                if sl == "isis bfd enable":
+                    iface["isis_bfd_enabled"] = True
+                # ISIS IPv6 BFD
+                if sl == "isis ipv6 bfd enable":
+                    iface["isis_ipv6_bfd_enabled"] = True
+                # MPLS LDP BFD
+                if sl == "mpls ldp bfd enable":
+                    iface["mpls_ldp_bfd_enabled"] = True
+
+    def _parse_multicast_block(self, block: dict, result: dict) -> None:
+        """Parse a multicast/PIM/IGMP-snooping block."""
+        header = block["header"]
+        lower = header.lower()
+        mc = result["multicast"]
+        mc["raw_lines"].append(block.get("raw", ""))
+
+        if lower.startswith("multicast"):
+            if "routing-enable" in lower and "ipv6" not in lower:
+                mc["ipv4_routing_enabled"] = True
+            elif "ipv6" in lower and "routing-enable" in lower:
+                mc["ipv6_routing_enabled"] = True
+            elif "vpn-instance" in lower:
+                vpn_m = re.match(r"multicast\s+vpn-instance\s+(\S+)\s+routing-enable", header, re.I)
+                if vpn_m:
+                    name = vpn_m.group(1)
+                    existing = [v for v in mc["vpn_instances"] if v["name"] == name]
+                    if existing:
+                        existing[0]["routing_enabled"] = True
+                    else:
+                        mc["vpn_instances"].append({"name": name, "routing_enabled": True, "pim_enabled": False, "static_rps": [], "raw_lines": [block.get("raw", "")]})
+
+        elif lower.startswith("pim"):
+            pim = mc["pim"]
+            # Check for vpn-instance
+            vpn_m = re.match(r"pim\s+vpn-instance\s+(\S+)", header, re.I)
+            if vpn_m:
+                name = vpn_m.group(1)
+                existing = [v for v in pim["vpn_instances"] if v["name"] == name]
+                if not existing:
+                    entry = {"name": name, "enabled": True, "static_rps": [], "raw_lines": [block.get("raw", "")]}
+                    pim["vpn_instances"].append(entry)
+                    existing = [entry]
+                pim_entry = existing[0]
+            else:
+                pim_entry = pim["global"]
+                pim_entry.setdefault("enabled", True)
+                pim_entry.setdefault("raw_lines", [])
+                pim_entry["raw_lines"].append(block.get("raw", ""))
+
+            # Detect mode (sm, dm, ssm)
+            mode_m = re.search(r"pim\s+(sm|dm|ssm)", header, re.I)
+            if mode_m:
+                pim_entry["mode"] = mode_m.group(1)
+
+            # Parse sub-lines
+            for line in block.get("lines", [])[1:]:
+                stripped = line.strip()
+                if not stripped or stripped == "#":
+                    continue
+                sl = stripped.lower()
+                if sl.startswith("static-rp"):
+                    rp_addr = stripped[len("static-rp"):].strip().split()[0] if stripped[len("static-rp"):].strip() else ""
+                    acl = None
+                    if rp_addr:
+                        rest = stripped[len(f"static-rp {rp_addr}"):].strip()
+                        acl_match = re.search(r"acl\s+(\S+)", rest, re.I)
+                        if acl_match:
+                            acl = acl_match.group(1)
+                        pim_entry["static_rps"].append({"rp_address": rp_addr, "acl": acl})
+                elif sl.startswith("bsr-candidate") or sl.startswith("c-bsr"):
+                    iface = stripped.split()[-1]
+                    if iface and iface not in pim_entry.setdefault("bsr_candidates", []):
+                        pim_entry["bsr_candidates"].append(iface)
+                elif sl.startswith("c-rp") or sl.startswith("rp-candidate"):
+                    iface = stripped.split()[-1]
+                    if iface and iface not in pim_entry.setdefault("rp_candidates", []):
+                        pim_entry["rp_candidates"].append(iface)
+
+        elif lower.startswith("igmp-snooping") or lower.startswith("igmp_snooping"):
+            snoop = mc["igmp_snooping"]
+            # Handle single-line blocks (each igmp-snooping line is a separate block)
+            # Parse sub-lines too (in case of multi-line block)
+            lines_to_process = [header] + [l for l in block.get("lines", [])[1:] if l.strip() and l.strip() != "#"]
+            for raw_line in lines_to_process:
+                line_stripped = raw_line.strip()
+                line_lower = line_stripped.lower()
+                # Strip igmp-snooping/igmp_snooping prefix
+                for prefix in ("igmp-snooping ", "igmp_snooping "):
+                    if line_lower.startswith(prefix):
+                        line_lower = line_lower[len(prefix):]
+                        line_stripped = line_stripped[len(prefix):].strip()
+                        break
+                # Global enable
+                if line_lower == "enable":
+                    snoop["global_enabled"] = True
+                # VLAN configs
+                vlan_m = re.match(r"vlan\s+(\d+)\s+(.*)", line_stripped, re.I)
+                if vlan_m:
+                    vlan_id = vlan_m.group(1)
+                    rest = vlan_m.group(2).lower()
+                    existing = [v for v in snoop["vlans"] if v["vlan_id"] == vlan_id]
+                    if not existing:
+                        entry = {"vlan_id": vlan_id, "enabled": False, "version": None, "querier_enabled": False, "raw_lines": []}
+                        snoop["vlans"].append(entry)
+                        existing = [entry]
+                    vlan_entry = existing[0]
+                    if "enable" in rest:
+                        vlan_entry["enabled"] = True
+                    if "version" in rest:
+                        v_m = re.search(r"version\s+(\d+)", rest, re.I)
+                        if v_m:
+                            vlan_entry["version"] = int(v_m.group(1))
+                    if "querier" in rest:
+                        vlan_entry["querier_enabled"] = True
+
+    def _enrich_multicast(self, result: dict) -> None:
+        """Post-process: extract PIM/IGMP/MLD per-interface from interface raw text."""
+        mc = result["multicast"]
+        for iface in result.get("interfaces", []):
+            raw = iface.get("raw", "")
+            igmp_entry = None
+            mld_entry = None
+            pim_entry = None
+
+            for line in raw.splitlines():
+                stripped = line.strip()
+                sl = stripped.lower()
+
+                # PIM per-interface
+                if sl.startswith("pim"):
+                    mode_m = re.search(r"pim\s+(sm|dm|ssm)", sl)
+                    if mode_m:
+                        if pim_entry is None:
+                            pim_entry = {"enabled": True, "mode": mode_m.group(1), "hello_holdtime": None}
+                        iface["pim_enabled"] = True
+                        iface["pim_mode"] = mode_m.group(1)
+                    elif sl == "pim":
+                        iface["pim_enabled"] = True
+                if sl.startswith("pim hello-option holdtime"):
+                    ht = re.search(r"holdtime\s+(\d+)", sl)
+                    if ht:
+                        hold = int(ht.group(1))
+                        iface["pim_hello_holdtime"] = hold
+                        if pim_entry is not None:
+                            pim_entry["hello_holdtime"] = hold
+
+                # IGMP per-interface
+                ige = re.match(r"^igmp\s+enable", sl)
+                if ige:
+                    if igmp_entry is None:
+                        igmp_entry = {"enabled": True, "version": None, "static_groups": [], "join_groups": [], "limit": None}
+                    iface["igmp_enabled"] = True
+                igv = re.match(r"^igmp\s+version\s+(\d+)", sl)
+                if igv:
+                    ver = int(igv.group(1))
+                    iface["igmp_version"] = ver
+                    if igmp_entry is not None:
+                        igmp_entry["version"] = ver
+                igs = re.match(r"^igmp\s+(?:static-group|join-group)\s+(\S+)", sl)
+                if igs:
+                    group = igs.group(1)
+                    if igmp_entry is not None:
+                        igmp_entry.setdefault("static_groups" if "static" in sl else "join_groups", []).append(group)
+                    iface.setdefault("igmp_static_groups" if "static" in sl else "igmp_join_groups", []).append(group)
+                igl = re.match(r"^igmp\s+limit\s+(\d+)", sl)
+                if igl:
+                    lim = int(igl.group(1))
+                    iface["igmp_limit"] = lim
+                    if igmp_entry is not None:
+                        igmp_entry["limit"] = lim
+
+                # MLD per-interface
+                mlde = re.match(r"^mld\s+enable", sl)
+                if mlde:
+                    if mld_entry is None:
+                        mld_entry = {"enabled": True, "version": None, "static_groups": []}
+                    iface["mld_enabled"] = True
+                mldv = re.match(r"^mld\s+version\s+(\d+)", sl)
+                if mldv:
+                    ver = int(mldv.group(1))
+                    iface["mld_version"] = ver
+                    if mld_entry is not None:
+                        mld_entry["version"] = ver
+                mlds = re.match(r"^mld\s+static-group\s+(\S+)", sl)
+                if mlds:
+                    group = mlds.group(1)
+                    iface.setdefault("mld_static_groups", []).append(group)
+                    if mld_entry is not None:
+                        mld_entry["static_groups"].append(group)
+
+            # Store structured entries on interface
+            if pim_entry:
+                iface["pim"] = pim_entry
+            if igmp_entry:
+                iface["igmp"] = igmp_entry
+            if mld_entry:
+                iface["mld"] = mld_entry
+
     def _enrich_interfaces_core(self, result: dict) -> None:
         """Post-process interfaces to extract ISIS and MPLS/LDP sub-commands."""
         isis_process_ids = {p["process_id"] for p in result.get("isis", [])}
@@ -1348,6 +2019,13 @@ class HuaweiVRPParser(BaseParser):
                                 auth_entry["has_secret"] = True
                                 auth_entry["secret_type"] = p
                     iface["isis_authentication"] = auth_entry
+
+                # OSPF per-interface
+                ospf_en = re.match(r"^ospf\s+enable\s+(\S+)\s+area\s+(\S+)", stripped, re.I)
+                if ospf_en:
+                    iface["ospf_enabled"] = True
+                    iface["ospf_process_id"] = ospf_en.group(1)
+                    iface["ospf_area"] = ospf_en.group(2)
 
                 # MPLS per-interface
                 if sl == "mpls":
@@ -2789,6 +3467,53 @@ class HuaweiVRPParser(BaseParser):
             "type": block_type,
             "header": block["header"],
             "raw": block["raw"],
+        }
+
+    def _collect_pppoe_data(self, result: dict) -> dict:
+        """Collect PPPoE and Virtual-Template data into a structured dict."""
+        virtual_templates = []
+        pppoe_interfaces = []
+
+        for iface in result.get("interfaces", []):
+            name = iface.get("name", "")
+            # Virtual-Template interfaces
+            if name.lower().startswith("virtual-template"):
+                vt_id = ""
+                m = re.match(r"Virtual-Template(\d+)", name, re.I)
+                if m:
+                    vt_id = m.group(1)
+                virtual_templates.append({
+                    "name": name,
+                    "template_id": vt_id,
+                    "description": iface.get("description", ""),
+                    "ppp_authentication_modes": iface.get("ppp_authentication_modes", []),
+                    "ppp_keepalive": iface.get("ppp_keepalive", False),
+                    "ppp_mru": iface.get("ppp_mru"),
+                    "mtu": iface.get("mtu"),
+                    "ip_unnumbered_interface": iface.get("ip_unnumbered_interface"),
+                    "remote_address_pool": iface.get("remote_address_pool"),
+                    "ipv6_enabled": iface.get("ipv6_enabled", False),
+                    "ip_address": iface.get("ip_address"),
+                })
+
+            # Interfaces with PPPoE server bind
+            pppoe = iface.get("pppoe_server")
+            if pppoe and pppoe.get("enabled"):
+                pppoe_interfaces.append({
+                    "interface": name,
+                    "description": iface.get("description", ""),
+                    "virtual_template": pppoe.get("virtual_template"),
+                    "virtual_template_id": pppoe.get("virtual_template_id"),
+                    "max_sessions": pppoe.get("max_sessions"),
+                    "user_vlan": iface.get("user_vlan"),
+                    "qinq_vlan": iface.get("qinq_vlan"),
+                    "domain": (iface.get("bas") or {}).get("default_domain"),
+                    "authentication_method": (iface.get("bas") or {}).get("authentication_method"),
+                })
+
+        return {
+            "virtual_templates": virtual_templates,
+            "pppoe_interfaces": pppoe_interfaces,
         }
 
     def _extract_bng_indicators(self, parsed_data: dict) -> list[dict]:

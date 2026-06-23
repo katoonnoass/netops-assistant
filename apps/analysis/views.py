@@ -4,8 +4,10 @@ from django.shortcuts import get_object_or_404, render
 
 from apps.analysis.documentation import generate_analysis_documentation
 from apps.analysis.models import ParsedConfig
+from apps.core.permissions import viewer_required
 
 
+@viewer_required
 def analysis_detail(request, pk):
     """Exibe o resultado completo de uma análise."""
     parsed = get_object_or_404(
@@ -32,6 +34,7 @@ def analysis_detail(request, pk):
     return render(request, "analysis/detail.html", context)
 
 
+@viewer_required
 def analysis_documentation(request, pk):
     """Exibe a documentação automática gerada a partir da análise."""
     parsed = get_object_or_404(

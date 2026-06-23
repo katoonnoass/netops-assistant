@@ -3,6 +3,7 @@
 import os
 
 from django.conf import settings
+from django.contrib.auth.models import User
 from django.test import TestCase
 from django.urls import reverse
 
@@ -112,6 +113,11 @@ class DeviceWebTests(TestCase):
             device=cls.device, raw_config=_load_fixture("circuit_l3.txt"), vendor="huawei"
         )
         analyze_config_snapshot(snap)
+        cls.test_user = User.objects.create_user(username="devweb", password="pass123")
+
+    def setUp(self):
+        super().setUp()
+        self.client.force_login(self.test_user)
 
     def test_device_list_200(self):
         r = self.client.get(reverse("device_list"))

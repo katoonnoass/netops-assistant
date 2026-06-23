@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+{% block title %}Novo Snapshot - {{ device.name }} - NetOps Assistant{% endblock %}
+
+{% block content %}
+<div class="page-header flex justify-between items-center">
+    <div>
+        <h1>Novo Snapshot</h1>
+        <p><a href="{% url 'device_detail' device.pk %}">{{ device.name }}</a></p>
+    </div>
+    <div class="flex gap-1">
+        <a href="{% url 'device_snapshot_list' device.pk %}" class="btn btn-outline btn-sm">Voltar</a>
+    </div>
+</div>
+
+<div class="card">
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+
+        <div class="form-group">
+            <label>Equipamento</label>
+            <input type="text" class="form-control" value="{{ device.name }} ({{ device.vendor }})" readonly disabled>
+        </div>
+
+        <div class="form-group">
+            <label for="id_name">Nome do Snapshot (opcional)</label>
+            <input type="text" id="id_name" name="name" class="form-control" placeholder="Ex: Antes da mudança BGP" maxlength="255">
+            <div class="help-text">Um nome curto para identificar este snapshot.</div>
+        </div>
+
+        <div class="form-group">
+            <label for="id_raw_config">Configuração Bruta</label>
+            <textarea id="id_raw_config" name="raw_config" class="form-control" rows="15" placeholder="Cole a configuração do equipamento aqui..."></textarea>
+            <div class="help-text">Cole a configuração ou faça upload de um arquivo abaixo.</div>
+        </div>
+
+        <div class="form-group">
+            <label for="id_config_file">Ou faça upload de arquivo</label>
+            <input type="file" id="id_config_file" name="config_file" class="form-control" accept=".txt,.cfg,.conf,.log">
+            <div class="help-text">Formatos aceitos: .txt, .cfg, .conf</div>
+        </div>
+
+        <div class="form-group">
+            <label for="id_description">Descrição</label>
+            <textarea id="id_description" name="description" class="form-control" rows="3" placeholder="Motivo do snapshot, contexto da mudança..."></textarea>
+        </div>
+
+        <div class="form-group">
+            <label for="id_notes">Observações Técnicas</label>
+            <textarea id="id_notes" name="notes" class="form-control" rows="3" placeholder="Informações adicionais..."></textarea>
+        </div>
+
+        <div class="form-group">
+            <label for="id_captured_at">Data/Hora da Captura (opcional)</label>
+            <input type="datetime-local" id="id_captured_at" name="captured_at" class="form-control">
+            <div class="help-text">Quando a configuração foi capturada no equipamento.</div>
+        </div>
+
+        <div class="form-group">
+            <label class="checkbox-label">
+                <input type="checkbox" name="is_baseline" id="id_is_baseline">
+                Snapshot baseline
+            </label>
+            <div class="help-text">Snapshots baseline são usados como referência para comparações futuras.</div>
+        </div>
+
+        <div class="flex gap-1" style="margin-top:1rem;">
+            <button type="submit" class="btn btn-primary">Enviar e Analisar</button>
+            <a href="{% url 'device_snapshot_list' device.pk %}" class="btn btn-outline">Cancelar</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

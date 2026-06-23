@@ -947,6 +947,340 @@
 </div>
 {% endif %}
 
+<!-- BNG / BAS / Subscriber Access -->
+{% if doc.bng %}
+<div class="card mb-2">
+    <h3 class="section-title">BNG / BAS / Subscriber Access</h3>
+
+    <!-- Summary badges -->
+    <div class="flex gap-1" style="margin-bottom:0.75rem;flex-wrap:wrap;">
+        {% if doc.bng.bas_interfaces %}<span class="badge badge-primary">{{ doc.bng.bas_interfaces|length }} BAS interface(s)</span>{% endif %}
+        {% if doc.bng.domains %}<span class="badge badge-info">{{ doc.bng.domains|length }} domínio(s)</span>{% endif %}
+        {% if doc.bng.auth_schemes or doc.bng.acct_schemes or doc.bng.authz_schemes %}<span class="badge badge-success">AAA schemes</span>{% endif %}
+        {% if doc.bng.radius_groups %}<span class="badge badge-warning">{{ doc.bng.radius_groups|length }} RADIUS group(s)</span>{% endif %}
+        {% if doc.bng.ip_pools %}<span class="badge badge-info">{{ doc.bng.ip_pools|length }} IP pool(s)</span>{% endif %}
+    </div>
+
+    {% if doc.bng.domains %}
+    <h4 style="margin-top:0.75rem;">Domínios de Assinante</h4>
+    <table class="table" style="font-size:0.85rem;">
+        <thead><tr><th>Domínio</th><th>Auth Scheme</th><th>Acct Scheme</th><th>RADIUS Group</th><th>IP Pool</th><th>DNS</th></tr></thead>
+        <tbody>
+        {% for d in doc.bng.domains %}
+            <tr>
+                <td><strong>{{ d.name }}</strong></td>
+                <td>{{ d.authentication_scheme|default:"—" }}</td>
+                <td>{{ d.accounting_scheme|default:"—" }}</td>
+                <td>{{ d.radius_server_group|default:"—" }}</td>
+                <td>{{ d.ip_pool|default:"—" }}</td>
+                <td>{% if d.dns_primary %}{{ d.dns_primary }}{% if d.dns_secondary %}, {{ d.dns_secondary }}{% endif %}{% else %}—{% endif %}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+
+    {% if doc.bng.bas_interfaces %}
+    <h4 style="margin-top:0.75rem;">BAS Interfaces</h4>
+    {% for bi in doc.bng.bas_interfaces %}
+    <div class="card" style="margin-bottom:0.5rem;padding:0.5rem;font-size:0.85rem;border-left:4px solid var(--primary);">
+        <strong>{{ bi.name }}</strong>
+        {% if bi.description %}<span style="color:var(--text-secondary);"> — {{ bi.description }}</span>{% endif %}
+        {% if bi.user_vlan %}<span class="badge badge-info" style="margin-left:0.25rem;">VLAN {{ bi.user_vlan }}{% if bi.qinq_vlan %} QinQ {{ bi.qinq_vlan }}{% endif %}</span>{% endif %}
+        <div class="detail-grid" style="gap:0.3rem;margin-top:0.3rem;">
+            <div class="detail-item"><label>Access-Type</label><span>{{ bi.access_type|default:"—" }}</span></div>
+            <div class="detail-item"><label>Default-Domain</label><span>{{ bi.default_domain|default:"—" }}</span></div>
+            <div class="detail-item"><label>Auth-Method</label><span>{{ bi.authentication_method|default:"—" }}</span></div>
+            <div class="detail-item"><label>Triggers</label><span>{% if bi.ip_trigger %}IP {% endif %}{% if bi.arp_trigger %}ARP {% endif %}{% if bi.ipv6_trigger %}IPv6 {% endif %}{% if not bi.ip_trigger and not bi.arp_trigger and not bi.ipv6_trigger %}—{% endif %}</span></div>
+        </div>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if doc.bng.radius_groups %}
+    <h4 style="margin-top:0.75rem;">RADIUS Server Groups</h4>
+    {% for rg in doc.bng.radius_groups %}
+    <div class="card" style="margin-bottom:0.5rem;padding:0.5rem;font-size:0.85rem;border-left:4px solid var(--warning);">
+        <strong>{{ rg.name }}</strong>
+        {% if rg.has_shared_key %}<span class="badge badge-{% if rg.shared_key_type == 'simple' %}danger{% else %}info{% endif %}">shared-key: {{ rg.shared_key_type }}</span>{% endif %}
+        <div class="detail-grid" style="gap:0.3rem;margin-top:0.3rem;">
+            {% if rg.authentication_servers %}
+            <div class="detail-item"><label>Auth Servers</label>
+                <span>{% for s in rg.authentication_servers %}{{ s.ip }}:{{ s.port }} (weight {{ s.weight }}){% if not forloop.last %}; {% endif %}{% endfor %}</span>
+            </div>
+            {% endif %}
+            {% if rg.accounting_servers %}
+            <div class="detail-item"><label>Acct Servers</label>
+                <span>{% for s in rg.accounting_servers %}{{ s.ip }}:{{ s.port }} (weight {{ s.weight }}){% if not forloop.last %}; {% endif %}{% endfor %}</span>
+            </div>
+            {% endif %}
+            {% if rg.retransmit %}<div class="detail-item"><label>Retransmit</label><span>{{ rg.retransmit }}</span></div>{% endif %}
+            {% if rg.timeout %}<div class="detail-item"><label>Timeout</label><span>{{ rg.timeout }}s</span></div>{% endif %}
+        </div>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if doc.bng.ip_pools %}
+    <h4 style="margin-top:0.75rem;">IP Pools</h4>
+    {% for p in doc.bng.ip_pools %}
+    <div class="card" style="margin-bottom:0.5rem;padding:0.5rem;font-size:0.85rem;border-left:4px solid var(--info);">
+        <strong>{{ p.name }}</strong>
+        {% if p.type %}<span class="badge badge-primary">{{ p.type }}{% if p.mode %} {{ p.mode }}{% endif %}</span>{% endif %}
+        <div class="detail-grid" style="gap:0.3rem;margin-top:0.3rem;">
+            {% if p.gateway %}<div class="detail-item"><label>Gateway</label><span>{{ p.gateway }}{% if p.mask %} / {{ p.mask }}{% endif %}</span></div>{% endif %}
+            {% if p.sections %}
+            <div class="detail-item"><label>Sections</label>
+                <span>{% for sec in p.sections %}{{ sec.start_ip }} — {{ sec.end_ip }}{% if not forloop.last %}; {% endif %}{% endfor %}</span>
+            </div>
+            {% endif %}
+            {% if p.dns_servers %}<div class="detail-item"><label>DNS</label><span>{{ p.dns_servers|join:", " }}</span></div>{% endif %}
+            {% if p.lease %}<div class="detail-item"><label>Lease</label><span>{{ p.lease }}</span></div>{% endif %}
+        </div>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if doc.bng.auth_schemes or doc.bng.acct_schemes or doc.bng.authz_schemes %}
+    <h4 style="margin-top:0.75rem;">AAA Schemes</h4>
+    <div class="detail-grid" style="gap:0.3rem;">
+        {% if doc.bng.auth_schemes %}
+        <div class="detail-item"><label>Auth Schemes</label>
+            <span>{% for s in doc.bng.auth_schemes %}{{ s.name }} ({{ s.authentication_mode|join:", " }}){% if not forloop.last %}; {% endif %}{% endfor %}</span>
+        </div>
+        {% endif %}
+        {% if doc.bng.acct_schemes %}
+        <div class="detail-item"><label>Acct Schemes</label>
+            <span>{% for s in doc.bng.acct_schemes %}{{ s.name }} (modo: {{ s.accounting_mode|join:", " }}{% if s.accounting_realtime %}, realtime {{ s.accounting_realtime }}{% endif %}){% if not forloop.last %}; {% endif %}{% endfor %}</span>
+        </div>
+        {% endif %}
+        {% if doc.bng.authz_schemes %}
+        <div class="detail-item"><label>Authz Schemes</label>
+            <span>{% for s in doc.bng.authz_schemes %}{{ s.name }} ({{ s.authorization_mode|join:", " }}){% if not forloop.last %}; {% endif %}{% endfor %}</span>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- HA / BFD / Graceful Restart / NSR -->
+{% if doc.ha %}
+<div class="card mb-2">
+    <h3 class="section-title">Alta Disponibilidade / BFD / Graceful Restart / NSR</h3>
+
+    <div class="flex gap-1" style="margin-bottom:0.75rem;flex-wrap:wrap;">
+        {% if doc.ha.bfd.global_enabled %}<span class="badge badge-success">BFD Global</span>{% endif %}
+        {% if doc.ha.bfd.sessions %}<span class="badge badge-primary">{{ doc.ha.bfd.sessions|length }} sessão(ões) BFD</span>{% endif %}
+        {% if doc.ha.graceful_restart %}<span class="badge badge-info">GR: {{ doc.ha.graceful_restart|join:", " }}</span>{% endif %}
+        {% if doc.ha.nsr %}<span class="badge badge-warning">NSR: {{ doc.ha.nsr|join:", " }}</span>{% endif %}
+        {% if doc.ha.bgp_bfd_peers %}<span class="badge badge-primary">{{ doc.ha.bgp_bfd_peers|length }} peer(s) BGP com BFD</span>{% endif %}
+    </div>
+
+    {% if doc.ha.bfd.sessions %}
+    <h4 style="margin-top:0.75rem;">Sessões BFD</h4>
+    <table class="table" style="font-size:0.85rem;">
+        <thead><tr><th>Nome</th><th>Peer IP</th><th>Interface</th><th>Local Disc</th><th>Remote Disc</th><th>Tx (ms)</th><th>Rx (ms)</th><th>Mult</th><th>Commit</th></tr></thead>
+        <tbody>
+        {% for s in doc.ha.bfd.sessions %}
+            <tr>
+                <td>{{ s.name }}</td>
+                <td>{{ s.peer_ip|default:s.peer_ipv6|default:"—" }}</td>
+                <td>{{ s.interface|default:"—" }}</td>
+                <td>{{ s.local_discriminator|default:"—" }}</td>
+                <td>{{ s.remote_discriminator|default:"—" }}</td>
+                <td>{{ s.min_tx_interval|default:"—" }}</td>
+                <td>{{ s.min_rx_interval|default:"—" }}</td>
+                <td>{{ s.detect_multiplier|default:"—" }}</td>
+                <td>{% if s.committed %}<span style="color:var(--success);">Sim</span>{% else %}<span style="color:var(--danger);">Não</span>{% endif %}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+
+    {% if doc.ha.bgp_bfd_peers %}
+    <h4 style="margin-top:0.75rem;">BGP Peers com BFD</h4>
+    <ul style="font-size:0.85rem;">
+        {% for ip in doc.ha.bgp_bfd_peers %}<li><code>{{ ip }}</code></li>{% endfor %}
+    </ul>
+    {% endif %}
+
+    {% if doc.ha.bgp_gr_peers %}
+    <h4 style="margin-top:0.75rem;">BGP Peers com Graceful Restart</h4>
+    <ul style="font-size:0.85rem;">
+        {% for ip in doc.ha.bgp_gr_peers %}<li><code>{{ ip }}</code></li>{% endfor %}
+    </ul>
+    {% endif %}
+
+    {% if doc.ha.iface_bfd %}
+    <h4 style="margin-top:0.75rem;">Interfaces com BFD por Protocolo</h4>
+    <table class="table" style="font-size:0.85rem;">
+        <thead><tr><th>Interface</th><th>Protocolos com BFD</th></tr></thead>
+        <tbody>
+        {% for item in doc.ha.iface_bfd %}
+            <tr><td>{{ item.name }}</td><td>{{ item.types|join:", " }}</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- Multicast / PIM / IGMP / MLD -->
+{% if doc.multicast %}
+{% with mc=doc.multicast %}
+<div class="card mb-2">
+    <h3 class="section-title">Multicast / PIM / IGMP / MLD</h3>
+
+    <div class="flex gap-1" style="margin-bottom:0.75rem;flex-wrap:wrap;">
+        {% if mc.ipv4_routing %}<span class="badge badge-success">Multicast routing IPv4</span>{% endif %}
+        {% if mc.ipv6_routing %}<span class="badge badge-success">Multicast routing IPv6</span>{% endif %}
+        {% if mc.pim_interfaces %}<span class="badge badge-primary">{{ mc.pim_interfaces|length }} interface(s) PIM</span>{% endif %}
+        {% if mc.igmp_interfaces %}<span class="badge badge-info">{{ mc.igmp_interfaces|length }} interface(s) IGMP</span>{% endif %}
+        {% if mc.mld_interfaces %}<span class="badge badge-info">{{ mc.mld_interfaces|length }} interface(s) MLD</span>{% endif %}
+        {% if mc.igmp_snooping.vlans %}<span class="badge badge-warning">{{ mc.igmp_snooping.vlans|length }} VLAN(s) IGMP snooping</span>{% endif %}
+    </div>
+
+    {% if mc.pim_global %}
+    <h4 style="margin-top:0.75rem;">PIM Global</h4>
+    <div class="detail-grid" style="gap:0.3rem;">
+        {% if mc.pim_global.mode %}<div class="detail-item"><label>Modo</label><span>{{ mc.pim_global.mode }}</span></div>{% endif %}
+        {% if mc.pim_global.static_rps %}
+        <div class="detail-item"><label>Static RPs</label>
+            <span>{% for rp in mc.pim_global.static_rps %}<code>{{ rp.rp_address }}</code>{% if not forloop.last %}, {% endif %}{% endfor %}</span>
+        </div>
+        {% endif %}
+        {% if mc.pim_global.bsr_candidates %}
+        <div class="detail-item"><label>BSR Candidates</label>
+            <span>{{ mc.pim_global.bsr_candidates|length }} candidato(s)</span>
+        </div>
+        {% endif %}
+        {% if mc.pim_global.rp_candidates %}
+        <div class="detail-item"><label>RP Candidates</label>
+            <span>{{ mc.pim_global.rp_candidates|length }} candidato(s)</span>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% if mc.pim_interfaces %}
+    <h4 style="margin-top:0.75rem;">Interfaces PIM</h4>
+    <table class="table" style="font-size:0.85rem;">
+        <thead><tr><th>Interface</th><th>Modo</th><th>Hello-Holdtime</th></tr></thead>
+        <tbody>
+        {% for iface in mc.pim_interfaces %}
+            <tr>
+                <td>{{ iface.name }}</td>
+                <td>{{ iface.mode|default:"sm" }}</td>
+                <td>{{ iface.hello_holdtime|default:"—" }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+
+    {% if mc.igmp_interfaces %}
+    <h4 style="margin-top:0.75rem;">Interfaces IGMP</h4>
+    <table class="table" style="font-size:0.85rem;">
+        <thead><tr><th>Interface</th><th>Versão</th><th>Grupos Estáticos</th><th>Join Groups</th></tr></thead>
+        <tbody>
+        {% for iface in mc.igmp_interfaces %}
+            <tr>
+                <td>{{ iface.name }}</td>
+                <td>{{ iface.version|default:"v2" }}</td>
+                <td>{{ iface.static_groups|join:", "|default:"—" }}</td>
+                <td>{{ iface.join_groups|join:", "|default:"—" }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+
+    {% if mc.mld_interfaces %}
+    <h4 style="margin-top:0.75rem;">Interfaces MLD</h4>
+    <table class="table" style="font-size:0.85rem;">
+        <thead><tr><th>Interface</th><th>Versão</th><th>Grupos Estáticos</th></tr></thead>
+        <tbody>
+        {% for iface in mc.mld_interfaces %}
+            <tr>
+                <td>{{ iface.name }}</td>
+                <td>{{ iface.version|default:"v1" }}</td>
+                <td>{{ iface.static_groups|join:", "|default:"—" }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+
+    {% if mc.igmp_snooping.vlans %}
+    <h4 style="margin-top:0.75rem;">IGMP Snooping VLANs</h4>
+    <table class="table" style="font-size:0.85rem;">
+        <thead><tr><th>VLAN</th><th>Habilitado</th><th>Versão</th><th>Querier</th></tr></thead>
+        <tbody>
+        {% for v in mc.igmp_snooping.vlans %}
+            <tr>
+                <td>{{ v.vlan_id }}</td>
+                <td>{{ v.enabled|yesno:"Sim,Não" }}</td>
+                <td>{{ v.version|default:"—" }}</td>
+                <td>{{ v.querier_enabled|yesno:"Sim,Não" }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+</div>
+{% endwith %}
+{% endif %}
+
+<!-- PPPoE / Virtual-Template / PPP Access -->
+{% if doc.pppoe %}
+<div class="card mb-2">
+    <h3 class="section-title">PPPoE / Virtual-Template / PPP Access</h3>
+
+    <div class="flex gap-1" style="margin-bottom:0.75rem;flex-wrap:wrap;">
+        {% if doc.pppoe.virtual_templates %}<span class="badge badge-primary">{{ doc.pppoe.virtual_templates|length }} Virtual-Template(s)</span>{% endif %}
+        {% if doc.pppoe.pppoe_interfaces %}<span class="badge badge-info">{{ doc.pppoe.pppoe_interfaces|length }} PPPoE interface(s)</span>{% endif %}
+    </div>
+
+    {% if doc.pppoe.virtual_templates %}
+    <h4 style="margin-top:0.75rem;">Virtual-Templates</h4>
+    {% for vt in doc.pppoe.virtual_templates %}
+    <div class="card" style="margin-bottom:0.5rem;padding:0.5rem;font-size:0.85rem;border-left:4px solid var(--primary);">
+        <strong>{{ vt.name }}</strong>
+        {% if vt.description %}<span style="color:var(--text-secondary);"> — {{ vt.description }}</span>{% endif %}
+        <div class="detail-grid" style="gap:0.3rem;margin-top:0.3rem;">
+            <div class="detail-item"><label>PPP Auth</label><span>{{ vt.ppp_authentication_modes|join:", "|default:"—" }}</span></div>
+            {% if vt.ppp_keepalive %}<div class="detail-item"><label>Keepalive</label><span>Sim</span></div>{% endif %}
+            {% if vt.mtu %}<div class="detail-item"><label>MTU</label><span>{{ vt.mtu }}</span></div>{% endif %}
+            {% if vt.ppp_mru %}<div class="detail-item"><label>MRU</label><span>{{ vt.ppp_mru }}</span></div>{% endif %}
+            {% if vt.ip_unnumbered_interface %}<div class="detail-item"><label>IP Unnumbered</label><span>{{ vt.ip_unnumbered_interface }}</span></div>{% endif %}
+            {% if vt.remote_address_pool %}<div class="detail-item"><label>Remote Pool</label><span>{{ vt.remote_address_pool }}</span></div>{% endif %}
+            {% if vt.ipv6_enabled %}<div class="detail-item"><label>IPv6</label><span>Habilitado</span></div>{% endif %}
+        </div>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if doc.pppoe.pppoe_interfaces %}
+    <h4 style="margin-top:0.75rem;">PPPoE Server Interfaces</h4>
+    {% for pi in doc.pppoe.pppoe_interfaces %}
+    <div class="card" style="margin-bottom:0.5rem;padding:0.5rem;font-size:0.85rem;border-left:4px solid var(--info);">
+        <strong>{{ pi.name }}</strong>
+        {% if pi.description %}<span style="color:var(--text-secondary);"> — {{ pi.description }}</span>{% endif %}
+        <div class="detail-grid" style="gap:0.3rem;margin-top:0.3rem;">
+            <div class="detail-item"><label>Virtual-Template</label><span>{{ pi.virtual_template }}</span></div>
+            {% if pi.max_sessions %}<div class="detail-item"><label>Max Sessions</label><span>{{ pi.max_sessions }}</span></div>{% endif %}
+            {% if pi.user_vlan %}<div class="detail-item"><label>User-VLAN</label><span>{{ pi.user_vlan }}{% if pi.qinq_vlan %} QinQ {{ pi.qinq_vlan }}{% endif %}</span></div>{% endif %}
+            {% if pi.domain %}<div class="detail-item"><label>Domain</label><span>{{ pi.domain }}</span></div>{% endif %}
+            {% if pi.authentication_method %}<div class="detail-item"><label>Auth Method</label><span>{{ pi.authentication_method }}</span></div>{% endif %}
+        </div>
+    </div>
+    {% endfor %}
+    {% endif %}
+</div>
+{% endif %}
+
 <!-- Circuits -->
 <div class="card mb-2">
     <h3 class="section-title">Circuitos Detectados ({{ doc.circuits|length }})</h3>
@@ -1020,6 +1354,64 @@
         <p class="empty-state">Nenhum circuito detectado.</p>
     {% endif %}
 </div>
+
+{% if doc.summary.has_huawei_advanced %}
+<div class="card mb-2">
+    <h3 class="section-title">Huawei VRP Avançado</h3>
+    {% for section, data in doc.huawei_advanced.items %}
+        {% if data.enabled or data.evpn_enabled or data.vxlan_enabled or data.srv6_enabled or data.grpc_enabled or data.netstream_enabled or data.sflow_enabled or data.route_reflector_clients or data.confederation or data.add_path_enabled or data.dampening_enabled %}
+        <div class="card" style="margin-bottom:0.5rem;padding:0.75rem;border-left:4px solid var(--primary);">
+            <strong>{{ section|upper }}</strong>
+            <pre style="margin-top:0.4rem;">{{ data|pprint }}</pre>
+        </div>
+        {% endif %}
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if doc.summary.has_zte_olt %}
+<div class="card mb-2">
+    <h3 class="section-title">ZTE OLT / GPON</h3>
+    <div class="grid grid-3" style="margin-bottom:0.75rem;">
+        <div class="card"><strong>{{ doc.zte_olt.pon_ports|length }}</strong><div>Portas PON</div></div>
+        <div class="card"><strong>{{ doc.zte_olt.onus|length }}</strong><div>ONUs</div></div>
+        <div class="card"><strong>{{ doc.zte_olt.service_ports|length }}</strong><div>Service-ports</div></div>
+    </div>
+    {% if doc.zte_olt.pon_ports %}
+    <div class="table-responsive">
+        <table class="table">
+            <thead><tr><th>PON</th><th>Descrição</th><th>ONU(s)</th></tr></thead>
+            <tbody>
+            {% for pon in doc.zte_olt.pon_ports %}
+            <tr>
+                <td><strong>{{ pon.name }}</strong></td>
+                <td>{{ pon.description|default:"—" }}</td>
+                <td>{{ pon.onu_count }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+    {% if doc.zte_olt.onus %}
+    <div class="table-responsive" style="margin-top:0.75rem;">
+        <table class="table">
+            <thead><tr><th>ONU</th><th>Serial</th><th>Descrição</th><th>VLAN(s)</th></tr></thead>
+            <tbody>
+            {% for onu in doc.zte_olt.onus %}
+            <tr>
+                <td>{{ onu.interface }}</td>
+                <td>{{ onu.serial|default:"—" }}</td>
+                <td>{{ onu.description|default:onu.name|default:"—" }}</td>
+                <td>{% if onu.service_vlans %}{{ onu.service_vlans|join:", " }}{% else %}—{% endif %}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
 
 <!-- Services -->
 <div class="card mb-2">

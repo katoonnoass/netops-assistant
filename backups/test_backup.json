@@ -1,0 +1,4010 @@
+{
+  "exported_at": "2026-06-20T20:39:17.891553+00:00",
+  "version": "1.0",
+  "include_raw_config": false,
+  "data": {
+    "devices": [
+      {
+        "pk": 13,
+        "name": "BEFORE",
+        "vendor": "huawei",
+        "platform": "",
+        "role": "",
+        "site": "",
+        "ip_address": null,
+        "hostname": "",
+        "description": "",
+        "created_at": "2026-06-19T17:49:22.572844+00:00",
+        "updated_at": "2026-06-19T17:49:22.572844+00:00"
+      },
+      {
+        "pk": 7,
+        "name": "CISCO-DIFF",
+        "vendor": "cisco_ios",
+        "platform": "",
+        "role": "",
+        "site": "",
+        "ip_address": null,
+        "hostname": "",
+        "description": "",
+        "created_at": "2026-06-19T15:13:33.603218+00:00",
+        "updated_at": "2026-06-19T15:13:33.603218+00:00"
+      },
+      {
+        "pk": 6,
+        "name": "CISCO-TESTE",
+        "vendor": "cisco_ios",
+        "platform": "",
+        "role": "",
+        "site": "",
+        "ip_address": null,
+        "hostname": "",
+        "description": "",
+        "created_at": "2026-06-19T15:12:24.743035+00:00",
+        "updated_at": "2026-06-19T15:12:24.743035+00:00"
+      },
+      {
+        "pk": 16,
+        "name": "HA-ISS-TEST",
+        "vendor": "huawei",
+        "platform": "",
+        "role": "",
+        "site": "",
+        "ip_address": null,
+        "hostname": "",
+        "description": "",
+        "created_at": "2026-06-20T04:38:36.356946+00:00",
+        "updated_at": "2026-06-20T04:38:36.356946+00:00"
+      },
+      {
+        "pk": 10,
+        "name": "NE40-MGMT-DIFF",
+        "vendor": "huawei",
+        "platform": "",
+        "role": "",
+        "site": "",
+        "ip_address": null,
+        "hostname": "",
+        "description": "",
+        "created_at": "2026-06-19T15:38:25.713979+00:00",
+        "updated_at": "2026-06-19T15:38:25.713979+00:00"
+      },
+      {
+        "pk": 9,
+        "name": "NE40-MGMT-RISCO",
+        "vendor": "huawei",
+        "platform": "",
+        "role": "",
+        "site": "",
+        "ip_address": null,
+        "hostname": "",
+        "description": "",
+        "created_at": "2026-06-19T15:38:05.792207+00:00",
+        "updated_at": "2026-06-19T15:38:05.792207+00:00"
+      },
+      {
+        "pk": 8,
+        "name": "NE40-MGMT-TESTE",
+        "vendor": "huawei",
+        "platform": "",
+        "role": "",
+        "site": "",
+        "ip_address": null,
+        "hostname": "",
+        "description": "",
+        "created_at": "2026-06-19T15:34:34.892736+00:00",
+        "updated_at": "2026-06-19T15:34:34.892736+00:00"
+      },
+      {
+        "pk": 11,
+        "name": "NE40-POLICY",
+        "vendor": "huawei",
+        "platform": "",
+        "role": "",
+        "site": "",
+        "ip_address": null,
+        "hostname": "",
+        "description": "",
+        "created_at": "2026-06-19T17:26:17.485384+00:00",
+        "updated_at": "2026-06-19T17:26:17.485384+00:00"
+      },
+      {
+        "pk": 12,
+        "name": "NE40-RISK",
+        "vendor": "huawei",
+        "platform": "",
+        "role": "",
+        "site": "",
+        "ip_address": null,
+        "hostname": "",
+        "description": "",
+        "created_at": "2026-06-19T17:26:28.017850+00:00",
+        "updated_at": "2026-06-19T17:26:28.017850+00:00"
+      },
+      {
+        "pk": 1,
+        "name": "NE40-TESTE",
+        "vendor": "huawei",
+        "platform": "",
+        "role": "",
+        "site": "",
+        "ip_address": null,
+        "hostname": "",
+        "description": "",
+        "created_at": "2026-06-19T12:58:16.409013+00:00",
+        "updated_at": "2026-06-19T12:58:16.409013+00:00"
+      },
+      {
+        "pk": 2,
+        "name": "NE40-TESTE2",
+        "vendor": "huawei",
+        "platform": "",
+        "role": "",
+        "site": "",
+        "ip_address": null,
+        "hostname": "",
+        "description": "",
+        "created_at": "2026-06-19T12:58:49.119396+00:00",
+        "updated_at": "2026-06-19T12:58:49.119396+00:00"
+      },
+      {
+        "pk": 5,
+        "name": "ROTEADOR-SEARCH-DEMO",
+        "vendor": "huawei",
+        "platform": "",
+        "role": "",
+        "site": "",
+        "ip_address": null,
+        "hostname": "",
+        "description": "",
+        "created_at": "2026-06-19T14:53:15.557217+00:00",
+        "updated_at": "2026-06-19T14:53:15.557217+00:00"
+      },
+      {
+        "pk": 3,
+        "name": "ROTEADOR-TRANSITO",
+        "vendor": "huawei",
+        "platform": "",
+        "role": "",
+        "site": "",
+        "ip_address": null,
+        "hostname": "",
+        "description": "",
+        "created_at": "2026-06-19T12:58:56.382024+00:00",
+        "updated_at": "2026-06-19T12:58:56.382024+00:00"
+      },
+      {
+        "pk": 14,
+        "name": "TESTE-OSPF",
+        "vendor": "huawei",
+        "platform": "",
+        "role": "",
+        "site": "",
+        "ip_address": null,
+        "hostname": "TESTE-OSPF",
+        "description": "",
+        "created_at": "2026-06-19T19:12:41.888107+00:00",
+        "updated_at": "2026-06-19T19:12:41.888107+00:00"
+      },
+      {
+        "pk": 15,
+        "name": "TESTE-OSPF2",
+        "vendor": "huawei",
+        "platform": "",
+        "role": "",
+        "site": "",
+        "ip_address": null,
+        "hostname": "TESTE-OSPF2",
+        "description": "",
+        "created_at": "2026-06-19T19:12:49.336767+00:00",
+        "updated_at": "2026-06-19T19:12:49.336767+00:00"
+      },
+      {
+        "pk": 4,
+        "name": "VALIDA-FIX",
+        "vendor": "huawei",
+        "platform": "",
+        "role": "",
+        "site": "",
+        "ip_address": null,
+        "hostname": "",
+        "description": "",
+        "created_at": "2026-06-19T13:00:11.922717+00:00",
+        "updated_at": "2026-06-19T13:00:11.922717+00:00"
+      }
+    ],
+    "snapshots": [
+      {
+        "pk": 26,
+        "device_id": 16,
+        "name": "",
+        "config_hash": "",
+        "vendor": "huawei",
+        "source": "paste",
+        "captured_at": null,
+        "is_baseline": false,
+        "notes": "",
+        "description": "",
+        "created_at": "2026-06-20T04:38:36.363514+00:00"
+      },
+      {
+        "pk": 25,
+        "device_id": 15,
+        "name": "",
+        "config_hash": "",
+        "vendor": "huawei",
+        "source": "upload",
+        "captured_at": null,
+        "is_baseline": false,
+        "notes": "",
+        "description": "",
+        "created_at": "2026-06-19T19:12:49.349056+00:00"
+      },
+      {
+        "pk": 24,
+        "device_id": 14,
+        "name": "",
+        "config_hash": "",
+        "vendor": "huawei",
+        "source": "upload",
+        "captured_at": null,
+        "is_baseline": false,
+        "notes": "",
+        "description": "",
+        "created_at": "2026-06-19T19:12:41.894413+00:00"
+      },
+      {
+        "pk": 23,
+        "device_id": null,
+        "name": "",
+        "config_hash": "",
+        "vendor": "huawei",
+        "source": "paste",
+        "captured_at": null,
+        "is_baseline": false,
+        "notes": "",
+        "description": "",
+        "created_at": "2026-06-19T18:45:18.625257+00:00"
+      },
+      {
+        "pk": 22,
+        "device_id": 13,
+        "name": "",
+        "config_hash": "",
+        "vendor": "huawei",
+        "source": "upload",
+        "captured_at": null,
+        "is_baseline": false,
+        "notes": "Importado de: sample_configs/huawei_policy_change_before.txt",
+        "description": "",
+        "created_at": "2026-06-19T17:49:22.581864+00:00"
+      },
+      {
+        "pk": 21,
+        "device_id": null,
+        "name": "",
+        "config_hash": "",
+        "vendor": "huawei",
+        "source": "paste",
+        "captured_at": null,
+        "is_baseline": false,
+        "notes": "",
+        "description": "",
+        "created_at": "2026-06-19T17:37:10.395157+00:00"
+      },
+      {
+        "pk": 20,
+        "device_id": 12,
+        "name": "",
+        "config_hash": "",
+        "vendor": "huawei",
+        "source": "upload",
+        "captured_at": null,
+        "is_baseline": false,
+        "notes": "Importado de: sample_configs/huawei_policy_risky.txt",
+        "description": "",
+        "created_at": "2026-06-19T17:31:03.818172+00:00"
+      },
+      {
+        "pk": 19,
+        "device_id": 11,
+        "name": "",
+        "config_hash": "",
+        "vendor": "huawei",
+        "source": "upload",
+        "captured_at": null,
+        "is_baseline": false,
+        "notes": "Importado de: sample_configs/huawei_policy_basic.txt",
+        "description": "",
+        "created_at": "2026-06-19T17:30:45.678077+00:00"
+      },
+      {
+        "pk": 18,
+        "device_id": 11,
+        "name": "",
+        "config_hash": "",
+        "vendor": "huawei",
+        "source": "upload",
+        "captured_at": null,
+        "is_baseline": false,
+        "notes": "Importado de: sample_configs/huawei_policy_basic.txt",
+        "description": "",
+        "created_at": "2026-06-19T17:29:55.982598+00:00"
+      },
+      {
+        "pk": 17,
+        "device_id": 11,
+        "name": "",
+        "config_hash": "",
+        "vendor": "huawei",
+        "source": "upload",
+        "captured_at": null,
+        "is_baseline": false,
+        "notes": "Importado de: sample_configs/huawei_policy_basic.txt",
+        "description": "",
+        "created_at": "2026-06-19T17:29:08.322575+00:00"
+      },
+      {
+        "pk": 16,
+        "device_id": 12,
+        "name": "",
+        "config_hash": "",
+        "vendor": "huawei",
+        "source": "upload",
+        "captured_at": null,
+        "is_baseline": false,
+        "notes": "Importado de: sample_configs/huawei_policy_risky.txt",
+        "description": "",
+        "created_at": "2026-06-19T17:26:28.017850+00:00"
+      },
+      {
+        "pk": 15,
+        "device_id": 11,
+        "name": "",
+        "config_hash": "",
+        "vendor": "huawei",
+        "source": "upload",
+        "captured_at": null,
+        "is_baseline": false,
+        "notes": "Importado de: sample_configs/huawei_policy_basic.txt",
+        "description": "",
+        "created_at": "2026-06-19T17:26:17.485384+00:00"
+      },
+      {
+        "pk": 14,
+        "device_id": 10,
+        "name": "",
+        "config_hash": "",
+        "vendor": "huawei",
+        "source": "upload",
+        "captured_at": null,
+        "is_baseline": false,
+        "notes": "Alvo para comparação",
+        "description": "",
+        "created_at": "2026-06-19T15:38:25.732111+00:00"
+      },
+      {
+        "pk": 13,
+        "device_id": 10,
+        "name": "",
+        "config_hash": "",
+        "vendor": "huawei",
+        "source": "upload",
+        "captured_at": null,
+        "is_baseline": false,
+        "notes": "Base para comparação",
+        "description": "",
+        "created_at": "2026-06-19T15:38:25.713979+00:00"
+      },
+      {
+        "pk": 12,
+        "device_id": 9,
+        "name": "",
+        "config_hash": "",
+        "vendor": "huawei",
+        "source": "upload",
+        "captured_at": null,
+        "is_baseline": false,
+        "notes": "Importado de: sample_configs\\huawei_management_risky.txt",
+        "description": "",
+        "created_at": "2026-06-19T15:38:05.826868+00:00"
+      },
+      {
+        "pk": 11,
+        "device_id": 8,
+        "name": "",
+        "config_hash": "",
+        "vendor": "huawei",
+        "source": "upload",
+        "captured_at": null,
+        "is_baseline": false,
+        "notes": "Importado de: sample_configs\\huawei_management_snmp_ntp_syslog.txt",
+        "description": "",
+        "created_at": "2026-06-19T15:37:56.529195+00:00"
+      },
+      {
+        "pk": 10,
+        "device_id": 8,
+        "name": "",
+        "config_hash": "",
+        "vendor": "huawei",
+        "source": "upload",
+        "captured_at": null,
+        "is_baseline": false,
+        "notes": "Importado de: sample_configs\\huawei_management_snmp_ntp_syslog.txt",
+        "description": "",
+        "created_at": "2026-06-19T15:34:34.900734+00:00"
+      },
+      {
+        "pk": 9,
+        "device_id": 7,
+        "name": "",
+        "config_hash": "",
+        "vendor": "cisco_ios",
+        "source": "upload",
+        "captured_at": null,
+        "is_baseline": false,
+        "notes": "Alvo para comparação",
+        "description": "",
+        "created_at": "2026-06-19T15:13:33.615213+00:00"
+      },
+      {
+        "pk": 8,
+        "device_id": 7,
+        "name": "",
+        "config_hash": "",
+        "vendor": "cisco_ios",
+        "source": "upload",
+        "captured_at": null,
+        "is_baseline": false,
+        "notes": "Base para comparação",
+        "description": "",
+        "created_at": "2026-06-19T15:13:33.611214+00:00"
+      },
+      {
+        "pk": 7,
+        "device_id": 6,
+        "name": "",
+        "config_hash": "",
+        "vendor": "cisco_ios",
+        "source": "upload",
+        "captured_at": null,
+        "is_baseline": false,
+        "notes": "Importado de: sample_configs\\cisco_ios_l3_transit.txt",
+        "description": "",
+        "created_at": "2026-06-19T15:13:15.863925+00:00"
+      },
+      {
+        "pk": 6,
+        "device_id": 6,
+        "name": "",
+        "config_hash": "",
+        "vendor": "cisco_ios",
+        "source": "upload",
+        "captured_at": null,
+        "is_baseline": false,
+        "notes": "Importado de: sample_configs\\cisco_ios_l3_transit.txt",
+        "description": "",
+        "created_at": "2026-06-19T15:12:24.749033+00:00"
+      },
+      {
+        "pk": 5,
+        "device_id": 5,
+        "name": "",
+        "config_hash": "",
+        "vendor": "huawei",
+        "source": "upload",
+        "captured_at": null,
+        "is_baseline": false,
+        "notes": "Importado de: sample_configs/huawei_search_demo.txt",
+        "description": "",
+        "created_at": "2026-06-19T14:53:15.564216+00:00"
+      },
+      {
+        "pk": 4,
+        "device_id": 4,
+        "name": "",
+        "config_hash": "",
+        "vendor": "huawei",
+        "source": "upload",
+        "captured_at": null,
+        "is_baseline": false,
+        "notes": "Importado de: apps\\analysis\\tests\\fixtures\\circuit_l3.txt",
+        "description": "",
+        "created_at": "2026-06-19T13:00:11.934948+00:00"
+      },
+      {
+        "pk": 3,
+        "device_id": 3,
+        "name": "",
+        "config_hash": "",
+        "vendor": "huawei",
+        "source": "upload",
+        "captured_at": null,
+        "is_baseline": false,
+        "notes": "Importado de: apps\\analysis\\tests\\fixtures\\circuit_l3.txt",
+        "description": "",
+        "created_at": "2026-06-19T12:58:56.392022+00:00"
+      },
+      {
+        "pk": 2,
+        "device_id": 2,
+        "name": "",
+        "config_hash": "",
+        "vendor": "huawei",
+        "source": "upload",
+        "captured_at": null,
+        "is_baseline": false,
+        "notes": "Importado de: apps\\parsers\\huawei\\tests\\fixtures\\sample_config.txt",
+        "description": "",
+        "created_at": "2026-06-19T12:58:49.134391+00:00"
+      },
+      {
+        "pk": 1,
+        "device_id": 1,
+        "name": "",
+        "config_hash": "",
+        "vendor": "huawei",
+        "source": "upload",
+        "captured_at": null,
+        "is_baseline": false,
+        "notes": "Importado de: apps\\parsers\\huawei\\tests\\fixtures\\sample_config.txt",
+        "description": "",
+        "created_at": "2026-06-19T12:58:16.420008+00:00"
+      }
+    ],
+    "parsed_configs": [
+      {
+        "pk": 27,
+        "snapshot_id": 26,
+        "parser_version": "1.0",
+        "created_at": "2026-06-20T04:38:36.373136+00:00",
+        "parsed_data_keys": [
+          "vendor",
+          "sysname",
+          "blocks",
+          "interfaces",
+          "bgp",
+          "vsi",
+          "static_routes",
+          "aaa",
+          "radius_servers",
+          "aaa_domains",
+          "ip_pools",
+          "bas_interfaces",
+          "auth_schemes",
+          "acct_schemes",
+          "bng_indicators",
+          "snmp",
+          "ntp",
+          "syslog",
+          "local_users",
+          "vty_lines",
+          "prefix_lists",
+          "route_policies",
+          "acls",
+          "as_path_filters",
+          "community_filters",
+          "ssh",
+          "management_access",
+          "vlans",
+          "stp",
+          "ospf",
+          "isis",
+          "mpls",
+          "mpls_ldp",
+          "vpn_instances",
+          "qos",
+          "nat",
+          "ipv6_static_routes",
+          "ipv6_prefix_lists",
+          "ospfv3",
+          "bgp_ipv6",
+          "vpnv6",
+          "vpn_instances_ipv6",
+          "ha",
+          "raw",
+          "block_count",
+          "pppoe"
+        ]
+      },
+      {
+        "pk": 26,
+        "snapshot_id": 25,
+        "parser_version": "1.0",
+        "created_at": "2026-06-19T19:12:49.366506+00:00",
+        "parsed_data_keys": [
+          "vendor",
+          "sysname",
+          "blocks",
+          "interfaces",
+          "bgp",
+          "vsi",
+          "static_routes",
+          "aaa",
+          "radius_servers",
+          "aaa_domains",
+          "ip_pools",
+          "bas_interfaces",
+          "auth_schemes",
+          "acct_schemes",
+          "bng_indicators",
+          "snmp",
+          "ntp",
+          "syslog",
+          "local_users",
+          "vty_lines",
+          "prefix_lists",
+          "route_policies",
+          "acls",
+          "as_path_filters",
+          "community_filters",
+          "ssh",
+          "management_access",
+          "vlans",
+          "stp",
+          "ospf",
+          "raw",
+          "block_count"
+        ]
+      },
+      {
+        "pk": 25,
+        "snapshot_id": 24,
+        "parser_version": "1.0",
+        "created_at": "2026-06-19T19:12:41.912533+00:00",
+        "parsed_data_keys": [
+          "vendor",
+          "sysname",
+          "blocks",
+          "interfaces",
+          "bgp",
+          "vsi",
+          "static_routes",
+          "aaa",
+          "radius_servers",
+          "aaa_domains",
+          "ip_pools",
+          "bas_interfaces",
+          "auth_schemes",
+          "acct_schemes",
+          "bng_indicators",
+          "snmp",
+          "ntp",
+          "syslog",
+          "local_users",
+          "vty_lines",
+          "prefix_lists",
+          "route_policies",
+          "acls",
+          "as_path_filters",
+          "community_filters",
+          "ssh",
+          "management_access",
+          "vlans",
+          "stp",
+          "ospf",
+          "raw",
+          "block_count"
+        ]
+      },
+      {
+        "pk": 24,
+        "snapshot_id": 23,
+        "parser_version": "1.0",
+        "created_at": "2026-06-19T18:45:18.643371+00:00",
+        "parsed_data_keys": [
+          "vendor",
+          "sysname",
+          "blocks",
+          "interfaces",
+          "bgp",
+          "vsi",
+          "static_routes",
+          "aaa",
+          "radius_servers",
+          "aaa_domains",
+          "ip_pools",
+          "bas_interfaces",
+          "auth_schemes",
+          "acct_schemes",
+          "bng_indicators",
+          "snmp",
+          "ntp",
+          "syslog",
+          "local_users",
+          "vty_lines",
+          "prefix_lists",
+          "route_policies",
+          "acls",
+          "as_path_filters",
+          "community_filters",
+          "ssh",
+          "management_access",
+          "vlans",
+          "stp",
+          "raw",
+          "block_count"
+        ]
+      },
+      {
+        "pk": 23,
+        "snapshot_id": 22,
+        "parser_version": "1.0",
+        "created_at": "2026-06-19T17:51:45.938985+00:00",
+        "parsed_data_keys": [
+          "vendor",
+          "sysname",
+          "blocks",
+          "interfaces",
+          "bgp",
+          "vsi",
+          "static_routes",
+          "aaa",
+          "radius_servers",
+          "aaa_domains",
+          "ip_pools",
+          "bas_interfaces",
+          "auth_schemes",
+          "acct_schemes",
+          "bng_indicators",
+          "snmp",
+          "ntp",
+          "syslog",
+          "local_users",
+          "vty_lines",
+          "prefix_lists",
+          "route_policies",
+          "acls",
+          "as_path_filters",
+          "community_filters",
+          "ssh",
+          "management_access",
+          "vlans",
+          "stp",
+          "raw",
+          "block_count"
+        ]
+      },
+      {
+        "pk": 21,
+        "snapshot_id": 21,
+        "parser_version": "1.0",
+        "created_at": "2026-06-19T17:37:10.423152+00:00",
+        "parsed_data_keys": [
+          "vendor",
+          "sysname",
+          "blocks",
+          "interfaces",
+          "bgp",
+          "vsi",
+          "static_routes",
+          "aaa",
+          "radius_servers",
+          "aaa_domains",
+          "ip_pools",
+          "bas_interfaces",
+          "auth_schemes",
+          "acct_schemes",
+          "bng_indicators",
+          "snmp",
+          "ntp",
+          "syslog",
+          "local_users",
+          "vty_lines",
+          "prefix_lists",
+          "route_policies",
+          "acls",
+          "ssh",
+          "management_access",
+          "vlans",
+          "stp",
+          "raw",
+          "block_count"
+        ]
+      },
+      {
+        "pk": 20,
+        "snapshot_id": 20,
+        "parser_version": "1.0",
+        "created_at": "2026-06-19T17:31:03.838165+00:00",
+        "parsed_data_keys": [
+          "vendor",
+          "sysname",
+          "blocks",
+          "interfaces",
+          "bgp",
+          "vsi",
+          "static_routes",
+          "aaa",
+          "radius_servers",
+          "aaa_domains",
+          "ip_pools",
+          "bas_interfaces",
+          "auth_schemes",
+          "acct_schemes",
+          "bng_indicators",
+          "snmp",
+          "ntp",
+          "syslog",
+          "local_users",
+          "vty_lines",
+          "prefix_lists",
+          "route_policies",
+          "acls",
+          "ssh",
+          "management_access",
+          "vlans",
+          "stp",
+          "raw",
+          "block_count"
+        ]
+      },
+      {
+        "pk": 19,
+        "snapshot_id": 19,
+        "parser_version": "1.0",
+        "created_at": "2026-06-19T17:30:45.697216+00:00",
+        "parsed_data_keys": [
+          "vendor",
+          "sysname",
+          "blocks",
+          "interfaces",
+          "bgp",
+          "vsi",
+          "static_routes",
+          "aaa",
+          "radius_servers",
+          "aaa_domains",
+          "ip_pools",
+          "bas_interfaces",
+          "auth_schemes",
+          "acct_schemes",
+          "bng_indicators",
+          "snmp",
+          "ntp",
+          "syslog",
+          "local_users",
+          "vty_lines",
+          "prefix_lists",
+          "route_policies",
+          "acls",
+          "ssh",
+          "management_access",
+          "vlans",
+          "stp",
+          "raw",
+          "block_count"
+        ]
+      },
+      {
+        "pk": 18,
+        "snapshot_id": 18,
+        "parser_version": "1.0",
+        "created_at": "2026-06-19T17:29:55.997599+00:00",
+        "parsed_data_keys": [
+          "vendor",
+          "sysname",
+          "blocks",
+          "interfaces",
+          "bgp",
+          "vsi",
+          "static_routes",
+          "aaa",
+          "radius_servers",
+          "aaa_domains",
+          "ip_pools",
+          "bas_interfaces",
+          "auth_schemes",
+          "acct_schemes",
+          "bng_indicators",
+          "snmp",
+          "ntp",
+          "syslog",
+          "local_users",
+          "vty_lines",
+          "prefix_lists",
+          "route_policies",
+          "acls",
+          "ssh",
+          "management_access",
+          "vlans",
+          "stp",
+          "raw",
+          "block_count"
+        ]
+      },
+      {
+        "pk": 17,
+        "snapshot_id": 17,
+        "parser_version": "1.0",
+        "created_at": "2026-06-19T17:29:08.361713+00:00",
+        "parsed_data_keys": [
+          "vendor",
+          "sysname",
+          "blocks",
+          "interfaces",
+          "bgp",
+          "vsi",
+          "static_routes",
+          "aaa",
+          "radius_servers",
+          "aaa_domains",
+          "ip_pools",
+          "bas_interfaces",
+          "auth_schemes",
+          "acct_schemes",
+          "bng_indicators",
+          "snmp",
+          "ntp",
+          "syslog",
+          "local_users",
+          "vty_lines",
+          "prefix_lists",
+          "route_policies",
+          "acls",
+          "ssh",
+          "management_access",
+          "vlans",
+          "stp",
+          "raw",
+          "block_count"
+        ]
+      },
+      {
+        "pk": 16,
+        "snapshot_id": 16,
+        "parser_version": "1.0",
+        "created_at": "2026-06-19T17:26:28.033483+00:00",
+        "parsed_data_keys": [
+          "vendor",
+          "sysname",
+          "blocks",
+          "interfaces",
+          "bgp",
+          "vsi",
+          "static_routes",
+          "aaa",
+          "radius_servers",
+          "aaa_domains",
+          "ip_pools",
+          "bas_interfaces",
+          "auth_schemes",
+          "acct_schemes",
+          "bng_indicators",
+          "snmp",
+          "ntp",
+          "syslog",
+          "local_users",
+          "vty_lines",
+          "prefix_lists",
+          "route_policies",
+          "acls",
+          "ssh",
+          "management_access",
+          "vlans",
+          "stp",
+          "raw",
+          "block_count"
+        ]
+      },
+      {
+        "pk": 15,
+        "snapshot_id": 15,
+        "parser_version": "1.0",
+        "created_at": "2026-06-19T17:26:17.498919+00:00",
+        "parsed_data_keys": [
+          "vendor",
+          "sysname",
+          "blocks",
+          "interfaces",
+          "bgp",
+          "vsi",
+          "static_routes",
+          "aaa",
+          "radius_servers",
+          "aaa_domains",
+          "ip_pools",
+          "bas_interfaces",
+          "auth_schemes",
+          "acct_schemes",
+          "bng_indicators",
+          "snmp",
+          "ntp",
+          "syslog",
+          "local_users",
+          "vty_lines",
+          "prefix_lists",
+          "route_policies",
+          "acls",
+          "ssh",
+          "management_access",
+          "vlans",
+          "stp",
+          "raw",
+          "block_count"
+        ]
+      },
+      {
+        "pk": 14,
+        "snapshot_id": 14,
+        "parser_version": "1.0",
+        "created_at": "2026-06-19T15:38:25.814281+00:00",
+        "parsed_data_keys": [
+          "vendor",
+          "sysname",
+          "blocks",
+          "interfaces",
+          "bgp",
+          "vsi",
+          "static_routes",
+          "aaa",
+          "radius_servers",
+          "aaa_domains",
+          "ip_pools",
+          "bas_interfaces",
+          "auth_schemes",
+          "acct_schemes",
+          "bng_indicators",
+          "snmp",
+          "ntp",
+          "syslog",
+          "local_users",
+          "vty_lines",
+          "ssh",
+          "management_access",
+          "raw",
+          "block_count"
+        ]
+      },
+      {
+        "pk": 13,
+        "snapshot_id": 13,
+        "parser_version": "1.0",
+        "created_at": "2026-06-19T15:38:25.747744+00:00",
+        "parsed_data_keys": [
+          "vendor",
+          "sysname",
+          "blocks",
+          "interfaces",
+          "bgp",
+          "vsi",
+          "static_routes",
+          "aaa",
+          "radius_servers",
+          "aaa_domains",
+          "ip_pools",
+          "bas_interfaces",
+          "auth_schemes",
+          "acct_schemes",
+          "bng_indicators",
+          "snmp",
+          "ntp",
+          "syslog",
+          "local_users",
+          "vty_lines",
+          "ssh",
+          "management_access",
+          "raw",
+          "block_count"
+        ]
+      },
+      {
+        "pk": 12,
+        "snapshot_id": 12,
+        "parser_version": "1.0",
+        "created_at": "2026-06-19T15:38:05.856143+00:00",
+        "parsed_data_keys": [
+          "vendor",
+          "sysname",
+          "blocks",
+          "interfaces",
+          "bgp",
+          "vsi",
+          "static_routes",
+          "aaa",
+          "radius_servers",
+          "aaa_domains",
+          "ip_pools",
+          "bas_interfaces",
+          "auth_schemes",
+          "acct_schemes",
+          "bng_indicators",
+          "snmp",
+          "ntp",
+          "syslog",
+          "local_users",
+          "vty_lines",
+          "ssh",
+          "management_access",
+          "raw",
+          "block_count"
+        ]
+      },
+      {
+        "pk": 11,
+        "snapshot_id": 11,
+        "parser_version": "1.0",
+        "created_at": "2026-06-19T15:37:56.544828+00:00",
+        "parsed_data_keys": [
+          "vendor",
+          "sysname",
+          "blocks",
+          "interfaces",
+          "bgp",
+          "vsi",
+          "static_routes",
+          "aaa",
+          "radius_servers",
+          "aaa_domains",
+          "ip_pools",
+          "bas_interfaces",
+          "auth_schemes",
+          "acct_schemes",
+          "bng_indicators",
+          "snmp",
+          "ntp",
+          "syslog",
+          "local_users",
+          "vty_lines",
+          "ssh",
+          "management_access",
+          "raw",
+          "block_count"
+        ]
+      },
+      {
+        "pk": 10,
+        "snapshot_id": 10,
+        "parser_version": "1.0",
+        "created_at": "2026-06-19T15:34:34.912732+00:00",
+        "parsed_data_keys": [
+          "vendor",
+          "sysname",
+          "blocks",
+          "interfaces",
+          "bgp",
+          "vsi",
+          "static_routes",
+          "aaa",
+          "radius_servers",
+          "aaa_domains",
+          "ip_pools",
+          "bas_interfaces",
+          "auth_schemes",
+          "acct_schemes",
+          "bng_indicators",
+          "snmp",
+          "ntp",
+          "syslog",
+          "local_users",
+          "vty_lines",
+          "ssh",
+          "management_access",
+          "raw",
+          "block_count"
+        ]
+      },
+      {
+        "pk": 9,
+        "snapshot_id": 9,
+        "parser_version": "1.0",
+        "created_at": "2026-06-19T15:13:33.655198+00:00",
+        "parsed_data_keys": [
+          "vendor",
+          "platform",
+          "sysname",
+          "hostname",
+          "blocks",
+          "interfaces",
+          "bgp",
+          "static_routes",
+          "raw",
+          "block_count",
+          "raw_summary"
+        ]
+      },
+      {
+        "pk": 8,
+        "snapshot_id": 8,
+        "parser_version": "1.0",
+        "created_at": "2026-06-19T15:13:33.627209+00:00",
+        "parsed_data_keys": [
+          "vendor",
+          "platform",
+          "sysname",
+          "hostname",
+          "blocks",
+          "interfaces",
+          "bgp",
+          "static_routes",
+          "raw",
+          "block_count",
+          "raw_summary"
+        ]
+      },
+      {
+        "pk": 7,
+        "snapshot_id": 7,
+        "parser_version": "1.0",
+        "created_at": "2026-06-19T15:13:15.875919+00:00",
+        "parsed_data_keys": [
+          "vendor",
+          "platform",
+          "sysname",
+          "hostname",
+          "blocks",
+          "interfaces",
+          "bgp",
+          "static_routes",
+          "raw",
+          "block_count",
+          "raw_summary"
+        ]
+      },
+      {
+        "pk": 6,
+        "snapshot_id": 6,
+        "parser_version": "1.0",
+        "created_at": "2026-06-19T15:12:24.761029+00:00",
+        "parsed_data_keys": [
+          "vendor",
+          "platform",
+          "sysname",
+          "hostname",
+          "blocks",
+          "interfaces",
+          "bgp",
+          "static_routes",
+          "raw",
+          "block_count",
+          "raw_summary"
+        ]
+      },
+      {
+        "pk": 5,
+        "snapshot_id": 5,
+        "parser_version": "1.0",
+        "created_at": "2026-06-19T14:53:15.571216+00:00",
+        "parsed_data_keys": [
+          "vendor",
+          "sysname",
+          "blocks",
+          "interfaces",
+          "bgp",
+          "vsi",
+          "static_routes",
+          "aaa",
+          "radius_servers",
+          "aaa_domains",
+          "ip_pools",
+          "bas_interfaces",
+          "auth_schemes",
+          "acct_schemes",
+          "bng_indicators",
+          "raw",
+          "block_count"
+        ]
+      },
+      {
+        "pk": 4,
+        "snapshot_id": 4,
+        "parser_version": "1.0",
+        "created_at": "2026-06-19T13:00:11.956330+00:00",
+        "parsed_data_keys": [
+          "vendor",
+          "sysname",
+          "blocks",
+          "interfaces",
+          "bgp",
+          "static_routes",
+          "raw",
+          "block_count"
+        ]
+      },
+      {
+        "pk": 3,
+        "snapshot_id": 3,
+        "parser_version": "1.0",
+        "created_at": "2026-06-19T12:58:56.406018+00:00",
+        "parsed_data_keys": [
+          "vendor",
+          "sysname",
+          "blocks",
+          "interfaces",
+          "bgp",
+          "static_routes",
+          "raw",
+          "block_count"
+        ]
+      },
+      {
+        "pk": 2,
+        "snapshot_id": 2,
+        "parser_version": "1.0",
+        "created_at": "2026-06-19T12:58:49.146387+00:00",
+        "parsed_data_keys": [
+          "vendor",
+          "sysname",
+          "blocks",
+          "interfaces",
+          "bgp",
+          "static_routes",
+          "raw",
+          "block_count"
+        ]
+      },
+      {
+        "pk": 1,
+        "snapshot_id": 1,
+        "parser_version": "1.0",
+        "created_at": "2026-06-19T12:58:16.436004+00:00",
+        "parsed_data_keys": [
+          "vendor",
+          "sysname",
+          "blocks",
+          "interfaces",
+          "bgp",
+          "static_routes",
+          "raw",
+          "block_count"
+        ]
+      }
+    ],
+    "circuits": [
+      {
+        "pk": 12,
+        "snapshot_id": 9,
+        "circuit_type": "l3_transit",
+        "description": "",
+        "created_at": "2026-06-19T15:13:33.711175+00:00",
+        "details": {
+          "interface": "GigabitEthernet0/0.200",
+          "vlan_id": 200,
+          "transit_network": "10.255.200.0/30",
+          "local_ip": "10.255.200.1",
+          "remote_ip": "10.255.200.2",
+          "routed_prefix": "200.200.201.0/30",
+          "routed_prefix_is_public": true,
+          "confidence": 0.8,
+          "vendor": "huawei",
+          "evidence": {
+            "interface": "GigabitEthernet0/0.200",
+            "vlan_id": 200,
+            "transit_network": "10.255.200.0/30",
+            "local_ip": "10.255.200.1",
+            "remote_ip": "10.255.200.2",
+            "next_hop": "10.255.200.2",
+            "routed_prefix": "200.200.201.0/30",
+            "static_route_raw": "ip route 200.200.201.0 255.255.255.252 10.255.200.2",
+            "method": "dot1q_subinterface_with_connected_static_route",
+            "metadata": {
+              "routed_prefix_is_public": true
+            }
+          },
+          "metadata": {
+            "routed_prefix_is_public": true
+          }
+        }
+      },
+      {
+        "pk": 11,
+        "snapshot_id": 9,
+        "circuit_type": "l3_transit",
+        "description": "",
+        "created_at": "2026-06-19T15:13:33.667194+00:00",
+        "details": {
+          "interface": "GigabitEthernet0/0.100",
+          "vlan_id": 100,
+          "transit_network": "10.255.100.0/30",
+          "local_ip": "10.255.100.1",
+          "remote_ip": "10.255.100.2",
+          "routed_prefix": "200.200.200.0/30",
+          "routed_prefix_is_public": true,
+          "confidence": 0.8,
+          "vendor": "huawei",
+          "evidence": {
+            "interface": "GigabitEthernet0/0.100",
+            "vlan_id": 100,
+            "transit_network": "10.255.100.0/30",
+            "local_ip": "10.255.100.1",
+            "remote_ip": "10.255.100.2",
+            "next_hop": "10.255.100.2",
+            "routed_prefix": "200.200.200.0/30",
+            "static_route_raw": "ip route 200.200.200.0 255.255.255.252 10.255.100.2",
+            "method": "dot1q_subinterface_with_connected_static_route",
+            "metadata": {
+              "routed_prefix_is_public": true
+            }
+          },
+          "metadata": {
+            "routed_prefix_is_public": true
+          }
+        }
+      },
+      {
+        "pk": 10,
+        "snapshot_id": 8,
+        "circuit_type": "l3_transit",
+        "description": "",
+        "created_at": "2026-06-19T15:13:33.643202+00:00",
+        "details": {
+          "interface": "GigabitEthernet0/0.200",
+          "vlan_id": 200,
+          "transit_network": "10.255.200.0/30",
+          "local_ip": "10.255.200.1",
+          "remote_ip": "10.255.200.2",
+          "routed_prefix": "200.200.201.0/30",
+          "routed_prefix_is_public": true,
+          "confidence": 0.8,
+          "vendor": "huawei",
+          "evidence": {
+            "interface": "GigabitEthernet0/0.200",
+            "vlan_id": 200,
+            "transit_network": "10.255.200.0/30",
+            "local_ip": "10.255.200.1",
+            "remote_ip": "10.255.200.2",
+            "next_hop": "10.255.200.2",
+            "routed_prefix": "200.200.201.0/30",
+            "static_route_raw": "ip route 200.200.201.0 255.255.255.252 10.255.200.2",
+            "method": "dot1q_subinterface_with_connected_static_route",
+            "metadata": {
+              "routed_prefix_is_public": true
+            }
+          },
+          "metadata": {
+            "routed_prefix_is_public": true
+          }
+        }
+      },
+      {
+        "pk": 9,
+        "snapshot_id": 8,
+        "circuit_type": "l3_transit",
+        "description": "",
+        "created_at": "2026-06-19T15:13:33.635207+00:00",
+        "details": {
+          "interface": "GigabitEthernet0/0.100",
+          "vlan_id": 100,
+          "transit_network": "10.255.100.0/30",
+          "local_ip": "10.255.100.1",
+          "remote_ip": "10.255.100.2",
+          "routed_prefix": "200.200.200.0/30",
+          "routed_prefix_is_public": true,
+          "confidence": 0.8,
+          "vendor": "huawei",
+          "evidence": {
+            "interface": "GigabitEthernet0/0.100",
+            "vlan_id": 100,
+            "transit_network": "10.255.100.0/30",
+            "local_ip": "10.255.100.1",
+            "remote_ip": "10.255.100.2",
+            "next_hop": "10.255.100.2",
+            "routed_prefix": "200.200.200.0/30",
+            "static_route_raw": "ip route 200.200.200.0 255.255.255.252 10.255.100.2",
+            "method": "dot1q_subinterface_with_connected_static_route",
+            "metadata": {
+              "routed_prefix_is_public": true
+            }
+          },
+          "metadata": {
+            "routed_prefix_is_public": true
+          }
+        }
+      },
+      {
+        "pk": 8,
+        "snapshot_id": 7,
+        "circuit_type": "l3_transit",
+        "description": "",
+        "created_at": "2026-06-19T15:13:15.887913+00:00",
+        "details": {
+          "interface": "GigabitEthernet0/0.1234",
+          "vlan_id": 1234,
+          "transit_network": "10.255.123.0/30",
+          "local_ip": "10.255.123.1",
+          "remote_ip": "10.255.123.2",
+          "routed_prefix": "200.200.200.0/30",
+          "routed_prefix_is_public": true,
+          "confidence": 0.8,
+          "vendor": "huawei",
+          "evidence": {
+            "interface": "GigabitEthernet0/0.1234",
+            "vlan_id": 1234,
+            "transit_network": "10.255.123.0/30",
+            "local_ip": "10.255.123.1",
+            "remote_ip": "10.255.123.2",
+            "next_hop": "10.255.123.2",
+            "routed_prefix": "200.200.200.0/30",
+            "static_route_raw": "ip route 200.200.200.0 255.255.255.252 10.255.123.2",
+            "method": "dot1q_subinterface_with_connected_static_route",
+            "metadata": {
+              "routed_prefix_is_public": true
+            }
+          },
+          "metadata": {
+            "routed_prefix_is_public": true
+          }
+        }
+      },
+      {
+        "pk": 7,
+        "snapshot_id": 5,
+        "circuit_type": "l2vpn_vsi",
+        "description": "L2VPN-CLIENTE-Z",
+        "created_at": "2026-06-19T14:53:15.598583+00:00",
+        "details": {
+          "interface": "Eth-Trunk100.4000",
+          "vlan_id": 4000,
+          "vsi_name": "VSI-CLIENTE-Z",
+          "vsi_id": "9000",
+          "vsi_peers": [
+            "10.10.10.10"
+          ],
+          "peer_count": 1,
+          "parent_interface": "Eth-Trunk100",
+          "description": "L2VPN-CLIENTE-Z",
+          "confidence": 0.9,
+          "vendor": "huawei",
+          "evidence": {
+            "interface": "Eth-Trunk100.4000",
+            "vsi_name": "VSI-CLIENTE-Z",
+            "method": "l2_binding_vsi"
+          }
+        }
+      },
+      {
+        "pk": 6,
+        "snapshot_id": 5,
+        "circuit_type": "l3_transit",
+        "description": "CLIENTE-MEGA-PUBLICO-2",
+        "created_at": "2026-06-19T14:53:15.592214+00:00",
+        "details": {
+          "interface": "Eth-Trunk100.1234",
+          "vlan_id": 1234,
+          "transit_network": "10.255.123.0/30",
+          "local_ip": "10.255.123.1",
+          "remote_ip": "10.255.123.2",
+          "routed_prefix": "200.201.201.0/30",
+          "routed_prefix_is_public": true,
+          "confidence": 0.8,
+          "vendor": "huawei",
+          "evidence": {
+            "interface": "Eth-Trunk100.1234",
+            "vlan_id": 1234,
+            "transit_network": "10.255.123.0/30",
+            "local_ip": "10.255.123.1",
+            "remote_ip": "10.255.123.2",
+            "next_hop": "10.255.123.2",
+            "routed_prefix": "200.201.201.0/30",
+            "static_route_raw": "ip route-static 200.201.201.0 255.255.255.252 10.255.123.2 description CLIENTE-MEGA-PUBLICO-2",
+            "method": "dot1q_subinterface_with_connected_static_route",
+            "metadata": {
+              "routed_prefix_is_public": true
+            }
+          },
+          "metadata": {
+            "routed_prefix_is_public": true
+          }
+        }
+      },
+      {
+        "pk": 5,
+        "snapshot_id": 5,
+        "circuit_type": "l3_transit",
+        "description": "CLIENTE-MEGA-PUBLICO",
+        "created_at": "2026-06-19T14:53:15.585215+00:00",
+        "details": {
+          "interface": "Eth-Trunk100.1234",
+          "vlan_id": 1234,
+          "transit_network": "10.255.123.0/30",
+          "local_ip": "10.255.123.1",
+          "remote_ip": "10.255.123.2",
+          "routed_prefix": "200.200.200.0/30",
+          "routed_prefix_is_public": true,
+          "confidence": 0.8,
+          "vendor": "huawei",
+          "evidence": {
+            "interface": "Eth-Trunk100.1234",
+            "vlan_id": 1234,
+            "transit_network": "10.255.123.0/30",
+            "local_ip": "10.255.123.1",
+            "remote_ip": "10.255.123.2",
+            "next_hop": "10.255.123.2",
+            "routed_prefix": "200.200.200.0/30",
+            "static_route_raw": "ip route-static 200.200.200.0 255.255.255.252 10.255.123.2 description CLIENTE-MEGA-PUBLICO",
+            "method": "dot1q_subinterface_with_connected_static_route",
+            "metadata": {
+              "routed_prefix_is_public": true
+            }
+          },
+          "metadata": {
+            "routed_prefix_is_public": true
+          }
+        }
+      },
+      {
+        "pk": 4,
+        "snapshot_id": 4,
+        "circuit_type": "l3_transit",
+        "description": "",
+        "created_at": "2026-06-19T13:00:11.975915+00:00",
+        "details": {
+          "interface": "Eth-Trunk100.1234",
+          "vlan_id": 1234,
+          "transit_network": "10.255.123.0/30",
+          "local_ip": "10.255.123.1",
+          "remote_ip": "10.255.123.2",
+          "routed_prefix": "200.200.200.0/30",
+          "confidence": 0.8,
+          "vendor": "huawei",
+          "evidence": {
+            "interface": "Eth-Trunk100.1234",
+            "vlan_id": 1234,
+            "transit_network": "10.255.123.0/30",
+            "local_ip": "10.255.123.1",
+            "remote_ip": "10.255.123.2",
+            "next_hop": "10.255.123.2",
+            "routed_prefix": "200.200.200.0/30",
+            "static_route_raw": "ip route-static 200.200.200.0 255.255.255.252 10.255.123.2",
+            "method": "dot1q_subinterface_with_connected_static_route"
+          }
+        }
+      },
+      {
+        "pk": 3,
+        "snapshot_id": 3,
+        "circuit_type": "l3_transit",
+        "description": "",
+        "created_at": "2026-06-19T12:58:56.416014+00:00",
+        "details": {
+          "interface": "Eth-Trunk100.1234",
+          "vlan_id": 1234,
+          "transit_network": "10.255.123.0/30",
+          "local_ip": "10.255.123.1",
+          "remote_ip": "10.255.123.2",
+          "routed_prefix": "200.200.200.0/30",
+          "confidence": 0.8,
+          "vendor": "huawei",
+          "evidence": {
+            "interface": "Eth-Trunk100.1234",
+            "vlan_id": 1234,
+            "transit_network": "10.255.123.0/30",
+            "local_ip": "10.255.123.1",
+            "remote_ip": "10.255.123.2",
+            "next_hop": "10.255.123.2",
+            "routed_prefix": "200.200.200.0/30",
+            "static_route_raw": "ip route-static 200.200.200.0 255.255.255.252 10.255.123.2",
+            "method": "dot1q_subinterface_with_connected_static_route"
+          }
+        }
+      },
+      {
+        "pk": 2,
+        "snapshot_id": 2,
+        "circuit_type": "l3_transit",
+        "description": "",
+        "created_at": "2026-06-19T12:58:49.158385+00:00",
+        "details": {
+          "interface": "Eth-Trunk1.200",
+          "vlan_id": 200,
+          "transit_network": "10.200.0.0/30",
+          "local_ip": "10.200.0.1",
+          "remote_ip": "10.200.0.2",
+          "routed_prefix": "0.0.0.0/0",
+          "confidence": 0.8,
+          "vendor": "huawei",
+          "evidence": {
+            "interface": "Eth-Trunk1.200",
+            "vlan_id": 200,
+            "transit_network": "10.200.0.0/30",
+            "local_ip": "10.200.0.1",
+            "remote_ip": "10.200.0.2",
+            "next_hop": "10.200.0.2",
+            "routed_prefix": "0.0.0.0/0",
+            "static_route_raw": "ip route-static 0.0.0.0 0.0.0.0 10.200.0.2",
+            "method": "dot1q_subinterface_with_connected_static_route"
+          }
+        }
+      },
+      {
+        "pk": 1,
+        "snapshot_id": 1,
+        "circuit_type": "l3_transit",
+        "description": "",
+        "created_at": "2026-06-19T12:58:16.448001+00:00",
+        "details": {
+          "interface": "Eth-Trunk1.200",
+          "vlan_id": 200,
+          "transit_network": "10.200.0.0/30",
+          "local_ip": "10.200.0.1",
+          "remote_ip": "10.200.0.2",
+          "routed_prefix": "0.0.0.0/0",
+          "confidence": 0.8,
+          "vendor": "huawei",
+          "evidence": {
+            "interface": "Eth-Trunk1.200",
+            "vlan_id": 200,
+            "transit_network": "10.200.0.0/30",
+            "local_ip": "10.200.0.1",
+            "remote_ip": "10.200.0.2",
+            "next_hop": "10.200.0.2",
+            "routed_prefix": "0.0.0.0/0",
+            "static_route_raw": "ip route-static 0.0.0.0 0.0.0.0 10.200.0.2",
+            "method": "dot1q_subinterface_with_connected_static_route"
+          }
+        }
+      }
+    ],
+    "services": [
+      {
+        "pk": 65,
+        "snapshot_id": 26,
+        "service_type": "bfd",
+        "name": "BFD / Fast Convergence (1 sessões)",
+        "description": "BFD com 1 sessão(ões), 1 peer(s) BGP com BFD.",
+        "confidence": 0.9,
+        "created_at": "2026-06-20T04:38:36.402516+00:00",
+        "metadata": {
+          "global_enabled": true,
+          "session_count": 1,
+          "bgp_peers_with_bfd": 1
+        }
+      },
+      {
+        "pk": 63,
+        "snapshot_id": 26,
+        "service_type": "mpls_ldp",
+        "name": "LDP (0 remote-peer(s))",
+        "description": "LDP detectado no equipamento. Graceful-restart habilitado. 1 interface(s) com LDP.",
+        "confidence": 0.9,
+        "created_at": "2026-06-20T04:38:36.394918+00:00",
+        "metadata": {
+          "graceful_restart": true,
+          "interface_count": 1,
+          "interfaces": [
+            "Eth-Trunk100"
+          ],
+          "remote_peer_count": 0,
+          "remote_peers": []
+        }
+      },
+      {
+        "pk": 62,
+        "snapshot_id": 26,
+        "service_type": "mpls",
+        "name": "MPLS (10.255.0.1)",
+        "description": "MPLS detectado no equipamento. LSR ID: 10.255.0.1. MPLS TE habilitado.",
+        "confidence": 0.9,
+        "created_at": "2026-06-20T04:38:36.389875+00:00",
+        "metadata": {
+          "lsr_id": "10.255.0.1",
+          "te_enabled": true,
+          "interface_count": 0,
+          "interfaces": []
+        }
+      },
+      {
+        "pk": 61,
+        "snapshot_id": 26,
+        "service_type": "isis",
+        "name": "ISIS (1 processo(s))",
+        "description": "ISIS configurado: processo 1, NET: 49.0001.0100.0000.0001.00, level-2. 2 interface(s) com ISIS habilitado.",
+        "confidence": 0.9,
+        "created_at": "2026-06-20T04:38:36.385315+00:00",
+        "metadata": {
+          "process_count": 1,
+          "interface_count": 2,
+          "processes": [
+            {
+              "process_id": "1",
+              "network_entity": "49.0001.0100.0000.0001.00",
+              "is_level": "level-2"
+            }
+          ],
+          "interfaces": [
+            "GigabitEthernet0/0/0",
+            "Eth-Trunk100"
+          ]
+        }
+      },
+      {
+        "pk": 41,
+        "snapshot_id": 14,
+        "service_type": "local_user",
+        "name": "admin",
+        "description": "Usuário local 'admin'. Privilégio nível 15. Acesso: ssh, terminal. Senha configurada (tipo não revelado).",
+        "confidence": 0.9,
+        "created_at": "2026-06-19T15:38:25.864788+00:00",
+        "metadata": {
+          "privilege_level": 15,
+          "has_password": true,
+          "password_type": "irreversible-cipher",
+          "service_types": [
+            "ssh",
+            "terminal"
+          ]
+        }
+      },
+      {
+        "pk": 42,
+        "snapshot_id": 14,
+        "service_type": "local_user",
+        "name": "operador",
+        "description": "Usuário local 'operador'. Privilégio nível 3. Acesso: ssh. Senha configurada (tipo não revelado).",
+        "confidence": 0.9,
+        "created_at": "2026-06-19T15:38:25.864788+00:00",
+        "metadata": {
+          "privilege_level": 3,
+          "has_password": true,
+          "password_type": "cipher",
+          "service_types": [
+            "ssh"
+          ]
+        }
+      },
+      {
+        "pk": 40,
+        "snapshot_id": 14,
+        "service_type": "management_access",
+        "name": "Acesso Administrativo",
+        "description": "Acesso administrativo configurado. SSH/Stelnet habilitado. ACL de entrada nas linhas VTY.",
+        "confidence": 0.9,
+        "created_at": "2026-06-19T15:38:25.848546+00:00",
+        "metadata": {
+          "vty_line_count": 1,
+          "has_ssh": true,
+          "has_telnet": false,
+          "has_acl_on_vty": true,
+          "authentication_modes": [
+            "aaa"
+          ]
+        }
+      },
+      {
+        "pk": 34,
+        "snapshot_id": 13,
+        "service_type": "management_access",
+        "name": "Acesso Administrativo",
+        "description": "Acesso administrativo configurado. SSH/Stelnet habilitado. ACL de entrada nas linhas VTY.",
+        "confidence": 0.9,
+        "created_at": "2026-06-19T15:38:25.798655+00:00",
+        "metadata": {
+          "vty_line_count": 1,
+          "has_ssh": true,
+          "has_telnet": false,
+          "has_acl_on_vty": true,
+          "authentication_modes": [
+            "aaa"
+          ]
+        }
+      },
+      {
+        "pk": 35,
+        "snapshot_id": 13,
+        "service_type": "local_user",
+        "name": "admin",
+        "description": "Usuário local 'admin'. Privilégio nível 15. Acesso: ssh, terminal. Senha configurada (tipo não revelado).",
+        "confidence": 0.9,
+        "created_at": "2026-06-19T15:38:25.798655+00:00",
+        "metadata": {
+          "privilege_level": 15,
+          "has_password": true,
+          "password_type": "irreversible-cipher",
+          "service_types": [
+            "ssh",
+            "terminal"
+          ]
+        }
+      },
+      {
+        "pk": 29,
+        "snapshot_id": 12,
+        "service_type": "local_user",
+        "name": "admin",
+        "description": "Usuário local 'admin'. Privilégio nível 15. Acesso: ssh, terminal, telnet. Senha configurada (tipo não revelado).",
+        "confidence": 0.9,
+        "created_at": "2026-06-19T15:38:05.977957+00:00",
+        "metadata": {
+          "privilege_level": 15,
+          "has_password": true,
+          "password_type": "irreversible-cipher",
+          "service_types": [
+            "ssh",
+            "terminal",
+            "telnet"
+          ]
+        }
+      },
+      {
+        "pk": 23,
+        "snapshot_id": 11,
+        "service_type": "local_user",
+        "name": "operador",
+        "description": "Usuário local 'operador'. Privilégio nível 3. Acesso: ssh. Senha configurada (tipo não revelado).",
+        "confidence": 0.9,
+        "created_at": "2026-06-19T15:37:56.629839+00:00",
+        "metadata": {
+          "privilege_level": 3,
+          "has_password": true,
+          "password_type": "cipher",
+          "service_types": [
+            "ssh"
+          ]
+        }
+      },
+      {
+        "pk": 21,
+        "snapshot_id": 11,
+        "service_type": "management_access",
+        "name": "Acesso Administrativo",
+        "description": "Acesso administrativo configurado. SSH/Stelnet habilitado. ACL de entrada nas linhas VTY.",
+        "confidence": 0.9,
+        "created_at": "2026-06-19T15:37:56.611208+00:00",
+        "metadata": {
+          "vty_line_count": 1,
+          "has_ssh": true,
+          "has_telnet": false,
+          "has_acl_on_vty": true,
+          "authentication_modes": [
+            "aaa"
+          ]
+        }
+      },
+      {
+        "pk": 22,
+        "snapshot_id": 11,
+        "service_type": "local_user",
+        "name": "admin",
+        "description": "Usuário local 'admin'. Privilégio nível 15. Acesso: ssh, terminal. Senha configurada (tipo não revelado).",
+        "confidence": 0.9,
+        "created_at": "2026-06-19T15:37:56.611208+00:00",
+        "metadata": {
+          "privilege_level": 15,
+          "has_password": true,
+          "password_type": "irreversible-cipher",
+          "service_types": [
+            "ssh",
+            "terminal"
+          ]
+        }
+      },
+      {
+        "pk": 67,
+        "snapshot_id": 26,
+        "service_type": "nsr",
+        "name": "NSR (isis)",
+        "description": "NSR habilitado em: isis.",
+        "confidence": 0.85,
+        "created_at": "2026-06-20T04:38:36.412129+00:00",
+        "metadata": {
+          "protocols": [
+            "isis"
+          ]
+        }
+      },
+      {
+        "pk": 66,
+        "snapshot_id": 26,
+        "service_type": "graceful_restart",
+        "name": "Graceful Restart (bgp, isis, ospf, ldp)",
+        "description": "Graceful Restart habilitado em: bgp, isis, ospf, ldp.",
+        "confidence": 0.85,
+        "created_at": "2026-06-20T04:38:36.406574+00:00",
+        "metadata": {
+          "protocols": [
+            "bgp",
+            "isis",
+            "ospf",
+            "ldp"
+          ]
+        }
+      },
+      {
+        "pk": 60,
+        "snapshot_id": 23,
+        "service_type": "acl_policy",
+        "name": "ACL Policy",
+        "description": "",
+        "confidence": 0.85,
+        "created_at": "2026-06-19T18:45:18.662731+00:00",
+        "metadata": {
+          "acl_count": 2,
+          "bgp_peers_with_policy": 2
+        }
+      },
+      {
+        "pk": 59,
+        "snapshot_id": 23,
+        "service_type": "route_policy",
+        "name": "Políticas de Roteamento",
+        "description": "",
+        "confidence": 0.85,
+        "created_at": "2026-06-19T18:45:18.656560+00:00",
+        "metadata": {
+          "route_policy_count": 2,
+          "ip_prefix_count": 3,
+          "acl_count": 2,
+          "bgp_peers_with_policy": 2
+        }
+      },
+      {
+        "pk": 58,
+        "snapshot_id": 22,
+        "service_type": "acl_policy",
+        "name": "ACL Policy",
+        "description": "",
+        "confidence": 0.85,
+        "created_at": "2026-06-19T17:51:45.992047+00:00",
+        "metadata": {
+          "acl_count": 1,
+          "bgp_peers_with_policy": 2
+        }
+      },
+      {
+        "pk": 57,
+        "snapshot_id": 22,
+        "service_type": "route_policy",
+        "name": "Políticas de Roteamento",
+        "description": "",
+        "confidence": 0.85,
+        "created_at": "2026-06-19T17:51:45.960792+00:00",
+        "metadata": {
+          "route_policy_count": 2,
+          "ip_prefix_count": 1,
+          "acl_count": 1,
+          "bgp_peers_with_policy": 2
+        }
+      },
+      {
+        "pk": 54,
+        "snapshot_id": 21,
+        "service_type": "acl_policy",
+        "name": "ACL Policy",
+        "description": "",
+        "confidence": 0.85,
+        "created_at": "2026-06-19T17:37:10.444148+00:00",
+        "metadata": {
+          "acl_count": 2,
+          "bgp_peers_with_policy": 4
+        }
+      },
+      {
+        "pk": 53,
+        "snapshot_id": 21,
+        "service_type": "route_policy",
+        "name": "Políticas de Roteamento",
+        "description": "",
+        "confidence": 0.85,
+        "created_at": "2026-06-19T17:37:10.437148+00:00",
+        "metadata": {
+          "route_policy_count": 2,
+          "ip_prefix_count": 3,
+          "acl_count": 2,
+          "bgp_peers_with_policy": 4
+        }
+      },
+      {
+        "pk": 52,
+        "snapshot_id": 20,
+        "service_type": "acl_policy",
+        "name": "ACL Policy",
+        "description": "",
+        "confidence": 0.85,
+        "created_at": "2026-06-19T17:31:03.899470+00:00",
+        "metadata": {
+          "acl_count": 1,
+          "bgp_peers_with_policy": 2
+        }
+      },
+      {
+        "pk": 51,
+        "snapshot_id": 20,
+        "service_type": "route_policy",
+        "name": "Políticas de Roteamento",
+        "description": "",
+        "confidence": 0.85,
+        "created_at": "2026-06-19T17:31:03.889475+00:00",
+        "metadata": {
+          "route_policy_count": 2,
+          "ip_prefix_count": 3,
+          "acl_count": 1,
+          "bgp_peers_with_policy": 2
+        }
+      },
+      {
+        "pk": 50,
+        "snapshot_id": 19,
+        "service_type": "acl_policy",
+        "name": "ACL Policy",
+        "description": "",
+        "confidence": 0.85,
+        "created_at": "2026-06-19T17:30:45.713344+00:00",
+        "metadata": {
+          "acl_count": 2,
+          "bgp_peers_with_policy": 4
+        }
+      },
+      {
+        "pk": 49,
+        "snapshot_id": 19,
+        "service_type": "route_policy",
+        "name": "Políticas de Roteamento",
+        "description": "",
+        "confidence": 0.85,
+        "created_at": "2026-06-19T17:30:45.697216+00:00",
+        "metadata": {
+          "route_policy_count": 2,
+          "ip_prefix_count": 3,
+          "acl_count": 2,
+          "bgp_peers_with_policy": 4
+        }
+      },
+      {
+        "pk": 48,
+        "snapshot_id": 18,
+        "service_type": "acl_policy",
+        "name": "ACL Policy",
+        "description": "",
+        "confidence": 0.85,
+        "created_at": "2026-06-19T17:29:56.013229+00:00",
+        "metadata": {
+          "acl_count": 2,
+          "bgp_peers_with_policy": 4
+        }
+      },
+      {
+        "pk": 47,
+        "snapshot_id": 18,
+        "service_type": "route_policy",
+        "name": "Políticas de Roteamento",
+        "description": "",
+        "confidence": 0.85,
+        "created_at": "2026-06-19T17:29:55.997599+00:00",
+        "metadata": {
+          "route_policy_count": 2,
+          "ip_prefix_count": 0,
+          "acl_count": 2,
+          "bgp_peers_with_policy": 4
+        }
+      },
+      {
+        "pk": 46,
+        "snapshot_id": 17,
+        "service_type": "acl_policy",
+        "name": "ACL Policy",
+        "description": "",
+        "confidence": 0.85,
+        "created_at": "2026-06-19T17:29:08.438229+00:00",
+        "metadata": {
+          "acl_count": 2,
+          "bgp_peers_with_policy": 4
+        }
+      },
+      {
+        "pk": 45,
+        "snapshot_id": 17,
+        "service_type": "route_policy",
+        "name": "Políticas de Roteamento",
+        "description": "",
+        "confidence": 0.85,
+        "created_at": "2026-06-19T17:29:08.392965+00:00",
+        "metadata": {
+          "route_policy_count": 2,
+          "ip_prefix_count": 0,
+          "acl_count": 2,
+          "bgp_peers_with_policy": 4
+        }
+      },
+      {
+        "pk": 44,
+        "snapshot_id": 16,
+        "service_type": "acl_policy",
+        "name": "ACL Policy",
+        "description": "",
+        "confidence": 0.85,
+        "created_at": "2026-06-19T17:26:28.033483+00:00",
+        "metadata": {
+          "acl_count": 1,
+          "bgp_peers_with_policy": 2
+        }
+      },
+      {
+        "pk": 43,
+        "snapshot_id": 15,
+        "service_type": "acl_policy",
+        "name": "ACL Policy",
+        "description": "",
+        "confidence": 0.85,
+        "created_at": "2026-06-19T17:26:17.514551+00:00",
+        "metadata": {
+          "acl_count": 2,
+          "bgp_peers_with_policy": 4
+        }
+      },
+      {
+        "pk": 38,
+        "snapshot_id": 14,
+        "service_type": "ntp",
+        "name": "NTP (2 servidor(es))",
+        "description": "NTP detectado no equipamento. Servidor(es): 10.0.0.2, 10.0.0.3. Autenticação: não configurada.",
+        "confidence": 0.85,
+        "created_at": "2026-06-19T15:38:25.848546+00:00",
+        "metadata": {
+          "server_count": 2,
+          "servers": [
+            "10.0.0.2",
+            "10.0.0.3"
+          ],
+          "source_interface": null,
+          "authentication_enabled": false
+        }
+      },
+      {
+        "pk": 39,
+        "snapshot_id": 14,
+        "service_type": "syslog",
+        "name": "Info-center (2 loghost(s))",
+        "description": "Syslog (info-center) detectado no equipamento. Log host(s): 10.0.0.20, 10.0.0.21. Facilities: local7.",
+        "confidence": 0.85,
+        "created_at": "2026-06-19T15:38:25.848546+00:00",
+        "metadata": {
+          "log_host_count": 2,
+          "log_hosts": [
+            "10.0.0.20",
+            "10.0.0.21"
+          ],
+          "facilities": [
+            "local7"
+          ]
+        }
+      },
+      {
+        "pk": 37,
+        "snapshot_id": 14,
+        "service_type": "snmp",
+        "name": "SNMP (v3)",
+        "description": "SNMP detectado no equipamento. Versões: v3. 1 community leitura, 0 community escrita (mascaradas). 1 trap host(s) configurado(s). 1 usuário(s) SNMPv3. ACL(s) associada(s): 2001.",
+        "confidence": 0.85,
+        "created_at": "2026-06-19T15:38:25.832913+00:00",
+        "metadata": {
+          "versions": [
+            "v3"
+          ],
+          "community_count": 1,
+          "trap_host_count": 1,
+          "user_count": 1,
+          "group_count": 1,
+          "has_acl": true,
+          "acl_refs": [
+            "2001"
+          ]
+        }
+      },
+      {
+        "pk": 31,
+        "snapshot_id": 13,
+        "service_type": "snmp",
+        "name": "SNMP (v2c, v3)",
+        "description": "SNMP detectado no equipamento. Versões: v2c, v3. 1 community leitura, 0 community escrita (mascaradas). 1 trap host(s) configurado(s). ACL(s) associada(s): 2001.",
+        "confidence": 0.85,
+        "created_at": "2026-06-19T15:38:25.783027+00:00",
+        "metadata": {
+          "versions": [
+            "v2c",
+            "v3"
+          ],
+          "community_count": 1,
+          "trap_host_count": 1,
+          "user_count": 0,
+          "group_count": 0,
+          "has_acl": true,
+          "acl_refs": [
+            "2001"
+          ]
+        }
+      },
+      {
+        "pk": 32,
+        "snapshot_id": 13,
+        "service_type": "ntp",
+        "name": "NTP (1 servidor(es))",
+        "description": "NTP detectado no equipamento. Servidor(es): 10.0.0.1. Autenticação: não configurada.",
+        "confidence": 0.85,
+        "created_at": "2026-06-19T15:38:25.783027+00:00",
+        "metadata": {
+          "server_count": 1,
+          "servers": [
+            "10.0.0.1"
+          ],
+          "source_interface": null,
+          "authentication_enabled": false
+        }
+      },
+      {
+        "pk": 33,
+        "snapshot_id": 13,
+        "service_type": "syslog",
+        "name": "Info-center (1 loghost(s))",
+        "description": "Syslog (info-center) detectado no equipamento. Log host(s): 10.0.0.20.",
+        "confidence": 0.85,
+        "created_at": "2026-06-19T15:38:25.783027+00:00",
+        "metadata": {
+          "log_host_count": 1,
+          "log_hosts": [
+            "10.0.0.20"
+          ],
+          "facilities": []
+        }
+      },
+      {
+        "pk": 28,
+        "snapshot_id": 12,
+        "service_type": "management_access",
+        "name": "Acesso Administrativo",
+        "description": "Acesso administrativo configurado. ATENÇÃO: Telnet detectado.",
+        "confidence": 0.85,
+        "created_at": "2026-06-19T15:38:05.977957+00:00",
+        "metadata": {
+          "vty_line_count": 1,
+          "has_ssh": false,
+          "has_telnet": true,
+          "has_acl_on_vty": false,
+          "authentication_modes": [
+            "aaa"
+          ]
+        }
+      },
+      {
+        "pk": 26,
+        "snapshot_id": 12,
+        "service_type": "ntp",
+        "name": "NTP (1 servidor(es))",
+        "description": "NTP detectado no equipamento. Servidor(es): 10.0.0.1. Autenticação: não configurada.",
+        "confidence": 0.85,
+        "created_at": "2026-06-19T15:38:05.958825+00:00",
+        "metadata": {
+          "server_count": 1,
+          "servers": [
+            "10.0.0.1"
+          ],
+          "source_interface": null,
+          "authentication_enabled": false
+        }
+      },
+      {
+        "pk": 20,
+        "snapshot_id": 11,
+        "service_type": "syslog",
+        "name": "Info-center (2 loghost(s))",
+        "description": "Syslog (info-center) detectado no equipamento. Log host(s): 10.0.0.20, 10.0.0.21. Facilities: local7.",
+        "confidence": 0.85,
+        "created_at": "2026-06-19T15:37:56.611208+00:00",
+        "metadata": {
+          "log_host_count": 2,
+          "log_hosts": [
+            "10.0.0.20",
+            "10.0.0.21"
+          ],
+          "facilities": [
+            "local7"
+          ]
+        }
+      },
+      {
+        "pk": 18,
+        "snapshot_id": 11,
+        "service_type": "snmp",
+        "name": "SNMP (v2c, v3)",
+        "description": "SNMP detectado no equipamento. Versões: v2c, v3. 1 community leitura, 1 community escrita (mascaradas). 1 trap host(s) configurado(s). 1 usuário(s) SNMPv3. ACL(s) associada(s): 2001.",
+        "confidence": 0.85,
+        "created_at": "2026-06-19T15:37:56.595578+00:00",
+        "metadata": {
+          "versions": [
+            "v2c",
+            "v3"
+          ],
+          "community_count": 2,
+          "trap_host_count": 1,
+          "user_count": 1,
+          "group_count": 1,
+          "has_acl": true,
+          "acl_refs": [
+            "2001"
+          ]
+        }
+      },
+      {
+        "pk": 19,
+        "snapshot_id": 11,
+        "service_type": "ntp",
+        "name": "NTP (2 servidor(es))",
+        "description": "NTP detectado no equipamento. Servidor(es): 10.0.0.1, 10.0.0.2. Interface de origem: loopback0. Autenticação: não configurada.",
+        "confidence": 0.85,
+        "created_at": "2026-06-19T15:37:56.595578+00:00",
+        "metadata": {
+          "server_count": 2,
+          "servers": [
+            "10.0.0.1",
+            "10.0.0.2"
+          ],
+          "source_interface": "loopback0",
+          "authentication_enabled": false
+        }
+      },
+      {
+        "pk": 17,
+        "snapshot_id": 11,
+        "service_type": "aaa",
+        "name": "AAA",
+        "description": "Bloco AAA encontrado com 1 domínio(s), 1 esquema(s) de autenticação e 1 esquema(s) de contabilização.",
+        "confidence": 0.85,
+        "created_at": "2026-06-19T15:37:56.579439+00:00",
+        "metadata": {
+          "domain_count": 1,
+          "auth_scheme_count": 1,
+          "acct_scheme_count": 1
+        }
+      },
+      {
+        "pk": 15,
+        "snapshot_id": 10,
+        "service_type": "management_access",
+        "name": "Acesso Administrativo",
+        "description": "Acesso administrativo configurado.",
+        "confidence": 0.85,
+        "created_at": "2026-06-19T15:34:34.968718+00:00",
+        "metadata": {
+          "vty_line_count": 1,
+          "has_ssh": false,
+          "has_telnet": false,
+          "has_acl_on_vty": false,
+          "authentication_modes": [
+            "aaa"
+          ]
+        }
+      },
+      {
+        "pk": 14,
+        "snapshot_id": 10,
+        "service_type": "ntp",
+        "name": "NTP (2 servidor(es))",
+        "description": "NTP detectado no equipamento. Servidor(es): 10.0.0.1, 10.0.0.2. Interface de origem: loopback0. Autenticação: não configurada.",
+        "confidence": 0.85,
+        "created_at": "2026-06-19T15:34:34.964719+00:00",
+        "metadata": {
+          "server_count": 2,
+          "servers": [
+            "10.0.0.1",
+            "10.0.0.2"
+          ],
+          "source_interface": "loopback0",
+          "authentication_enabled": false
+        }
+      },
+      {
+        "pk": 13,
+        "snapshot_id": 10,
+        "service_type": "snmp",
+        "name": "SNMP (v2c, v3)",
+        "description": "SNMP detectado no equipamento. Versões: v2c, v3. 1 community leitura, 1 community escrita (mascaradas). 1 trap host(s) configurado(s). 1 usuário(s) SNMPv3. ACL(s) associada(s): 2001.",
+        "confidence": 0.85,
+        "created_at": "2026-06-19T15:34:34.960720+00:00",
+        "metadata": {
+          "versions": [
+            "v2c",
+            "v3"
+          ],
+          "community_count": 2,
+          "trap_host_count": 1,
+          "user_count": 1,
+          "group_count": 1,
+          "has_acl": true,
+          "acl_refs": [
+            "2001"
+          ]
+        }
+      },
+      {
+        "pk": 12,
+        "snapshot_id": 10,
+        "service_type": "aaa",
+        "name": "AAA",
+        "description": "Bloco AAA encontrado com 1 domínio(s), 1 esquema(s) de autenticação e 1 esquema(s) de contabilização.",
+        "confidence": 0.85,
+        "created_at": "2026-06-19T15:34:34.952723+00:00",
+        "metadata": {
+          "domain_count": 1,
+          "auth_scheme_count": 1,
+          "acct_scheme_count": 1
+        }
+      },
+      {
+        "pk": 10,
+        "snapshot_id": 5,
+        "service_type": "ip_pool",
+        "name": "POOL-CORPORATIVO",
+        "description": "Pool de endereços IP 'POOL-CORPORATIVO'. Gateway: 10.200.0.1. DNS: 10.200.0.100.",
+        "confidence": 0.85,
+        "created_at": "2026-06-19T14:53:15.670031+00:00",
+        "metadata": {
+          "gateway": "10.200.0.1",
+          "dns_servers": [
+            "10.200.0.100"
+          ]
+        }
+      },
+      {
+        "pk": 9,
+        "snapshot_id": 5,
+        "service_type": "ip_pool",
+        "name": "POOL-RESIDENCIAL",
+        "description": "Pool de endereços IP 'POOL-RESIDENCIAL'. Gateway: 100.64.0.1. DNS: 8.8.8.8, 8.8.4.4.",
+        "confidence": 0.85,
+        "created_at": "2026-06-19T14:53:15.664468+00:00",
+        "metadata": {
+          "gateway": "100.64.0.1",
+          "dns_servers": [
+            "8.8.8.8",
+            "8.8.4.4"
+          ]
+        }
+      },
+      {
+        "pk": 8,
+        "snapshot_id": 5,
+        "service_type": "radius",
+        "name": "retransmit",
+        "description": "Servidor RADIUS 'retransmit' configurado. Usado para autenticação, autorização e contabilização de assinantes.",
+        "confidence": 0.85,
+        "created_at": "2026-06-19T14:53:15.658776+00:00",
+        "metadata": {
+          "template": "retransmit",
+          "has_authentication": false,
+          "has_accounting": false
+        }
+      },
+      {
+        "pk": 7,
+        "snapshot_id": 5,
+        "service_type": "radius",
+        "name": "shared-key-cipher",
+        "description": "Servidor RADIUS 'shared-key-cipher' configurado. Usado para autenticação, autorização e contabilização de assinantes.",
+        "confidence": 0.85,
+        "created_at": "2026-06-19T14:53:15.651777+00:00",
+        "metadata": {
+          "template": "shared-key-cipher",
+          "has_authentication": false,
+          "has_accounting": false
+        }
+      },
+      {
+        "pk": 6,
+        "snapshot_id": 5,
+        "service_type": "radius",
+        "name": "accounting",
+        "description": "Servidor RADIUS 'accounting' configurado. Usado para autenticação, autorização e contabilização de assinantes.",
+        "confidence": 0.85,
+        "created_at": "2026-06-19T14:53:15.644778+00:00",
+        "metadata": {
+          "template": "accounting",
+          "has_authentication": false,
+          "has_accounting": false
+        }
+      },
+      {
+        "pk": 5,
+        "snapshot_id": 5,
+        "service_type": "radius",
+        "name": "authentication",
+        "description": "Servidor RADIUS 'authentication' configurado. Usado para autenticação, autorização e contabilização de assinantes.",
+        "confidence": 0.85,
+        "created_at": "2026-06-19T14:53:15.637780+00:00",
+        "metadata": {
+          "template": "authentication",
+          "has_authentication": false,
+          "has_accounting": false
+        }
+      },
+      {
+        "pk": 3,
+        "snapshot_id": 5,
+        "service_type": "radius",
+        "name": "group",
+        "description": "Servidor RADIUS 'group' configurado. Usado para autenticação, autorização e contabilização de assinantes.",
+        "confidence": 0.85,
+        "created_at": "2026-06-19T14:53:15.630781+00:00",
+        "metadata": {
+          "template": "group",
+          "has_authentication": false,
+          "has_accounting": false
+        }
+      },
+      {
+        "pk": 4,
+        "snapshot_id": 5,
+        "service_type": "radius",
+        "name": "group",
+        "description": "Servidor RADIUS 'group' configurado. Usado para autenticação, autorização e contabilização de assinantes.",
+        "confidence": 0.85,
+        "created_at": "2026-06-19T14:53:15.630781+00:00",
+        "metadata": {
+          "template": "group",
+          "has_authentication": false,
+          "has_accounting": false
+        }
+      },
+      {
+        "pk": 2,
+        "snapshot_id": 5,
+        "service_type": "aaa",
+        "name": "AAA",
+        "description": "Bloco AAA encontrado com 1 domínio(s), 2 esquema(s) de autenticação e 2 esquema(s) de contabilização.",
+        "confidence": 0.85,
+        "created_at": "2026-06-19T14:53:15.616783+00:00",
+        "metadata": {
+          "domain_count": 1,
+          "auth_scheme_count": 2,
+          "acct_scheme_count": 2
+        }
+      },
+      {
+        "pk": 25,
+        "snapshot_id": 12,
+        "service_type": "snmp",
+        "name": "SNMP (v2c)",
+        "description": "SNMP detectado no equipamento. Versões: v2c. 1 community leitura, 1 community escrita (mascaradas). 1 trap host(s) configurado(s).",
+        "confidence": 0.8,
+        "created_at": "2026-06-19T15:38:05.958825+00:00",
+        "metadata": {
+          "versions": [
+            "v2c"
+          ],
+          "community_count": 2,
+          "trap_host_count": 1,
+          "user_count": 0,
+          "group_count": 0,
+          "has_acl": false,
+          "acl_refs": []
+        }
+      },
+      {
+        "pk": 64,
+        "snapshot_id": 26,
+        "service_type": "ospfv3",
+        "name": "OSPFv3 (1)",
+        "description": "OSPFv3 com 1 processo(s) (1), 1 interface(s).",
+        "confidence": 0.75,
+        "created_at": "2026-06-20T04:38:36.398460+00:00",
+        "metadata": {
+          "process_count": 1,
+          "process_ids": [
+            "1"
+          ],
+          "interface_count": 1,
+          "has_router_id": false
+        }
+      },
+      {
+        "pk": 1,
+        "snapshot_id": 5,
+        "service_type": "bng",
+        "name": "BNG/BAS",
+        "description": "Equipamento com possíveis funções de BNG. Foram encontrados indicadores de autenticação e acesso de assinantes.",
+        "confidence": 0.7,
+        "created_at": "2026-06-19T14:53:15.609781+00:00",
+        "metadata": {
+          "indicators": [
+            "gateway",
+            "ip_pool_block",
+            "aaa_domain_block",
+            "dns-server",
+            "radius-server",
+            "accounting-scheme",
+            "aaa_block",
+            "authentication-scheme",
+            "domain",
+            "ip pool",
+            "radius_server_block",
+            "lease"
+          ],
+          "has_bas": false,
+          "has_aaa": true,
+          "has_radius": true,
+          "has_domains": true,
+          "has_pools": true,
+          "has_subscriber": false
+        }
+      },
+      {
+        "pk": 36,
+        "snapshot_id": 14,
+        "service_type": "aaa",
+        "name": "AAA",
+        "description": "Bloco AAA encontrado com 0 domínio(s), 0 esquema(s) de autenticação e 0 esquema(s) de contabilização.",
+        "confidence": 0.6,
+        "created_at": "2026-06-19T15:38:25.832913+00:00",
+        "metadata": {
+          "domain_count": 0,
+          "auth_scheme_count": 0,
+          "acct_scheme_count": 0
+        }
+      },
+      {
+        "pk": 30,
+        "snapshot_id": 13,
+        "service_type": "aaa",
+        "name": "AAA",
+        "description": "Bloco AAA encontrado com 0 domínio(s), 0 esquema(s) de autenticação e 0 esquema(s) de contabilização.",
+        "confidence": 0.6,
+        "created_at": "2026-06-19T15:38:25.763366+00:00",
+        "metadata": {
+          "domain_count": 0,
+          "auth_scheme_count": 0,
+          "acct_scheme_count": 0
+        }
+      },
+      {
+        "pk": 24,
+        "snapshot_id": 12,
+        "service_type": "aaa",
+        "name": "AAA",
+        "description": "Bloco AAA encontrado com 0 domínio(s), 0 esquema(s) de autenticação e 0 esquema(s) de contabilização.",
+        "confidence": 0.6,
+        "created_at": "2026-06-19T15:38:05.943201+00:00",
+        "metadata": {
+          "domain_count": 0,
+          "auth_scheme_count": 0,
+          "acct_scheme_count": 0
+        }
+      },
+      {
+        "pk": 27,
+        "snapshot_id": 12,
+        "service_type": "syslog",
+        "name": "Info-center (0 loghost(s))",
+        "description": "Syslog (info-center) detectado no equipamento. Nenhum loghost remoto configurado.",
+        "confidence": 0.5,
+        "created_at": "2026-06-19T15:38:05.974448+00:00",
+        "metadata": {
+          "log_host_count": 0,
+          "log_hosts": [],
+          "facilities": []
+        }
+      },
+      {
+        "pk": 16,
+        "snapshot_id": 11,
+        "service_type": "bng",
+        "name": "BNG/BAS",
+        "description": "Equipamento com alguns indicadores de BNG. Pode haver funções de autenticação ou acesso de assinantes.",
+        "confidence": 0.5,
+        "created_at": "2026-06-19T15:37:56.579439+00:00",
+        "metadata": {
+          "indicators": [
+            "domain",
+            "authentication-scheme",
+            "aaa_block",
+            "aaa_domain_block",
+            "accounting-scheme"
+          ],
+          "has_bas": false,
+          "has_aaa": true,
+          "has_radius": false,
+          "has_domains": true,
+          "has_pools": false,
+          "has_subscriber": false
+        }
+      },
+      {
+        "pk": 11,
+        "snapshot_id": 10,
+        "service_type": "bng",
+        "name": "BNG/BAS",
+        "description": "Equipamento com alguns indicadores de BNG. Pode haver funções de autenticação ou acesso de assinantes.",
+        "confidence": 0.5,
+        "created_at": "2026-06-19T15:34:34.944724+00:00",
+        "metadata": {
+          "indicators": [
+            "aaa_block",
+            "accounting-scheme",
+            "aaa_domain_block",
+            "authentication-scheme",
+            "domain"
+          ],
+          "has_bas": false,
+          "has_aaa": true,
+          "has_radius": false,
+          "has_domains": true,
+          "has_pools": false,
+          "has_subscriber": false
+        }
+      }
+    ],
+    "issues": [
+      {
+        "pk": 81,
+        "snapshot_id": 26,
+        "severity": "warning",
+        "category": "",
+        "code": "interface_ldp_without_mpls",
+        "title": "Interface Eth-Trunk100 com LDP sem MPLS",
+        "description": "Interface Eth-Trunk100 possui mpls ldp, mas não possui comando mpls na própria interface.",
+        "created_at": "2026-06-20T04:38:36.423389+00:00",
+        "metadata": {
+          "interface": "Eth-Trunk100"
+        }
+      },
+      {
+        "pk": 80,
+        "snapshot_id": 26,
+        "severity": "warning",
+        "category": "",
+        "code": "bgp_peer_missing_description",
+        "title": "Peer BGP sem descrição: 10.255.0.2",
+        "description": "O peer BGP 10.255.0.2 (AS 65000) no AS 65000 não possui descrição.",
+        "created_at": "2026-06-20T04:38:36.418318+00:00",
+        "metadata": {
+          "peer_ip": "10.255.0.2",
+          "remote_as": "65000",
+          "local_as": "65000"
+        }
+      },
+      {
+        "pk": 79,
+        "snapshot_id": 25,
+        "severity": "warning",
+        "category": "",
+        "code": "ospf_redistribution_without_filter",
+        "title": "OSPF processo 2 com redistribuição sem filtro: static",
+        "description": "O processo OSPF 2 redistribui rotas static sem route-policy associado. Isso pode causar vazamento de rotas indesejadas.",
+        "created_at": "2026-06-19T19:12:49.403166+00:00",
+        "metadata": {
+          "process_id": "2",
+          "protocol": "static"
+        }
+      },
+      {
+        "pk": 76,
+        "snapshot_id": 25,
+        "severity": "warning",
+        "category": "",
+        "code": "ospf_no_router_id",
+        "title": "OSPF processo 2 sem router-id",
+        "description": "O processo OSPF 2 não possui router-id configurado explicitamente. O router-id pode ser selecionado automaticamente, o que pode causar instabilidade se o endereço mudar.",
+        "created_at": "2026-06-19T19:12:49.377826+00:00",
+        "metadata": {
+          "process_id": "2"
+        }
+      },
+      {
+        "pk": 75,
+        "snapshot_id": 24,
+        "severity": "warning",
+        "category": "",
+        "code": "ospf_redistribution_without_filter",
+        "title": "OSPF processo 2 com redistribuição sem filtro: static",
+        "description": "O processo OSPF 2 redistribui rotas static sem route-policy associado. Isso pode causar vazamento de rotas indesejadas.",
+        "created_at": "2026-06-19T19:12:41.957919+00:00",
+        "metadata": {
+          "process_id": "2",
+          "protocol": "static"
+        }
+      },
+      {
+        "pk": 72,
+        "snapshot_id": 24,
+        "severity": "warning",
+        "category": "",
+        "code": "ospf_no_router_id",
+        "title": "OSPF processo 2 sem router-id",
+        "description": "O processo OSPF 2 não possui router-id configurado explicitamente. O router-id pode ser selecionado automaticamente, o que pode causar instabilidade se o endereço mudar.",
+        "created_at": "2026-06-19T19:12:41.930144+00:00",
+        "metadata": {
+          "process_id": "2"
+        }
+      },
+      {
+        "pk": 69,
+        "snapshot_id": 23,
+        "severity": "warning",
+        "category": "",
+        "code": "acl_rule_any",
+        "title": "Regra ACL ampla detectada",
+        "description": "ACL 3001 possui regra sem source nem destination. Validar se é intencional.",
+        "created_at": "2026-06-19T18:45:18.673726+00:00",
+        "metadata": {
+          "acl_name": "3001",
+          "raw": "rule 10 deny ip"
+        }
+      },
+      {
+        "pk": 66,
+        "snapshot_id": 21,
+        "severity": "warning",
+        "category": "",
+        "code": "acl_rule_any",
+        "title": "Regra ACL ampla detectada",
+        "description": "ACL 3001 possui regra sem source nem destination. Validar se é intencional.",
+        "created_at": "2026-06-19T17:37:10.451145+00:00",
+        "metadata": {
+          "acl_name": "3001",
+          "raw": "rule 10 deny ip"
+        }
+      },
+      {
+        "pk": 61,
+        "snapshot_id": 20,
+        "severity": "warning",
+        "category": "",
+        "code": "acl_rule_any",
+        "title": "Regra ACL ampla detectada",
+        "description": "ACL 2000 possui regra sem source nem destination. Validar se é intencional.",
+        "created_at": "2026-06-19T17:31:03.934457+00:00",
+        "metadata": {
+          "acl_name": "2000",
+          "raw": "rule 5 deny"
+        }
+      },
+      {
+        "pk": 54,
+        "snapshot_id": 19,
+        "severity": "warning",
+        "category": "",
+        "code": "acl_rule_any",
+        "title": "Regra ACL ampla detectada",
+        "description": "ACL 3001 possui regra sem source nem destination. Validar se é intencional.",
+        "created_at": "2026-06-19T17:30:45.734248+00:00",
+        "metadata": {
+          "acl_name": "3001",
+          "raw": "rule 10 deny ip"
+        }
+      },
+      {
+        "pk": 49,
+        "snapshot_id": 18,
+        "severity": "warning",
+        "category": "",
+        "code": "acl_rule_any",
+        "title": "Regra ACL ampla detectada",
+        "description": "ACL 3001 possui regra sem source nem destination. Validar se é intencional.",
+        "created_at": "2026-06-19T17:29:56.013229+00:00",
+        "metadata": {
+          "acl_name": "3001",
+          "raw": "rule 10 deny ip"
+        }
+      },
+      {
+        "pk": 46,
+        "snapshot_id": 17,
+        "severity": "warning",
+        "category": "",
+        "code": "acl_rule_any",
+        "title": "Regra ACL ampla detectada",
+        "description": "ACL 3001 possui regra sem source nem destination. Validar se é intencional.",
+        "created_at": "2026-06-19T17:29:08.462552+00:00",
+        "metadata": {
+          "acl_name": "3001",
+          "raw": "rule 10 deny ip"
+        }
+      },
+      {
+        "pk": 43,
+        "snapshot_id": 16,
+        "severity": "warning",
+        "category": "",
+        "code": "acl_rule_any",
+        "title": "Regra ACL ampla detectada",
+        "description": "ACL 2000 possui regra sem source nem destination. Validar se é intencional.",
+        "created_at": "2026-06-19T17:26:28.056067+00:00",
+        "metadata": {
+          "acl_name": "2000",
+          "raw": "rule 5 deny"
+        }
+      },
+      {
+        "pk": 38,
+        "snapshot_id": 15,
+        "severity": "warning",
+        "category": "",
+        "code": "acl_rule_any",
+        "title": "Regra ACL ampla detectada",
+        "description": "ACL 3001 possui regra sem source nem destination. Validar se é intencional.",
+        "created_at": "2026-06-19T17:26:17.514551+00:00",
+        "metadata": {
+          "acl_name": "3001",
+          "raw": "rule 10 deny ip"
+        }
+      },
+      {
+        "pk": 37,
+        "snapshot_id": 14,
+        "severity": "warning",
+        "category": "",
+        "code": "local_user_high_privilege",
+        "title": "Usuário local com privilégio elevado: admin",
+        "description": "Usuário local 'admin' com privilégio nível 15 detectado. Validar necessidade, políticas de senha forte e controle de acesso.",
+        "created_at": "2026-06-19T15:38:25.829904+00:00",
+        "metadata": {
+          "username": "admin",
+          "privilege_level": 15,
+          "service_types": [
+            "ssh",
+            "terminal"
+          ]
+        }
+      },
+      {
+        "pk": 35,
+        "snapshot_id": 13,
+        "severity": "warning",
+        "category": "",
+        "code": "local_user_high_privilege",
+        "title": "Usuário local com privilégio elevado: admin",
+        "description": "Usuário local 'admin' com privilégio nível 15 detectado. Validar necessidade, políticas de senha forte e controle de acesso.",
+        "created_at": "2026-06-19T15:38:25.763366+00:00",
+        "metadata": {
+          "username": "admin",
+          "privilege_level": 15,
+          "service_types": [
+            "ssh",
+            "terminal"
+          ]
+        }
+      },
+      {
+        "pk": 33,
+        "snapshot_id": 13,
+        "severity": "warning",
+        "category": "",
+        "code": "snmp_v2c_enabled",
+        "title": "SNMP v2c habilitado",
+        "description": "SNMP v2c foi detectado. Recomenda-se preferir SNMPv3 com autenticação e privacidade, e restringir acesso por ACL.",
+        "created_at": "2026-06-19T15:38:25.747744+00:00",
+        "metadata": {
+          "versions": [
+            "v2c",
+            "v3"
+          ]
+        }
+      },
+      {
+        "pk": 31,
+        "snapshot_id": 12,
+        "severity": "warning",
+        "category": "",
+        "code": "vty_without_acl",
+        "title": "VTY sem ACL",
+        "description": "Linhas VTY sem ACL de entrada detectadas. Recomenda-se restringir acesso administrativo por ACL para prevenir acessos não autorizados.",
+        "created_at": "2026-06-19T15:38:05.943201+00:00",
+        "metadata": {}
+      },
+      {
+        "pk": 32,
+        "snapshot_id": 12,
+        "severity": "warning",
+        "category": "",
+        "code": "local_user_high_privilege",
+        "title": "Usuário local com privilégio elevado: admin",
+        "description": "Usuário local 'admin' com privilégio nível 15 detectado. Validar necessidade, políticas de senha forte e controle de acesso.",
+        "created_at": "2026-06-19T15:38:05.943201+00:00",
+        "metadata": {
+          "username": "admin",
+          "privilege_level": 15,
+          "service_types": [
+            "ssh",
+            "terminal",
+            "telnet"
+          ]
+        }
+      },
+      {
+        "pk": 29,
+        "snapshot_id": 12,
+        "severity": "warning",
+        "category": "",
+        "code": "syslog_without_loghost",
+        "title": "Syslog sem servidor remoto",
+        "description": "Info-center/syslog foi detectado mas nenhum loghost remoto está configurado. Recomenda-se configurar envio de logs para servidor central de monitoramento.",
+        "created_at": "2026-06-19T15:38:05.927568+00:00",
+        "metadata": {}
+      },
+      {
+        "pk": 25,
+        "snapshot_id": 12,
+        "severity": "warning",
+        "category": "",
+        "code": "snmp_v2c_enabled",
+        "title": "SNMP v2c habilitado",
+        "description": "SNMP v2c foi detectado. Recomenda-se preferir SNMPv3 com autenticação e privacidade, e restringir acesso por ACL.",
+        "created_at": "2026-06-19T15:38:05.888793+00:00",
+        "metadata": {
+          "versions": [
+            "v2c"
+          ]
+        }
+      },
+      {
+        "pk": 24,
+        "snapshot_id": 11,
+        "severity": "warning",
+        "category": "",
+        "code": "local_user_high_privilege",
+        "title": "Usuário local com privilégio elevado: admin",
+        "description": "Usuário local 'admin' com privilégio nível 15 detectado. Validar necessidade, políticas de senha forte e controle de acesso.",
+        "created_at": "2026-06-19T15:37:56.579439+00:00",
+        "metadata": {
+          "username": "admin",
+          "privilege_level": 15,
+          "service_types": [
+            "ssh",
+            "terminal"
+          ]
+        }
+      },
+      {
+        "pk": 21,
+        "snapshot_id": 11,
+        "severity": "warning",
+        "category": "",
+        "code": "snmp_v2c_enabled",
+        "title": "SNMP v2c habilitado",
+        "description": "SNMP v2c foi detectado. Recomenda-se preferir SNMPv3 com autenticação e privacidade, e restringir acesso por ACL.",
+        "created_at": "2026-06-19T15:37:56.562334+00:00",
+        "metadata": {
+          "versions": [
+            "v2c",
+            "v3"
+          ]
+        }
+      },
+      {
+        "pk": 20,
+        "snapshot_id": 10,
+        "severity": "warning",
+        "category": "",
+        "code": "vty_without_acl",
+        "title": "VTY sem ACL",
+        "description": "Linhas VTY sem ACL de entrada detectadas. Recomenda-se restringir acesso administrativo por ACL para prevenir acessos não autorizados.",
+        "created_at": "2026-06-19T15:34:34.940726+00:00",
+        "metadata": {}
+      },
+      {
+        "pk": 17,
+        "snapshot_id": 10,
+        "severity": "warning",
+        "category": "",
+        "code": "snmp_v2c_enabled",
+        "title": "SNMP v2c habilitado",
+        "description": "SNMP v2c foi detectado. Recomenda-se preferir SNMPv3 com autenticação e privacidade, e restringir acesso por ACL.",
+        "created_at": "2026-06-19T15:34:34.920730+00:00",
+        "metadata": {
+          "versions": [
+            "v2c",
+            "v3"
+          ]
+        }
+      },
+      {
+        "pk": 15,
+        "snapshot_id": 5,
+        "severity": "warning",
+        "category": "",
+        "code": "static_route_missing_description",
+        "title": "Rota estática sem descrição: 10.10.10.0/255.255.255.0",
+        "description": "A rota estática 10.10.10.0/255.255.255.0 via NULL0 não possui descrição. Recomenda-se documentar o motivo/contrato da rota.",
+        "created_at": "2026-06-19T14:53:15.602782+00:00",
+        "metadata": {
+          "destination": "10.10.10.0/255.255.255.0",
+          "next_hop": "NULL0",
+          "raw": "ip route-static 10.10.10.0 255.255.255.0 NULL0 preference 5"
+        }
+      },
+      {
+        "pk": 13,
+        "snapshot_id": 4,
+        "severity": "warning",
+        "category": "",
+        "code": "static_route_missing_description",
+        "title": "Rota estática sem descrição: 10.0.0.0/255.0.0.0",
+        "description": "A rota estática 10.0.0.0/255.0.0.0 via NULL0 não possui descrição. Recomenda-se documentar o motivo/contrato da rota.",
+        "created_at": "2026-06-19T13:00:12.005936+00:00",
+        "metadata": {
+          "destination": "10.0.0.0/255.0.0.0",
+          "next_hop": "NULL0",
+          "raw": "ip route-static 10.0.0.0 255.0.0.0 NULL0 preference 5 tag 100"
+        }
+      },
+      {
+        "pk": 12,
+        "snapshot_id": 4,
+        "severity": "warning",
+        "category": "",
+        "code": "static_route_missing_description",
+        "title": "Rota estática sem descrição: 172.16.0.0/255.255.0.0",
+        "description": "A rota estática 172.16.0.0/255.255.0.0 via 192.168.10.1 não possui descrição. Recomenda-se documentar o motivo/contrato da rota.",
+        "created_at": "2026-06-19T13:00:12.001958+00:00",
+        "metadata": {
+          "destination": "172.16.0.0/255.255.0.0",
+          "next_hop": "192.168.10.1",
+          "raw": "ip route-static 172.16.0.0 255.255.0.0 192.168.10.1 preference 60"
+        }
+      },
+      {
+        "pk": 11,
+        "snapshot_id": 4,
+        "severity": "warning",
+        "category": "",
+        "code": "static_route_missing_description",
+        "title": "Rota estática sem descrição: 200.200.200.0/255.255.255.252",
+        "description": "A rota estática 200.200.200.0/255.255.255.252 via 10.255.123.2 não possui descrição. Recomenda-se documentar o motivo/contrato da rota.",
+        "created_at": "2026-06-19T13:00:11.995912+00:00",
+        "metadata": {
+          "destination": "200.200.200.0/255.255.255.252",
+          "next_hop": "10.255.123.2",
+          "raw": "ip route-static 200.200.200.0 255.255.255.252 10.255.123.2"
+        }
+      },
+      {
+        "pk": 8,
+        "snapshot_id": 3,
+        "severity": "warning",
+        "category": "",
+        "code": "static_route_missing_description",
+        "title": "Rota estática sem descrição: 10.0.0.0/255.0.0.0",
+        "description": "A rota estática 10.0.0.0/255.0.0.0 via NULL0 não possui descrição. Recomenda-se documentar o motivo/contrato da rota.",
+        "created_at": "2026-06-19T12:58:56.588962+00:00",
+        "metadata": {
+          "destination": "10.0.0.0/255.0.0.0",
+          "next_hop": "NULL0",
+          "raw": "ip route-static 10.0.0.0 255.0.0.0 NULL0 preference 5 tag 100"
+        }
+      },
+      {
+        "pk": 7,
+        "snapshot_id": 3,
+        "severity": "warning",
+        "category": "",
+        "code": "static_route_missing_description",
+        "title": "Rota estática sem descrição: 172.16.0.0/255.255.0.0",
+        "description": "A rota estática 172.16.0.0/255.255.0.0 via 192.168.10.1 não possui descrição. Recomenda-se documentar o motivo/contrato da rota.",
+        "created_at": "2026-06-19T12:58:56.561970+00:00",
+        "metadata": {
+          "destination": "172.16.0.0/255.255.0.0",
+          "next_hop": "192.168.10.1",
+          "raw": "ip route-static 172.16.0.0 255.255.0.0 192.168.10.1 preference 60"
+        }
+      },
+      {
+        "pk": 6,
+        "snapshot_id": 3,
+        "severity": "warning",
+        "category": "",
+        "code": "static_route_missing_description",
+        "title": "Rota estática sem descrição: 200.200.200.0/255.255.255.252",
+        "description": "A rota estática 200.200.200.0/255.255.255.252 via 10.255.123.2 não possui descrição. Recomenda-se documentar o motivo/contrato da rota.",
+        "created_at": "2026-06-19T12:58:56.530979+00:00",
+        "metadata": {
+          "destination": "200.200.200.0/255.255.255.252",
+          "next_hop": "10.255.123.2",
+          "raw": "ip route-static 200.200.200.0 255.255.255.252 10.255.123.2"
+        }
+      },
+      {
+        "pk": 4,
+        "snapshot_id": 2,
+        "severity": "warning",
+        "category": "",
+        "code": "static_route_missing_description",
+        "title": "Rota estática sem descrição: 10.0.0.0/255.0.0.0",
+        "description": "A rota estática 10.0.0.0/255.0.0.0 via NULL0 não possui descrição. Recomenda-se documentar o motivo/contrato da rota.",
+        "created_at": "2026-06-19T12:58:49.175379+00:00",
+        "metadata": {
+          "destination": "10.0.0.0/255.0.0.0",
+          "next_hop": "NULL0",
+          "raw": "ip route-static 10.0.0.0 255.0.0.0 NULL0 preference 5 tag 100"
+        }
+      },
+      {
+        "pk": 3,
+        "snapshot_id": 2,
+        "severity": "warning",
+        "category": "",
+        "code": "static_route_missing_description",
+        "title": "Rota estática sem descrição: 172.16.0.0/255.255.0.0",
+        "description": "A rota estática 172.16.0.0/255.255.0.0 via 192.168.10.1 não possui descrição. Recomenda-se documentar o motivo/contrato da rota.",
+        "created_at": "2026-06-19T12:58:49.165381+00:00",
+        "metadata": {
+          "destination": "172.16.0.0/255.255.0.0",
+          "next_hop": "192.168.10.1",
+          "raw": "ip route-static 172.16.0.0 255.255.0.0 192.168.10.1 preference 60"
+        }
+      },
+      {
+        "pk": 2,
+        "snapshot_id": 1,
+        "severity": "warning",
+        "category": "",
+        "code": "static_route_missing_description",
+        "title": "Rota estática sem descrição: 10.0.0.0/255.0.0.0",
+        "description": "A rota estática 10.0.0.0/255.0.0.0 via NULL0 não possui descrição. Recomenda-se documentar o motivo/contrato da rota.",
+        "created_at": "2026-06-19T12:58:16.462995+00:00",
+        "metadata": {
+          "destination": "10.0.0.0/255.0.0.0",
+          "next_hop": "NULL0",
+          "raw": "ip route-static 10.0.0.0 255.0.0.0 NULL0 preference 5 tag 100"
+        }
+      },
+      {
+        "pk": 1,
+        "snapshot_id": 1,
+        "severity": "warning",
+        "category": "",
+        "code": "static_route_missing_description",
+        "title": "Rota estática sem descrição: 172.16.0.0/255.255.0.0",
+        "description": "A rota estática 172.16.0.0/255.255.0.0 via 192.168.10.1 não possui descrição. Recomenda-se documentar o motivo/contrato da rota.",
+        "created_at": "2026-06-19T12:58:16.455997+00:00",
+        "metadata": {
+          "destination": "172.16.0.0/255.255.0.0",
+          "next_hop": "192.168.10.1",
+          "raw": "ip route-static 172.16.0.0 255.255.0.0 192.168.10.1 preference 60"
+        }
+      },
+      {
+        "pk": 78,
+        "snapshot_id": 25,
+        "severity": "info",
+        "category": "",
+        "code": "ospf_passive_missing",
+        "title": "OSPF processo 2 sem passive-interface",
+        "description": "O processo OSPF 2 possui 2 rede(s) configurada(s) mas nenhuma passive-interface definida. Considere configurar passive-interface em redes LAN para evitar envio desnecessário de hellos OSPF.",
+        "created_at": "2026-06-19T19:12:49.396746+00:00",
+        "metadata": {
+          "process_id": "2",
+          "network_count": 2
+        }
+      },
+      {
+        "pk": 77,
+        "snapshot_id": 25,
+        "severity": "info",
+        "category": "",
+        "code": "ospf_passive_missing",
+        "title": "OSPF processo 1 sem passive-interface",
+        "description": "O processo OSPF 1 possui 2 rede(s) configurada(s) mas nenhuma passive-interface definida. Considere configurar passive-interface em redes LAN para evitar envio desnecessário de hellos OSPF.",
+        "created_at": "2026-06-19T19:12:49.383823+00:00",
+        "metadata": {
+          "process_id": "1",
+          "network_count": 2
+        }
+      },
+      {
+        "pk": 74,
+        "snapshot_id": 24,
+        "severity": "info",
+        "category": "",
+        "code": "ospf_passive_missing",
+        "title": "OSPF processo 2 sem passive-interface",
+        "description": "O processo OSPF 2 possui 2 rede(s) configurada(s) mas nenhuma passive-interface definida. Considere configurar passive-interface em redes LAN para evitar envio desnecessário de hellos OSPF.",
+        "created_at": "2026-06-19T19:12:41.944407+00:00",
+        "metadata": {
+          "process_id": "2",
+          "network_count": 2
+        }
+      },
+      {
+        "pk": 73,
+        "snapshot_id": 24,
+        "severity": "info",
+        "category": "",
+        "code": "ospf_passive_missing",
+        "title": "OSPF processo 1 sem passive-interface",
+        "description": "O processo OSPF 1 possui 2 rede(s) configurada(s) mas nenhuma passive-interface definida. Considere configurar passive-interface em redes LAN para evitar envio desnecessário de hellos OSPF.",
+        "created_at": "2026-06-19T19:12:41.933527+00:00",
+        "metadata": {
+          "process_id": "1",
+          "network_count": 2
+        }
+      },
+      {
+        "pk": 71,
+        "snapshot_id": 23,
+        "severity": "info",
+        "category": "",
+        "code": "community_filter_orphan",
+        "title": "Community-filter sem referência detectado",
+        "description": "Community-filter CLIENTE-COMM criado mas não referenciado por route-policy conhecida.",
+        "created_at": "2026-06-19T18:45:18.686851+00:00",
+        "metadata": {
+          "filter_name": "CLIENTE-COMM"
+        }
+      },
+      {
+        "pk": 70,
+        "snapshot_id": 23,
+        "severity": "info",
+        "category": "",
+        "code": "ip_prefix_orphan",
+        "title": "IP-prefix sem referência detectado",
+        "description": "IP-prefix AGREGA criado mas não referenciado por route-policy conhecida.",
+        "created_at": "2026-06-19T18:45:18.679855+00:00",
+        "metadata": {
+          "prefix_name": "AGREGA"
+        }
+      },
+      {
+        "pk": 64,
+        "snapshot_id": 20,
+        "severity": "info",
+        "category": "",
+        "code": "ip_prefix_orphan",
+        "title": "IP-prefix sem referência detectado",
+        "description": "IP-prefix PERMIT-ANY criado mas não referenciado por route-policy conhecida.",
+        "created_at": "2026-06-19T17:31:03.954449+00:00",
+        "metadata": {
+          "prefix_name": "PERMIT-ANY"
+        }
+      },
+      {
+        "pk": 63,
+        "snapshot_id": 20,
+        "severity": "info",
+        "category": "",
+        "code": "ip_prefix_orphan",
+        "title": "IP-prefix sem referência detectado",
+        "description": "IP-prefix BOGONS criado mas não referenciado por route-policy conhecida.",
+        "created_at": "2026-06-19T17:31:03.944454+00:00",
+        "metadata": {
+          "prefix_name": "BOGONS"
+        }
+      },
+      {
+        "pk": 62,
+        "snapshot_id": 20,
+        "severity": "info",
+        "category": "",
+        "code": "route_policy_orphan",
+        "title": "Route-policy sem referência detectada",
+        "description": "Route-policy ORFAO-POLICY criada mas não referenciada por BGP ou outra policy conhecida.",
+        "created_at": "2026-06-19T17:31:03.939454+00:00",
+        "metadata": {
+          "policy_name": "ORFAO-POLICY"
+        }
+      },
+      {
+        "pk": 58,
+        "snapshot_id": 20,
+        "severity": "info",
+        "category": "",
+        "code": "route_policy_without_apply",
+        "title": "Route-policy sem apply",
+        "description": "Route-policy ORFAO-POLICY não possui ações apply. Deve ser validada.",
+        "created_at": "2026-06-19T17:31:03.914464+00:00",
+        "metadata": {
+          "policy_name": "ORFAO-POLICY",
+          "node": 10
+        }
+      },
+      {
+        "pk": 57,
+        "snapshot_id": 20,
+        "severity": "info",
+        "category": "",
+        "code": "route_policy_without_apply",
+        "title": "Route-policy sem apply",
+        "description": "Route-policy EXPORT-PERMIT não possui ações apply. Deve ser validada.",
+        "created_at": "2026-06-19T17:31:03.909468+00:00",
+        "metadata": {
+          "policy_name": "EXPORT-PERMIT",
+          "node": 10
+        }
+      },
+      {
+        "pk": 36,
+        "snapshot_id": 14,
+        "severity": "info",
+        "category": "",
+        "code": "ntp_without_authentication",
+        "title": "NTP sem autenticação",
+        "description": "NTP foi detectado sem autenticação configurada. Validar política de segurança da rede — NTP sem autenticação pode ser vulnerável a ataques de desvio de horário.",
+        "created_at": "2026-06-19T15:38:25.814281+00:00",
+        "metadata": {
+          "server_count": 2
+        }
+      },
+      {
+        "pk": 34,
+        "snapshot_id": 13,
+        "severity": "info",
+        "category": "",
+        "code": "ntp_without_authentication",
+        "title": "NTP sem autenticação",
+        "description": "NTP foi detectado sem autenticação configurada. Validar política de segurança da rede — NTP sem autenticação pode ser vulnerável a ataques de desvio de horário.",
+        "created_at": "2026-06-19T15:38:25.763366+00:00",
+        "metadata": {
+          "server_count": 1
+        }
+      },
+      {
+        "pk": 28,
+        "snapshot_id": 12,
+        "severity": "info",
+        "category": "",
+        "code": "ntp_without_authentication",
+        "title": "NTP sem autenticação",
+        "description": "NTP foi detectado sem autenticação configurada. Validar política de segurança da rede — NTP sem autenticação pode ser vulnerável a ataques de desvio de horário.",
+        "created_at": "2026-06-19T15:38:05.927568+00:00",
+        "metadata": {
+          "server_count": 1
+        }
+      },
+      {
+        "pk": 23,
+        "snapshot_id": 11,
+        "severity": "info",
+        "category": "",
+        "code": "ntp_without_authentication",
+        "title": "NTP sem autenticação",
+        "description": "NTP foi detectado sem autenticação configurada. Validar política de segurança da rede — NTP sem autenticação pode ser vulnerável a ataques de desvio de horário.",
+        "created_at": "2026-06-19T15:37:56.567934+00:00",
+        "metadata": {
+          "server_count": 2
+        }
+      },
+      {
+        "pk": 19,
+        "snapshot_id": 10,
+        "severity": "info",
+        "category": "",
+        "code": "ntp_without_authentication",
+        "title": "NTP sem autenticação",
+        "description": "NTP foi detectado sem autenticação configurada. Validar política de segurança da rede — NTP sem autenticação pode ser vulnerável a ataques de desvio de horário.",
+        "created_at": "2026-06-19T15:34:34.932727+00:00",
+        "metadata": {
+          "server_count": 2
+        }
+      },
+      {
+        "pk": 10,
+        "snapshot_id": 4,
+        "severity": "info",
+        "category": "",
+        "code": "interface_missing_description",
+        "title": "Interface sem descrição: GigabitEthernet0/0/2",
+        "description": "A interface GigabitEthernet0/0/2 não possui descrição configurada. Recomenda-se adicionar uma descrição para facilitar o troubleshooting.",
+        "created_at": "2026-06-19T13:00:11.984809+00:00",
+        "metadata": {
+          "interface": "GigabitEthernet0/0/2",
+          "type": "physical"
+        }
+      },
+      {
+        "pk": 5,
+        "snapshot_id": 3,
+        "severity": "info",
+        "category": "",
+        "code": "interface_missing_description",
+        "title": "Interface sem descrição: GigabitEthernet0/0/2",
+        "description": "A interface GigabitEthernet0/0/2 não possui descrição configurada. Recomenda-se adicionar uma descrição para facilitar o troubleshooting.",
+        "created_at": "2026-06-19T12:58:56.475996+00:00",
+        "metadata": {
+          "interface": "GigabitEthernet0/0/2",
+          "type": "physical"
+        }
+      },
+      {
+        "pk": 68,
+        "snapshot_id": 21,
+        "severity": "critical",
+        "category": "",
+        "code": "bgp_route_policy_not_found",
+        "title": "Route-policy referencia não encontrada",
+        "description": "Peer BGP 10.0.1.2 referencia route-policy IMPORT-CLIENTE no sentido import, mas ela não foi localizada na configuração.",
+        "created_at": "2026-06-19T17:37:10.465143+00:00",
+        "metadata": {
+          "peer_ip": "10.0.1.2",
+          "direction": "import",
+          "route_policy": "IMPORT-CLIENTE"
+        }
+      },
+      {
+        "pk": 67,
+        "snapshot_id": 21,
+        "severity": "critical",
+        "category": "",
+        "code": "bgp_route_policy_not_found",
+        "title": "Route-policy referencia não encontrada",
+        "description": "Peer BGP 10.0.0.2 referencia route-policy IMPORT-UPSTREAM no sentido import, mas ela não foi localizada na configuração.",
+        "created_at": "2026-06-19T17:37:10.458145+00:00",
+        "metadata": {
+          "peer_ip": "10.0.0.2",
+          "direction": "import",
+          "route_policy": "IMPORT-UPSTREAM"
+        }
+      },
+      {
+        "pk": 65,
+        "snapshot_id": 20,
+        "severity": "critical",
+        "category": "",
+        "code": "bgp_route_policy_not_found",
+        "title": "Route-policy referencia não encontrada",
+        "description": "Peer BGP 10.255.0.2 referencia route-policy IMPORT-MISSING no sentido import, mas ela não foi localizada na configuração.",
+        "created_at": "2026-06-19T17:31:03.959446+00:00",
+        "metadata": {
+          "peer_ip": "10.255.0.2",
+          "direction": "import",
+          "route_policy": "IMPORT-MISSING"
+        }
+      },
+      {
+        "pk": 60,
+        "snapshot_id": 20,
+        "severity": "critical",
+        "category": "",
+        "code": "ip_prefix_permit_any",
+        "title": "IP-prefix permitindo qualquer rota",
+        "description": "IP-prefix PERMIT-ANY com permit 0.0.0.0/0 less-equal 32 detectado.",
+        "created_at": "2026-06-19T17:31:03.929458+00:00",
+        "metadata": {
+          "prefix_name": "PERMIT-ANY",
+          "rule_index": 10
+        }
+      },
+      {
+        "pk": 59,
+        "snapshot_id": 20,
+        "severity": "critical",
+        "category": "",
+        "code": "ip_prefix_permit_any",
+        "title": "IP-prefix permitindo qualquer rota",
+        "description": "IP-prefix PERMIT-ANY com permit 0.0.0.0/0 less-equal 32 detectado.",
+        "created_at": "2026-06-19T17:31:03.919463+00:00",
+        "metadata": {
+          "prefix_name": "PERMIT-ANY",
+          "rule_index": 10
+        }
+      },
+      {
+        "pk": 56,
+        "snapshot_id": 19,
+        "severity": "critical",
+        "category": "",
+        "code": "bgp_route_policy_not_found",
+        "title": "Route-policy referencia não encontrada",
+        "description": "Peer BGP 10.0.1.2 referencia route-policy IMPORT-CLIENTE no sentido import, mas ela não foi localizada na configuração.",
+        "created_at": "2026-06-19T17:30:45.760886+00:00",
+        "metadata": {
+          "peer_ip": "10.0.1.2",
+          "direction": "import",
+          "route_policy": "IMPORT-CLIENTE"
+        }
+      },
+      {
+        "pk": 53,
+        "snapshot_id": 19,
+        "severity": "critical",
+        "category": "",
+        "code": "ip_prefix_permit_any",
+        "title": "IP-prefix permitindo qualquer rota",
+        "description": "IP-prefix CLIENTE-X com permit 0.0.0.0/0 less-equal 32 detectado.",
+        "created_at": "2026-06-19T17:30:45.734248+00:00",
+        "metadata": {
+          "prefix_name": "CLIENTE-X",
+          "rule_index": 20
+        }
+      },
+      {
+        "pk": 55,
+        "snapshot_id": 19,
+        "severity": "critical",
+        "category": "",
+        "code": "bgp_route_policy_not_found",
+        "title": "Route-policy referencia não encontrada",
+        "description": "Peer BGP 10.0.0.2 referencia route-policy IMPORT-UPSTREAM no sentido import, mas ela não foi localizada na configuração.",
+        "created_at": "2026-06-19T17:30:45.734248+00:00",
+        "metadata": {
+          "peer_ip": "10.0.0.2",
+          "direction": "import",
+          "route_policy": "IMPORT-UPSTREAM"
+        }
+      },
+      {
+        "pk": 52,
+        "snapshot_id": 19,
+        "severity": "critical",
+        "category": "",
+        "code": "ip_prefix_permit_any",
+        "title": "IP-prefix permitindo qualquer rota",
+        "description": "IP-prefix CLIENTE-X com permit 0.0.0.0/0 less-equal 32 detectado.",
+        "created_at": "2026-06-19T17:30:45.713344+00:00",
+        "metadata": {
+          "prefix_name": "CLIENTE-X",
+          "rule_index": 20
+        }
+      },
+      {
+        "pk": 50,
+        "snapshot_id": 18,
+        "severity": "critical",
+        "category": "",
+        "code": "bgp_route_policy_not_found",
+        "title": "Route-policy referencia não encontrada",
+        "description": "Peer BGP 10.0.0.2 referencia route-policy IMPORT-UPSTREAM no sentido import, mas ela não foi localizada na configuração.",
+        "created_at": "2026-06-19T17:29:56.028850+00:00",
+        "metadata": {
+          "peer_ip": "10.0.0.2",
+          "direction": "import",
+          "route_policy": "IMPORT-UPSTREAM"
+        }
+      },
+      {
+        "pk": 51,
+        "snapshot_id": 18,
+        "severity": "critical",
+        "category": "",
+        "code": "bgp_route_policy_not_found",
+        "title": "Route-policy referencia não encontrada",
+        "description": "Peer BGP 10.0.1.2 referencia route-policy IMPORT-CLIENTE no sentido import, mas ela não foi localizada na configuração.",
+        "created_at": "2026-06-19T17:29:56.028850+00:00",
+        "metadata": {
+          "peer_ip": "10.0.1.2",
+          "direction": "import",
+          "route_policy": "IMPORT-CLIENTE"
+        }
+      },
+      {
+        "pk": 48,
+        "snapshot_id": 17,
+        "severity": "critical",
+        "category": "",
+        "code": "bgp_route_policy_not_found",
+        "title": "Route-policy referencia não encontrada",
+        "description": "Peer BGP 10.0.1.2 referencia route-policy IMPORT-CLIENTE no sentido import, mas ela não foi localizada na configuração.",
+        "created_at": "2026-06-19T17:29:08.522457+00:00",
+        "metadata": {
+          "peer_ip": "10.0.1.2",
+          "direction": "import",
+          "route_policy": "IMPORT-CLIENTE"
+        }
+      },
+      {
+        "pk": 47,
+        "snapshot_id": 17,
+        "severity": "critical",
+        "category": "",
+        "code": "bgp_route_policy_not_found",
+        "title": "Route-policy referencia não encontrada",
+        "description": "Peer BGP 10.0.0.2 referencia route-policy IMPORT-UPSTREAM no sentido import, mas ela não foi localizada na configuração.",
+        "created_at": "2026-06-19T17:29:08.493801+00:00",
+        "metadata": {
+          "peer_ip": "10.0.0.2",
+          "direction": "import",
+          "route_policy": "IMPORT-UPSTREAM"
+        }
+      },
+      {
+        "pk": 44,
+        "snapshot_id": 16,
+        "severity": "critical",
+        "category": "",
+        "code": "bgp_route_policy_not_found",
+        "title": "Route-policy referencia não encontrada",
+        "description": "Peer BGP 10.255.0.2 referencia route-policy IMPORT-MISSING no sentido import, mas ela não foi localizada na configuração.",
+        "created_at": "2026-06-19T17:26:28.061227+00:00",
+        "metadata": {
+          "peer_ip": "10.255.0.2",
+          "direction": "import",
+          "route_policy": "IMPORT-MISSING"
+        }
+      },
+      {
+        "pk": 45,
+        "snapshot_id": 16,
+        "severity": "critical",
+        "category": "",
+        "code": "bgp_route_policy_not_found",
+        "title": "Route-policy referencia não encontrada",
+        "description": "Peer BGP 10.255.0.2 referencia route-policy EXPORT-PERMIT no sentido export, mas ela não foi localizada na configuração.",
+        "created_at": "2026-06-19T17:26:28.061227+00:00",
+        "metadata": {
+          "peer_ip": "10.255.0.2",
+          "direction": "export",
+          "route_policy": "EXPORT-PERMIT"
+        }
+      },
+      {
+        "pk": 42,
+        "snapshot_id": 15,
+        "severity": "critical",
+        "category": "",
+        "code": "bgp_route_policy_not_found",
+        "title": "Route-policy referencia não encontrada",
+        "description": "Peer BGP 10.0.1.2 referencia route-policy EXPORT-CLIENTE no sentido export, mas ela não foi localizada na configuração.",
+        "created_at": "2026-06-19T17:26:17.549254+00:00",
+        "metadata": {
+          "peer_ip": "10.0.1.2",
+          "direction": "export",
+          "route_policy": "EXPORT-CLIENTE"
+        }
+      },
+      {
+        "pk": 41,
+        "snapshot_id": 15,
+        "severity": "critical",
+        "category": "",
+        "code": "bgp_route_policy_not_found",
+        "title": "Route-policy referencia não encontrada",
+        "description": "Peer BGP 10.0.1.2 referencia route-policy IMPORT-CLIENTE no sentido import, mas ela não foi localizada na configuração.",
+        "created_at": "2026-06-19T17:26:17.546247+00:00",
+        "metadata": {
+          "peer_ip": "10.0.1.2",
+          "direction": "import",
+          "route_policy": "IMPORT-CLIENTE"
+        }
+      },
+      {
+        "pk": 39,
+        "snapshot_id": 15,
+        "severity": "critical",
+        "category": "",
+        "code": "bgp_route_policy_not_found",
+        "title": "Route-policy referencia não encontrada",
+        "description": "Peer BGP 10.0.0.2 referencia route-policy IMPORT-UPSTREAM no sentido import, mas ela não foi localizada na configuração.",
+        "created_at": "2026-06-19T17:26:17.530176+00:00",
+        "metadata": {
+          "peer_ip": "10.0.0.2",
+          "direction": "import",
+          "route_policy": "IMPORT-UPSTREAM"
+        }
+      },
+      {
+        "pk": 40,
+        "snapshot_id": 15,
+        "severity": "critical",
+        "category": "",
+        "code": "bgp_route_policy_not_found",
+        "title": "Route-policy referencia não encontrada",
+        "description": "Peer BGP 10.0.0.2 referencia route-policy EXPORT-AGREGA no sentido export, mas ela não foi localizada na configuração.",
+        "created_at": "2026-06-19T17:26:17.530176+00:00",
+        "metadata": {
+          "peer_ip": "10.0.0.2",
+          "direction": "export",
+          "route_policy": "EXPORT-AGREGA"
+        }
+      },
+      {
+        "pk": 30,
+        "snapshot_id": 12,
+        "severity": "critical",
+        "category": "",
+        "code": "telnet_enabled",
+        "title": "Telnet habilitado",
+        "description": "Acesso Telnet foi detectado. Telnet não é seguro — recomenda-se usar SSH/Stelnet para acesso administrativo e restringir por ACL.",
+        "created_at": "2026-06-19T15:38:05.927568+00:00",
+        "metadata": {}
+      },
+      {
+        "pk": 27,
+        "snapshot_id": 12,
+        "severity": "critical",
+        "category": "",
+        "code": "snmp_without_acl",
+        "title": "SNMP sem ACL detectado",
+        "description": "SNMP foi detectado sem referência clara a ACL de restrição de origem. Recomenda-se restringir os gerentes SNMP por ACL.",
+        "created_at": "2026-06-19T15:38:05.922561+00:00",
+        "metadata": {
+          "versions": [
+            "v2c"
+          ]
+        }
+      },
+      {
+        "pk": 26,
+        "snapshot_id": 12,
+        "severity": "critical",
+        "category": "",
+        "code": "snmp_write_community",
+        "title": "Community SNMP de escrita detectada",
+        "description": "Foi detectada community SNMP com permissão de escrita. Validar necessidade e restringir acesso por ACL. Considere migrar para SNMPv3.",
+        "created_at": "2026-06-19T15:38:05.906930+00:00",
+        "metadata": {
+          "access": "write",
+          "acl_ref": null
+        }
+      },
+      {
+        "pk": 22,
+        "snapshot_id": 11,
+        "severity": "critical",
+        "category": "",
+        "code": "snmp_write_community",
+        "title": "Community SNMP de escrita detectada",
+        "description": "Foi detectada community SNMP com permissão de escrita. Validar necessidade e restringir acesso por ACL. Considere migrar para SNMPv3.",
+        "created_at": "2026-06-19T15:37:56.567934+00:00",
+        "metadata": {
+          "access": "write",
+          "acl_ref": null
+        }
+      },
+      {
+        "pk": 18,
+        "snapshot_id": 10,
+        "severity": "critical",
+        "category": "",
+        "code": "snmp_write_community",
+        "title": "Community SNMP de escrita detectada",
+        "description": "Foi detectada community SNMP com permissão de escrita. Validar necessidade e restringir acesso por ACL. Considere migrar para SNMPv3.",
+        "created_at": "2026-06-19T15:34:34.928728+00:00",
+        "metadata": {
+          "access": "write",
+          "acl_ref": null
+        }
+      },
+      {
+        "pk": 16,
+        "snapshot_id": 5,
+        "severity": "critical",
+        "category": "",
+        "code": "static_route_unreachable_next_hop",
+        "title": "Next-hop inalcançável: 172.16.0.2",
+        "description": "A rota estática 10.10.10.0/255.255.255.0 via 172.16.0.2 tem next-hop que não pertence a nenhuma rede diretamente conectada. Pode indicar rota morta ou necessidade de roteamento dinâmico.",
+        "created_at": "2026-06-19T14:53:15.609781+00:00",
+        "metadata": {
+          "destination": "10.10.10.0/255.255.255.0",
+          "next_hop": "172.16.0.2",
+          "raw": "ip route-static vpn-instance CLIENTE-A 10.10.10.0 255.255.255.0 172.16.0.2 description ROTA-VPN-CLIENTE-A"
+        }
+      },
+      {
+        "pk": 14,
+        "snapshot_id": 4,
+        "severity": "critical",
+        "category": "",
+        "code": "static_route_unreachable_next_hop",
+        "title": "Next-hop inalcançável: 192.168.255.1",
+        "description": "A rota estática 0.0.0.0/0.0.0.0 via 192.168.255.1 tem next-hop que não pertence a nenhuma rede diretamente conectada. Pode indicar rota morta ou necessidade de roteamento dinâmico.",
+        "created_at": "2026-06-19T13:00:12.018154+00:00",
+        "metadata": {
+          "destination": "0.0.0.0/0.0.0.0",
+          "next_hop": "192.168.255.1",
+          "raw": "ip route-static 0.0.0.0 0.0.0.0 192.168.255.1"
+        }
+      },
+      {
+        "pk": 9,
+        "snapshot_id": 3,
+        "severity": "critical",
+        "category": "",
+        "code": "static_route_unreachable_next_hop",
+        "title": "Next-hop inalcançável: 192.168.255.1",
+        "description": "A rota estática 0.0.0.0/0.0.0.0 via 192.168.255.1 tem next-hop que não pertence a nenhuma rede diretamente conectada. Pode indicar rota morta ou necessidade de roteamento dinâmico.",
+        "created_at": "2026-06-19T12:58:56.600466+00:00",
+        "metadata": {
+          "destination": "0.0.0.0/0.0.0.0",
+          "next_hop": "192.168.255.1",
+          "raw": "ip route-static 0.0.0.0 0.0.0.0 192.168.255.1"
+        }
+      }
+    ],
+    "comparisons": [
+      {
+        "pk": 2,
+        "base_snapshot_id": 13,
+        "target_snapshot_id": 14,
+        "title": "",
+        "summary": "Comparação de snapshots. Interfaces: sem mudanças. Rotas estáticas: sem mudanças. BGP: sem mudanças. Circuitos: sem mudanças. Serviços: 4 adicionada(s), 3 removida(s). Issues: 0 nova(s), 1 resolvida(s).",
+        "created_at": "2026-06-19T15:38:25.883441+00:00"
+      },
+      {
+        "pk": 1,
+        "base_snapshot_id": 8,
+        "target_snapshot_id": 9,
+        "title": "",
+        "summary": "Comparação de snapshots. Interfaces: 1 adicionada(s), 2 alterada(s). Rotas estáticas: 1 adicionada(s). BGP: 1 peer(s) adicionado(s), 1 rede(s) adicionada(s). Circuitos: sem mudanças. Serviços: sem mudanças. Issues: 0 nova(s), 0 resolvida(s).",
+        "created_at": "2026-06-19T15:13:33.744706+00:00"
+      }
+    ],
+    "audit_logs": []
+  }
+}

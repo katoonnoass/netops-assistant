@@ -562,3 +562,50 @@ def detect_l2vpn_vsi_circuits(
         circuits.append(circuit)
 
     return circuits
+
+
+def detect_olt_circuits(snapshot, parsed_data: dict) -> list[DetectedCircuit]:
+    """Detect ZTE OLT customer circuits from ONUs and service-ports."""
+    if parsed_data.get("vendor") != "zte":
+        return []
+    olt = parsed_data.get("zte_olt", {})
+    if not olt.get("enabled"):
+        return []
+
+    circuits: list[DetectedCircuit] = []
+    for onu in olt.get("onus", []):
+        service_vlans = sorted({
+            str(service.get("vlan") or service.get("user_vlan") or "")
+            for service in onu.get("service_ports", [])
+            if service.get("vlan") or service.get("user_vlan")
+        })
+        description = onu.get("description") or onu.get("name") or onu.get("serial") or onu.get("interface", "")
+        details = {
+            "pon": onu.get("pon", ""),
+            "onu_id": onu.get("onu_id", ""),
+            "interface": onu.get("interface", ""),
+            "name": onu.get("name", ""),
+            "serial": onu.get("serial", ""),
+            "type": onu.get("type", ""),
+            "service_vlans": service_vlans,
+            "service_port_count": len(onu.get("service_ports", [])),
+            "tcont_count": len(onu.get("tconts", [])),
+            "gemport_count": len(onu.get("gemports", [])),
+            "confidence": 0.85 if onu.get("service_ports") else 0.60,
+            "vendor": "zte",
+            "evidence": {
+                "interface": onu.get("interface", ""),
+                "serial": onu.get("serial", ""),
+                "service_ports": onu.get("service_ports", []),
+                "method": "zte_gpon_onu_inventory",
+            },
+        }
+        circuit = DetectedCircuit(
+            snapshot=snapshot,
+            circuit_type=DetectedCircuit.CircuitType.OLT,
+            description=description,
+            details=details,
+        )
+        circuit.save()
+        circuits.append(circuit)
+    return circuits

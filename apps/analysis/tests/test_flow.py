@@ -22,6 +22,7 @@ from apps.config_archive.models import ConfigSnapshot
 from apps.devices.models import Device
 from apps.parsers.huawei import HuaweiVRPParser
 from apps.parsers.registry import get_parser_for_vendor, list_supported_vendors
+from apps.parsers.zte import ZTEOLTParser
 
 FIXTURES_DIR = os.path.join(os.path.dirname(__file__), "fixtures")
 
@@ -56,6 +57,11 @@ class RegistryTests(TestCase):
         canonical, parser_cls = get_parser_for_vendor("HUAWEI")
         self.assertEqual(canonical, "huawei")
 
+    def test_get_parser_zte(self):
+        canonical, parser_cls = get_parser_for_vendor("zte")
+        self.assertEqual(canonical, "zte")
+        self.assertIs(parser_cls, ZTEOLTParser)
+
     def test_get_parser_unsupported_vendor(self):
         with self.assertRaises(KeyError):
             get_parser_for_vendor("invalid_vendor_name")
@@ -64,6 +70,7 @@ class RegistryTests(TestCase):
         vendors = list_supported_vendors()
         self.assertIn("huawei", vendors)
         self.assertIn("cisco", vendors)
+        self.assertIn("zte", vendors)
 
     def test_get_parser_unsupported_message(self):
         try:
@@ -73,6 +80,7 @@ class RegistryTests(TestCase):
             self.assertIn("invalid", msg)
             self.assertIn("huawei", msg)
             self.assertIn("cisco", msg)
+            self.assertIn("zte", msg)
 
 
 # ---------------------------------------------------------------------------

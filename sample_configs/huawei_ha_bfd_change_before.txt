@@ -1,0 +1,48 @@
+#
+sysname NE40-HA-BFD-DIFF
+#
+bfd
+#
+bfd TO-PEER-1 bind peer-ip 10.0.0.2 interface GigabitEthernet0/0/0
+ discriminator local 100
+ discriminator remote 200
+ min-tx-interval 300
+ min-rx-interval 300
+ detect-multiplier 3
+ commit
+#
+interface GigabitEthernet0/0/0
+ description CORE-LINK
+ ip address 10.0.0.1 255.255.255.252
+ isis enable 1
+#
+interface Eth-Trunk100
+ description CORE-AGGREGATION
+ isis enable 1
+ isis bfd enable
+#
+bgp 65000
+ peer 10.255.0.2 as-number 65000
+ peer 10.255.0.2 connect-interface LoopBack0
+ graceful-restart
+ graceful-restart timer restart 120
+ graceful-restart timer wait-for-rib 180
+ #
+ ipv4-family unicast
+  peer 10.255.0.2 enable
+#
+isis 1
+ is-level level-2
+ cost-style wide
+ network-entity 49.0001.0100.0000.0001.00
+ bfd all-interfaces enable
+ graceful-restart
+ nsr
+#
+mpls lsr-id 10.255.0.1
+mpls
+ mpls te
+#
+mpls ldp
+ graceful-restart
+#

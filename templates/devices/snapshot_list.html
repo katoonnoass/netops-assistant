@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+{% block title %}Snapshots de {{ device.name }} - NetOps Assistant{% endblock %}
+
+{% block content %}
+<div class="page-header flex justify-between items-center">
+    <div>
+        <h1>Snapshots</h1>
+        <p><a href="{% url 'device_detail' device.pk %}">{{ device.name }}</a> — {{ snapshots|length }} snapshot(s).</p>
+    </div>
+    <div class="flex gap-1">
+        <a href="{% url 'device_snapshot_upload' device.pk %}" class="btn btn-primary btn-sm">Novo Snapshot</a>
+        <a href="{% url 'device_compare' device.pk %}" class="btn btn-outline btn-sm">Comparar</a>
+        <a href="{% url 'device_detail' device.pk %}" class="btn btn-outline btn-sm">Detalhes</a>
+    </div>
+</div>
+
+{% if snapshots %}
+<div class="table-container">
+    <table>
+        <thead><tr>
+            <th>#</th>
+            <th>Nome</th>
+            <th>Data</th>
+            <th>Hash</th>
+            <th>Vendor</th>
+            <th>Origem</th>
+            <th>Baseline</th>
+            <th>Serviços</th>
+            <th>Circuitos</th>
+            <th>Issues</th>
+            <th></th>
+        </tr></thead>
+        <tbody>
+        {% for snap in snapshots %}
+        <tr>
+            <td>#{{ snap.pk }}</td>
+            <td>{{ snap.name|default:"—" }}</td>
+            <td>{{ snap.created_at|date:"d/m/Y H:i" }}</td>
+            <td><code title="{{ snap.config_hash }}">{{ snap.hash_short }}</code></td>
+            <td><span class="badge badge-primary">{{ snap.vendor }}</span></td>
+            <td>{{ snap.get_source_display }}</td>
+            <td>{% if snap.is_baseline %}<span class="badge badge-success">Sim</span>{% else %}—{% endif %}</td>
+            <td>{{ snap.detected_circuits.count }}</td>
+            <td>{{ snap.detected_services.count }}</td>
+            <td>
+                <span class="badge {% if snap.analysis_issues.count > 0 %}badge-warning{% else %}badge-success{% endif %}">{{ snap.analysis_issues.count }}</span>
+            </td>
+            <td class="text-right">
+                {% with snap.parsed_configs.first as p %}
+                {% if p %}
+                <a href="{% url 'analysis_detail' p.pk %}" class="btn btn-primary btn-sm">Análise</a>
+                <a href="{% url 'analysis_documentation' p.pk %}" class="btn btn-outline btn-sm">Doc</a>
+                {% endif %}
+                {% endwith %}
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="card empty-state">
+    <p>Nenhum snapshot para este dispositivo.</p>
+    <a href="{% url 'device_snapshot_upload' device.pk %}" class="btn btn-primary">Fazer upload do primeiro snapshot</a>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,28 @@
+hostname ZTE-OLT-C320-01
+!
+vlan 100
+ name CLIENTE-FTTH
+!
+interface gei_1/4/1
+ description UPLINK-CORE
+ switchport mode trunk
+ switchport vlan 100 tag
+ ip address 10.10.10.2 255.255.255.252
+!
+interface gpon-olt_1/1/1
+ description PON-CLIENTES-01
+ onu 1 type F660 sn ZTEG12345678
+ onu 1 name CLIENTE-001
+ onu 2 type F660 sn ZTEG87654321
+!
+interface gpon-onu_1/1/1:1
+ description CLIENTE-001
+ tcont 1 profile 1G
+ gemport 1 tcont 1
+ service-port 1 vport 1 user-vlan 100 vlan 100
+!
+pon-onu-mng gpon-onu_1/1/1:1
+ service 1 gemport 1 vlan 100
+ vlan port eth_0/1 mode tag vlan 100
+!
+ip route 0.0.0.0 0.0.0.0 10.10.10.1

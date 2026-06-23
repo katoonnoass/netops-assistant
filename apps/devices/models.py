@@ -10,6 +10,19 @@ class Device(models.Model):
         MIKROTIK = "mikrotik", "MikroTik"
         OTHER = "other", "Outro"
 
+    class Role(models.TextChoices):
+        CORE = "core", "Core"
+        DISTRIBUTION = "distribution", "Distribuição"
+        ACCESS = "access", "Acesso"
+        BORDER = "border", "Borda"
+        PE = "pe", "PE"
+        P = "p", "P"
+        ROUTER = "router", "Roteador"
+        SWITCH = "switch", "Switch"
+        FIREWALL = "firewall", "Firewall"
+        BNG = "bng", "BNG"
+        OTHER = "other", "Outro"
+
     name = models.CharField("nome", max_length=100, unique=True)
     vendor = models.CharField(
         "fabricante",
@@ -17,6 +30,15 @@ class Device(models.Model):
         choices=Vendor.choices,
         default=Vendor.HUAWEI,
     )
+    platform = models.CharField("plataforma", max_length=100, blank=True, default="")
+    role = models.CharField(
+        "função",
+        max_length=30,
+        choices=Role.choices,
+        blank=True,
+        default="",
+    )
+    site = models.CharField("site", max_length=100, blank=True, default="")
     ip_address = models.GenericIPAddressField("endereço IP", blank=True, null=True)
     hostname = models.CharField(max_length=255, blank=True, default="")
     description = models.TextField("descrição", blank=True, default="")

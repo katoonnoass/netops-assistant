@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+{% block title %}Auditoria - NetOps Assistant{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Auditoria</h1>
+    <p>Registro de ações operacionais.</p>
+</div>
+
+<div class="card mb-2">
+    <form method="get" class="flex gap-1 items-center" style="flex-wrap:wrap;">
+        <select name="action" class="form-control" style="width:auto;min-width:160px;">
+            <option value="">Todas ações</option>
+            {% for a in actions %}
+            <option value="{{ a }}" {% if selected_action == a %}selected{% endif %}>{{ a }}</option>
+            {% endfor %}
+        </select>
+        <input type="text" name="user" class="form-control" style="width:auto;min-width:150px;" placeholder="Usuário..." value="{{ selected_user }}">
+        <button type="submit" class="btn btn-primary btn-sm">Filtrar</button>
+        <a href="{% url 'audit_list' %}" class="btn btn-outline btn-sm">Limpar</a>
+    </form>
+</div>
+
+{% if logs %}
+<div class="table-container">
+    <table>
+        <thead><tr><th>Data/Hora</th><th>Usuário</th><th>Ação</th><th>Objeto</th><th>Descrição</th><th>IP</th></tr></thead>
+        <tbody>
+        {% for log in logs %}
+        <tr>
+            <td style="white-space:nowrap;">{{ log.created_at|date:"d/m/Y H:i:s" }}</td>
+            <td>{{ log.user.get_username|default:"—" }}</td>
+            <td><code>{{ log.action }}</code></td>
+            <td>{% if log.object_type %}{{ log.object_type }} {{ log.object_id }}{% else %}—{% endif %}</td>
+            <td>{{ log.description|truncatechars:80 }}</td>
+            <td>{{ log.ip_address|default:"—" }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    <p style="font-size:0.85rem;color:var(--text-secondary);margin-top:0.5rem;">Mostrando os {{ logs|length }} registros mais recentes.</p>
+</div>
+{% else %}
+<div class="card empty-state"><p>Nenhum registro de auditoria encontrado.</p></div>
+{% endif %}
+{% endblock %}

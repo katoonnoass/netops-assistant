@@ -4,6 +4,7 @@ import io
 import os
 
 from django.conf import settings
+from django.contrib.auth.models import User
 from django.core.management import call_command
 from django.test import TestCase
 from django.urls import reverse
@@ -15,6 +16,7 @@ from apps.analysis.models import (
     ParsedConfig,
 )
 from apps.analysis.search import (
+    _search_raw_matches,
     classify_search_query,
     global_network_search,
 )
@@ -194,6 +196,19 @@ class SearchServiceTests(TestCase):
         svc_types = {s["metadata"].get("service_type", "") for s in result["services"]}
         self.assertIn("radius", svc_types)
 
+    def test_raw_search_query_count_does_not_grow_per_snapshot(self):
+        ConfigSnapshot.objects.create(
+            device=self.device,
+            raw_config="sysname SECOND\n description QUERY-COUNT-MARKER\n",
+            vendor="huawei",
+        )
+        classification = classify_search_query("QUERY-COUNT-MARKER")
+
+        with self.assertNumQueries(2):
+            results = _search_raw_matches(classification, filters=None)
+
+        self.assertEqual(len(results), 1)
+
     def test_search_issues(self):
         # Create an issue for testing
         AnalysisIssue.objects.create(
@@ -221,6 +236,13 @@ class SearchWebTests(TestCase):
             vendor="huawei",
         )
         analyze_config_snapshot(snap)
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="search-web-user",
+            password="search-pass-123",
+        )
+        self.client.force_login(self.user)
 
     def test_search_page_200(self):
         r = self.client.get(reverse("search"))
