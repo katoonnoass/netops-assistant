@@ -21,6 +21,8 @@
 
 <div class="actions-bar">
   <a href="{% url 'vlan_tracking:vlan_list' session.pk %}" class="btn">Voltar</a>
+  <a href="{% url 'vlan_tracking:topology_svg' session.pk %}?vlan={{ vlan_data_new.definition.vlan_id }}" class="btn">Ver grafo desta VLAN</a>
+  <a href="{% url 'vlan_tracking:topology' session.pk %}" class="btn">Topologia textual</a>
 </div>
 
 {% if vlan_data_new.has_low_confidence_path %}

@@ -39,6 +39,7 @@
 <h2>Topologia — {{ session.name }}</h2>
 <div class="actions-bar">
   <a href="{% url 'vlan_tracking:session_detail' session.pk %}" class="btn">Voltar</a>
+  <a href="{% url 'vlan_tracking:topology_svg' session.pk %}" class="btn">Grafo SVG</a>
   <a href="{% url 'vlan_tracking:topology_mermaid' session.pk %}" target="_blank" class="btn">Export Mermaid</a>
 </div>
 

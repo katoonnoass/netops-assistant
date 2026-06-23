@@ -90,6 +90,8 @@ def get_link_display_data(session, filters=None):
         issues = get_link_issues(link)
         result.append({
             "link": link,
+            "device_a_id": link.device_a_id,
+            "device_b_id": link.device_b_id,
             "device_a_name": link.device_a.name,
             "device_b_name": link.device_b.name,
             "interface_a": link.interface_a,

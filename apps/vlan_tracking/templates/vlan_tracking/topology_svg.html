@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Grafo SVG — {{ session.name }}{% endblock %}
+{% block content %}
+<style>
+.svg-topology-wrapper { background:#fafafa; border:1px solid #ddd; border-radius:8px; padding:1rem; margin:1rem 0; overflow-x:auto; }
+.svg-link-high { stroke:#28a745; }
+.svg-link-medium { stroke:#ffc107; }
+.svg-link-low { stroke:#dc3545; }
+.svg-link-has-issue { stroke-dasharray: 5,3; }
+.svg-link-label { pointer-events:none; }
+.svg-node { cursor:pointer; transition:fill 0.2s; }
+.svg-node:hover { fill:#0056b3; }
+.filter-bar { display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:1rem; }
+.filter-bar select, .filter-bar input { padding:4px 8px; border:1px solid #ddd; border-radius:4px; }
+</style>
+
+<h2>Grafo SVG — {{ session.name }}</h2>
+<div class="actions-bar">
+  <a href="{% url 'vlan_tracking:topology' session.pk %}" class="btn">Topologia textual</a>
+  <a href="{% url 'vlan_tracking:topology_mermaid' session.pk %}" target="_blank" class="btn">Mermaid</a>
+  <a href="{% url 'vlan_tracking:topology_svg_download' session.pk %}" class="btn" download>Baixar SVG</a>
+  <a href="{% url 'vlan_tracking:topology_svg_download' session.pk %}?{% for k,v in active_filters.items %}{{ k }}={{ v }}&{% endfor %}" class="btn" download>Baixar SVG (filtrado)</a>
+</div>
+
+<h3>Filtros</h3>
+<form class="filter-bar" method="get">
+  <input type="number" name="vlan" placeholder="VLAN ID" value="{{ active_filters.vlan }}" style="width:100px">
+  <select name="method">
+    <option value="">Método: todos</option>
+    {% for m in svg_data.filters.methods|default:"" %}
+    <option value="{{ m }}" {% if active_filters.method == m %}selected{% endif %}>{{ m|capfirst }}</option>
+    {% endfor %}
+  </select>
+  <select name="confidence">
+    <option value="">Confiança: todas</option>
+    <option value="high" {% if active_filters.confidence == 'high' %}selected{% endif %}>Alta</option>
+    <option value="medium" {% if active_filters.confidence == 'medium' %}selected{% endif %}>Média</option>
+    <option value="low" {% if active_filters.confidence == 'low' %}selected{% endif %}>Baixa</option>
+  </select>
+  <button type="submit" class="btn btn-sm">Filtrar</button>
+  {% if active_filters %}<a href="{% url 'vlan_tracking:topology_svg' session.pk %}" class="btn btn-sm">Limpar</a>{% endif %}
+</form>
+
+<div class="card-grid">
+  <div class="card"><div class="card-body"><h3>{{ svg_data.stats.total_nodes }}</h3><p>Dispositivos</p></div></div>
+  <div class="card"><div class="card-body"><h3>{{ svg_data.stats.total_edges }}</h3><p>Enlaces</p></div></div>
+  {% if svg_data.stats.vlan_id %}<div class="card"><div class="card-body"><h3>VLAN {{ svg_data.stats.vlan_id }}</h3><p>Filtro ativo</p></div></div>{% endif %}
+</div>
+
+<div class="svg-topology-wrapper">
+  {{ svg_data.svg|safe }}
+</div>
+{% endblock %}

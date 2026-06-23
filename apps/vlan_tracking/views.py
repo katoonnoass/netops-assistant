@@ -36,6 +36,51 @@ from .services import (
 from .topology import discover_links_by_csv_evidence, discover_links_by_lldp
 
 
+class TopologySvgView(LoginRequiredMixin, DetailView):
+    model = VlanTrackSession
+    template_name = "vlan_tracking/topology_svg.html"
+    context_object_name = "session"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        from .svg_topology import build_svg_topology
+        ctx["svg_data"] = build_svg_topology(
+            self.object,
+            vlan_id=self.request.GET.get("vlan"),
+            method=self.request.GET.get("method"),
+            confidence=self.request.GET.get("confidence"),
+            device=self.request.GET.get("device"),
+            status=self.request.GET.get("status"),
+        )
+        ctx["active_filters"] = {k: v for k, v in self.request.GET.items() if v}
+        return ctx
+
+
+class TopologySvgDownloadView(LoginRequiredMixin, DetailView):
+    model = VlanTrackSession
+
+    def get(self, request, *args, **kwargs):
+        from django.http import HttpResponse
+        session = self.get_object()
+        vlan_id = request.GET.get("vlan")
+        from .svg_topology import build_svg_topology
+        svg_data = build_svg_topology(
+            session,
+            vlan_id=vlan_id,
+            method=request.GET.get("method"),
+            confidence=request.GET.get("confidence"),
+            device=request.GET.get("device"),
+            status=request.GET.get("status"),
+        )
+        filename = f"vlan_tracking_{session.pk}"
+        if vlan_id:
+            filename += f"_vlan_{vlan_id}"
+        filename += ".svg"
+        response = HttpResponse(svg_data["svg"], content_type="image/svg+xml; charset=utf-8")
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        return response
+
+
 class SessionListView(LoginRequiredMixin, ListView):
     model = VlanTrackSession
     template_name = "vlan_tracking/session_list.html"

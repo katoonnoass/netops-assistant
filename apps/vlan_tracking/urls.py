@@ -18,4 +18,6 @@ urlpatterns = [
     path("<int:pk>/evidence/", views.EvidenceListView.as_view(), name="evidence_list"),
     path("<int:pk>/evidence/add/", views.EvidenceCreateView.as_view(), name="evidence_create"),
     path("<int:pk>/evidence/<int:evid>/delete/", views.EvidenceDeleteView.as_view(), name="evidence_delete"),
+    path("<int:pk>/topology/svg/", views.TopologySvgView.as_view(), name="topology_svg"),
+    path("<int:pk>/topology/svg/download/", views.TopologySvgDownloadView.as_view(), name="topology_svg_download"),
 ]
