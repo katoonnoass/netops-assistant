@@ -30,7 +30,7 @@
 <h3>Caminhos ({{ vlan_data.paths|length }})</h3>
 {% if vlan_data.paths %}
 <table class="table">
-  <thead><tr><th>De</th><th>Interface</th><th>→</th><th>Para</th><th>Interface</th><th>Tagged</th></tr></thead>
+  <thead><tr><th>De</th><th>Interface</th><th>→</th><th>Para</th><th>Interface</th><th>Tagged</th><th>Método</th><th>Confiança</th></tr></thead>
   <tbody>
     {% for p in vlan_data.paths %}
     <tr>
@@ -38,6 +38,8 @@
       <td>→</td>
       <td>{{ p.to_device.name }}</td><td><code>{{ p.to_interface }}</code></td>
       <td>{{ p.tagged|yesno:"Sim,Não" }}</td>
+      <td><span class="badge badge-{{ p.link_method }}">{{ p.link_method|default:"-" }}</span></td>
+      <td>{% if p.low_confidence %}<span class="badge badge-low">Baixa</span> ⚠{% else %}{{ p.via_link.get_confidence_display|default:"-" }}{% endif %}</td>
     </tr>
     {% endfor %}
   </tbody>

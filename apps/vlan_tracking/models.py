@@ -62,9 +62,48 @@ class VlanTrackDevice(models.Model):
         return f"{self.device.name} [{self.role_hint}]"
 
 
+class TopologyEvidence(models.Model):
+    EVIDENCE_TYPES = [
+        ("lldp", "LLDP"),
+        ("csv", "CSV"),
+        ("manual", "Manual"),
+        ("description", "Descrição"),
+        ("subnet", "Subrede"),
+    ]
+
+    session = models.ForeignKey(
+        VlanTrackSession, on_delete=models.CASCADE, related_name="evidences"
+    )
+    device = models.ForeignKey(
+        "devices.Device", on_delete=models.CASCADE, null=True, blank=True
+    )
+    snapshot = models.ForeignKey(
+        "config_archive.ConfigSnapshot", on_delete=models.SET_NULL, null=True, blank=True
+    )
+    evidence_type = models.CharField(
+        max_length=20, choices=EVIDENCE_TYPES, default="lldp"
+    )
+    raw_text = models.TextField(verbose_name="Texto bruto")
+    parsed_data = models.JSONField(null=True, blank=True, verbose_name="Dados parseados")
+    created_by = models.ForeignKey(
+        "auth.User", on_delete=models.SET_NULL, null=True, blank=True
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Evidência de topologia"
+        verbose_name_plural = "Evidências de topologia"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"[{self.get_evidence_type_display()}] {self.device} - {self.created_at.strftime('%d/%m/%Y %H:%M')}"
+
+
 class DeviceLink(models.Model):
     DISCOVERY_METHODS = [
         ("manual", "Manual"),
+        ("lldp", "LLDP"),
+        ("csv", "CSV"),
         ("subnet", "Subrede"),
         ("description", "Descrição"),
     ]
@@ -99,7 +138,15 @@ class DeviceLink(models.Model):
     status = models.CharField(
         max_length=20, choices=LINK_STATUSES, default="discovered"
     )
+    evidence = models.ForeignKey(
+        TopologyEvidence, on_delete=models.SET_NULL, null=True, blank=True,
+        verbose_name="Evidência",
+    )
+    remote_hostname = models.CharField(max_length=255, blank=True, verbose_name="Hostname remoto")
+    remote_interface = models.CharField(max_length=200, blank=True, verbose_name="Interface remota")
+    raw_evidence = models.TextField(blank=True, verbose_name="Evidência bruta")
     notes = models.TextField(blank=True)
+    last_seen_at = models.DateTimeField(null=True, blank=True, verbose_name="Último visto")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

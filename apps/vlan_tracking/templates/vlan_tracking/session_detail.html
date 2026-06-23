@@ -22,6 +22,9 @@
   <a href="{% url 'vlan_tracking:link_list' session.pk %}" class="btn">Gerenciar Links</a>
   <a href="{% url 'vlan_tracking:link_create' session.pk %}" class="btn">Adicionar Link Manual</a>
   <a href="{% url 'vlan_tracking:vlan_list' session.pk %}" class="btn">Ver Todas VLANs</a>
+  <a href="{% url 'vlan_tracking:evidence_list' session.pk %}" class="btn">Evidências ({{ evidences|length }})</a>
+  <a href="{% url 'vlan_tracking:evidence_create' session.pk %}" class="btn">Adicionar LLDP/CSV</a>
+  <a href="{% url 'vlan_tracking:topology' session.pk %}" class="btn">Ver Topologia</a>
 </div>
 
 <h3>Dispositivos</h3>
@@ -32,6 +35,16 @@
   <li class="empty">Nenhum dispositivo.</li>
   {% endfor %}
 </ul>
+
+<h3>Links (por método)</h3>
+<ul>
+  {% for method, count in links_by_method.items %}
+  <li>{{ method|capfirst }}: {{ count }}</li>
+  {% endfor %}
+</ul>
+{% if low_conf_links > 0 %}
+<p class="alert alert-warning">⚠ {{ low_conf_links }} link(s) de baixa confiança. <a href="{% url 'vlan_tracking:link_list' session.pk %}">Revisar</a></p>
+{% endif %}
 
 <h3>Links</h3>
 <table class="table">

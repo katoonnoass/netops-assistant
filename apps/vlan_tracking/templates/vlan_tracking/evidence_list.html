@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Evidências — {{ session.name }}{% endblock %}
+{% block content %}
+<h2>Evidências de Topologia — {{ session.name }}</h2>
+<div class="actions-bar">
+  <a href="{% url 'vlan_tracking:session_detail' session.pk %}" class="btn">Voltar</a>
+  <a href="{% url 'vlan_tracking:evidence_create' session.pk %}" class="btn btn-primary">Adicionar LLDP/CSV</a>
+</div>
+
+{% if evidences %}
+<table class="table">
+  <thead>
+    <tr><th>Tipo</th><th>Dispositivo</th><th>Data</th><th>Neighbors/rows</th><th>Ações</th></tr>
+  </thead>
+  <tbody>
+    {% for ev in evidences %}
+    <tr>
+      <td><span class="badge badge-{{ ev.evidence_type }}">{{ ev.get_evidence_type_display }}</span></td>
+      <td>{{ ev.device.name|default:"-" }}</td>
+      <td>{{ ev.created_at|date:"d/m/Y H:i" }}</td>
+      <td>{% if ev.parsed_data %}{{ ev.parsed_data.count }}{% else %}-{% endif %}</td>
+      <td>
+        <form method="post" action="{% url 'vlan_tracking:evidence_delete' session.pk ev.pk %}" style="display:inline">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Remover evidência?')">Remover</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="empty">Nenhuma evidência carregada. Adicione LLDP ou CSV para enriquecer a topologia.</p>
+{% endif %}
+{% endblock %}

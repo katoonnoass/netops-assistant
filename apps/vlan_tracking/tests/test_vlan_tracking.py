@@ -1,5 +1,3 @@
-import json
-
 from django.test import TestCase
 from django.urls import reverse
 
@@ -8,8 +6,10 @@ from apps.config_archive.models import ConfigSnapshot
 from apps.core.tests import *
 from apps.devices.models import Device
 
+from ..lldp_parser import parse_lldp_neighbors
 from ..models import (
     DeviceLink,
+    TopologyEvidence,
     VlanDefinition,
     VlanEndpoint,
     VlanInterface,
@@ -19,7 +19,11 @@ from ..models import (
     VlanTrackingIssue,
 )
 from ..services import create_session_from_devices, get_session_summary, run_session_analysis
-from ..topology import discover_links_by_description, discover_links_by_subnet
+from ..topology import (
+    discover_links_by_description,
+    discover_links_by_lldp,
+    discover_links_by_subnet,
+)
 from ..vlan_correlator import (
     build_vlan_definitions,
     build_vlan_endpoints,
@@ -465,3 +469,211 @@ class WebViewsTests(TestCase):
         )
         self.assertContains(response, "Dispositivos")
         self.assertContains(response, "VLANs")
+
+    def test_topology_page_200(self):
+        response = self.client.get(
+            reverse("vlan_tracking:topology", args=[self.session.pk])
+        )
+        self.assertEqual(response.status_code, 200)
+
+    def test_mermaid_export_200(self):
+        response = self.client.get(
+            reverse("vlan_tracking:topology_mermaid", args=[self.session.pk])
+        )
+        self.assertEqual(response.status_code, 200)
+
+    def test_mermaid_contains_graph(self):
+        response = self.client.get(
+            reverse("vlan_tracking:topology_mermaid", args=[self.session.pk])
+        )
+        self.assertContains(response, "graph LR")
+
+    def test_evidence_list_200(self):
+        response = self.client.get(
+            reverse("vlan_tracking:evidence_list", args=[self.session.pk])
+        )
+        self.assertEqual(response.status_code, 200)
+
+    def test_evidence_create_200(self):
+        response = self.client.get(
+            reverse("vlan_tracking:evidence_create", args=[self.session.pk])
+        )
+        self.assertEqual(response.status_code, 200)
+
+    def test_session_detail_shows_evidence_button(self):
+        response = self.client.get(
+            reverse("vlan_tracking:session_detail", args=[self.session.pk])
+        )
+        self.assertContains(response, "Adicionar LLDP/CSV")
+
+    def test_session_detail_shows_topology_button(self):
+        response = self.client.get(
+            reverse("vlan_tracking:session_detail", args=[self.session.pk])
+        )
+        self.assertContains(response, "Ver Topologia")
+
+
+class LldpIntegrationTests(TestCase):
+    def _make_session(self, name, dev_a=None, dev_b=None):
+        from django.contrib.auth.models import User
+        if not hasattr(self, '_user'):
+            self._user = User.objects.create_user("op2", "op2@op.com", "pass")
+        self.client.force_login(self._user)
+        d_a, s_a = dev_a or _create_device_and_snapshot("SW-01", SIMPLE_L2_CONFIG)
+        d_b, s_b = dev_b or _create_device_and_snapshot("SW-02", SIMPLE_L2_CONFIG_2)
+        return create_session_from_devices(
+            name=name,
+            devices_snapshots=[(d_a, s_a), (d_b, s_b)],
+        )
+
+    def test_add_lldp_evidence_creates_links(self):
+        session = self._make_session("LLDP Links")
+        lldp_text = "Local Interface    Exptime(s)    Neighbor Interface    Neighbor Device\n"
+        lldp_text += "GigabitEthernet0/0/2  120  GigabitEthernet0/0/1  SW-02\n"
+        response = self.client.post(
+            reverse("vlan_tracking:evidence_create", args=[session.pk]),
+            {"device": session.track_devices.first().device.id, "evidence_type": "lldp", "raw_text": lldp_text},
+        )
+        self.assertEqual(response.status_code, 302)
+        links = DeviceLink.objects.filter(session=session, discovery_method="lldp")
+        self.assertGreater(links.count(), 0)
+
+    def test_add_csv_evidence_creates_links(self):
+        session = self._make_session("CSV Links")
+        csv_text = "local_device,local_interface,remote_device,remote_interface\n"
+        csv_text += "SW-01,GigabitEthernet0/0/2,SW-02,GigabitEthernet0/0/1\n"
+        response = self.client.post(
+            reverse("vlan_tracking:evidence_create", args=[session.pk]),
+            {"device": "", "evidence_type": "csv", "raw_text": csv_text},
+        )
+        self.assertEqual(response.status_code, 302)
+        links = DeviceLink.objects.filter(session=session)
+        self.assertGreater(links.count(), 0)
+
+    def test_lldp_remote_device_not_found_creates_issue(self):
+        session = self._make_session("LLDP Unknown")
+        lldp_text = "Local Interface    Exptime(s)    Neighbor Interface    Neighbor Device\n"
+        lldp_text += "GE0/0/2  120  GE0/0/1  UNKNOWN-DEVICE\n"
+        self.client.post(
+            reverse("vlan_tracking:evidence_create", args=[session.pk]),
+            {"device": session.track_devices.first().device.id, "evidence_type": "lldp", "raw_text": lldp_text},
+        )
+        issues = VlanTrackingIssue.objects.filter(
+            session=session, code="lldp_remote_device_not_found"
+        )
+        self.assertGreater(issues.count(), 0)
+
+    def test_lldp_evidence_is_stored(self):
+        session = self._make_session("LLDP Store")
+        dev = session.track_devices.first().device
+        lldp_text = "Local Interface    Exptime(s)    Neighbor Interface    Neighbor Device\nGE0/0/2  120  GE0/0/1  SW-02\n"
+        self.client.post(
+            reverse("vlan_tracking:evidence_create", args=[session.pk]),
+            {"device": dev.id, "evidence_type": "lldp", "raw_text": lldp_text},
+        )
+        ev = TopologyEvidence.objects.filter(session=session).first()
+        self.assertIsNotNone(ev)
+        self.assertEqual(ev.evidence_type, "lldp")
+        self.assertIsNotNone(ev.parsed_data)
+
+    def test_lldp_link_has_remote_hostname(self):
+        session = self._make_session("LLDP Hostname")
+        dev = session.track_devices.first().device
+        lldp_text = "Local Interface    Exptime(s)    Neighbor Interface    Neighbor Device\nGE0/0/2  120  GE0/0/1  SW-02\n"
+        self.client.post(
+            reverse("vlan_tracking:evidence_create", args=[session.pk]),
+            {"device": dev.id, "evidence_type": "lldp", "raw_text": lldp_text},
+        )
+        link = DeviceLink.objects.filter(session=session, discovery_method="lldp").first()
+        self.assertIsNotNone(link)
+        self.assertEqual(link.remote_hostname, "SW-02")
+
+    def test_lldp_confirms_subnet_link(self):
+        dev_a, snap_a = _create_device_and_snapshot("RTR-A", SUBNET_L3_CONFIG)
+        dev_b, snap_b = _create_device_and_snapshot("RTR-B", SUBNET_L3_CONFIG_2)
+        session = self._make_session("LLDP Confirm", (dev_a, snap_a), (dev_b, snap_b))
+        run_session_analysis(session)
+        subnet_links = DeviceLink.objects.filter(session=session, discovery_method="subnet")
+        self.assertGreater(subnet_links.count(), 0)
+
+    def test_csv_with_unknown_device_creates_issue(self):
+        session = self._make_session("CSV Unknown")
+        csv_text = "local_device,local_interface,remote_device,remote_interface\nUNKNOWN,GE0/0/1,SW-02,GE0/0/1\n"
+        self.client.post(
+            reverse("vlan_tracking:evidence_create", args=[session.pk]),
+            {"device": "", "evidence_type": "csv", "raw_text": csv_text},
+        )
+        issues = VlanTrackingIssue.objects.filter(
+            session=session, code="csv_device_not_found"
+        )
+        self.assertGreater(issues.count(), 0)
+
+
+class ConfidenceAndPathTests(TestCase):
+    def setUp(self):
+        from django.contrib.auth.models import User
+        self.user = User.objects.create_user("viewer2", "v2@v.com", "pass")
+        self.client.force_login(self.user)
+
+    def test_low_confidence_link_creates_path_issue(self):
+        dev_a, snap_a = _create_device_and_snapshot("SW-01", SIMPLE_L2_CONFIG)
+        dev_b, snap_b = _create_device_and_snapshot("SW-02", SIMPLE_L2_CONFIG_2)
+        session = VlanTrackSession.objects.create(name="Low Conf Test")
+        pc_a = ParsedConfig.objects.filter(snapshot=snap_a).first()
+        pc_b = ParsedConfig.objects.filter(snapshot=snap_b).first()
+        VlanTrackDevice.objects.create(session=session, device=dev_a, snapshot=snap_a, parsed_config=pc_a, order=1)
+        VlanTrackDevice.objects.create(session=session, device=dev_b, snapshot=snap_b, parsed_config=pc_b, order=2)
+        link = DeviceLink.objects.create(
+            session=session, device_a=dev_a, interface_a="GigabitEthernet0/0/2",
+            device_b=dev_b, interface_b="GigabitEthernet0/0/1",
+            discovery_method="subnet", confidence="low", status="discovered",
+        )
+        # Create VlanInterface entries on both sides
+        VlanInterface.objects.create(
+            session=session, device=dev_a, interface_name="GigabitEthernet0/0/2", vlan_id=10,
+            port_mode="trunk", tagged=True, source="trunk_allowed",
+        )
+        VlanInterface.objects.create(
+            session=session, device=dev_b, interface_name="GigabitEthernet0/0/1", vlan_id=10,
+            port_mode="trunk", tagged=True, source="trunk_allowed",
+        )
+        VlanDefinition.objects.create(session=session, vlan_id=10)
+        build_vlan_paths(session)
+        issues = VlanTrackingIssue.objects.filter(
+            session=session, code="vlan_path_uses_low_confidence_link"
+        )
+        self.assertGreater(issues.count(), 0)
+
+    def test_evidence_can_be_deleted(self):
+        dev, snap = _create_device_and_snapshot("SW-01", SIMPLE_L2_CONFIG)
+        session = VlanTrackSession.objects.create(name="Evidence Delete")
+        ev = TopologyEvidence.objects.create(
+            session=session, device=dev, evidence_type="lldp", raw_text="test"
+        )
+        self.client.force_login(self.user)
+        response = self.client.post(
+            reverse("vlan_tracking:evidence_delete", args=[session.pk, ev.pk])
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(TopologyEvidence.objects.filter(pk=ev.pk).count(), 0)
+
+    def test_mermaid_shows_devices_and_links(self):
+        dev_a, snap_a = _create_device_and_snapshot("SW-01", SIMPLE_L2_CONFIG)
+        dev_b, snap_b = _create_device_and_snapshot("SW-02", SIMPLE_L2_CONFIG_2)
+        session = VlanTrackSession.objects.create(name="Mermaid Test")
+        pc_a = ParsedConfig.objects.filter(snapshot=snap_a).first()
+        pc_b = ParsedConfig.objects.filter(snapshot=snap_b).first()
+        VlanTrackDevice.objects.create(session=session, device=dev_a, snapshot=snap_a, parsed_config=pc_a, order=1)
+        VlanTrackDevice.objects.create(session=session, device=dev_b, snapshot=snap_b, parsed_config=pc_b, order=2)
+        DeviceLink.objects.create(
+            session=session, device_a=dev_a, interface_a="GE0/0/2",
+            device_b=dev_b, interface_b="GE0/0/1",
+            discovery_method="manual", confidence="high", status="confirmed",
+        )
+        self.client.force_login(self.user)
+        response = self.client.get(
+            reverse("vlan_tracking:topology_mermaid", args=[session.pk])
+        )
+        self.assertContains(response, "graph LR")
+        self.assertContains(response, "SW-01")
+        self.assertContains(response, "SW-02")

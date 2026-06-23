@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Topologia — {{ session.name }}{% endblock %}
+{% block content %}
+<h2>Topologia — {{ session.name }}</h2>
+<div class="actions-bar">
+  <a href="{% url 'vlan_tracking:session_detail' session.pk %}" class="btn">Voltar</a>
+  <a href="{% url 'vlan_tracking:topology_mermaid' session.pk %}" target="_blank" class="btn">Export Mermaid</a>
+</div>
+
+<h3>Dispositivos ({{ device_list|length }})</h3>
+<div class="card-grid">
+{% for d in device_list %}
+  <div class="card"><div class="card-body"><strong>{{ d.name }}</strong></div></div>
+{% empty %}
+  <p class="empty">Nenhum dispositivo encontrado.</p>
+{% endfor %}
+</div>
+
+<h3>Enlaces ({{ links|length }})</h3>
+<table class="table">
+  <thead>
+    <tr><th>Dispositivo A</th><th>Interface</th><th></th><th>Dispositivo B</th><th>Interface</th><th>Método</th><th>Confiança</th><th>Status</th><th>VLANs</th></tr>
+  </thead>
+  <tbody>
+    {% for link in links %}
+    <tr>
+      <td>{{ link.device_a.name }}</td><td><code>{{ link.interface_a }}</code></td>
+      <td>↔</td>
+      <td>{{ link.device_b.name }}</td><td><code>{{ link.interface_b }}</code></td>
+      <td><span class="badge badge-{{ link.discovery_method }}">{{ link.get_discovery_method_display }}</span></td>
+      <td><span class="badge badge-{{ link.confidence }}">{{ link.get_confidence_display }}</span></td>
+      <td>{{ link.get_status_display }}</td>
+      <td>
+        {% with vlan_ids=link.vlan_paths.values_list|slice:":5" %}
+          {% for vp in link.vlan_paths.all|slice:":5" %}
+            <a href="{% url 'vlan_tracking:vlan_detail' session.pk vp.vlan_definition.vlan_id %}">VLAN {{ vp.vlan_definition.vlan_id }}</a>{% if not forloop.last %}, {% endif %}
+          {% empty %}
+            -
+          {% endfor %}
+        {% endwith %}
+      </td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="9" class="empty">Nenhum enlace.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<h3>Grafo (Mermaid)</h3>
+<pre class="mermaid-pre" style="background:#f5f5f5;padding:1em;border-radius:4px;overflow-x:auto;font-size:0.85em;line-height:1.6;">
+{{ mermaid }}
+</pre>
+<p><a href="{% url 'vlan_tracking:topology_mermaid' session.pk %}" target="_blank" class="btn btn-sm">Baixar Mermaid</a></p>
+{% endblock %}

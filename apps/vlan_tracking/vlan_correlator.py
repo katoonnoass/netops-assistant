@@ -256,7 +256,7 @@ def build_vlan_paths(session):
             vdef = VlanDefinition.objects.filter(session=session, vlan_id=vid).first()
             if not vdef:
                 continue
-            VlanPath.objects.create(
+            path = VlanPath.objects.create(
                 session=session,
                 vlan_definition=vdef,
                 from_device=link.device_a,
@@ -267,6 +267,19 @@ def build_vlan_paths(session):
                 tagged=True,
                 status="active",
             )
+
+            # Issue if link is low confidence
+            if link.confidence == "low":
+                VlanTrackingIssue.objects.create(
+                    session=session,
+                    vlan_definition=vdef,
+                    device=link.device_a,
+                    interface_name=link.interface_a,
+                    severity="low",
+                    code="vlan_path_uses_low_confidence_link",
+                    title=f"Caminho da VLAN {vid} usa link de baixa confiança ({link.discovery_method})",
+                    description=f"O link {link} tem confiança baixa. Verifique a topologia.",
+                )
 
         # VLANs no trunk de um lado mas ausentes do outro geram issue
         only_a = vlan_a - vlan_b
@@ -377,7 +390,7 @@ def _clean_derived_data(session):
 
     # Remove auto-discovered links only; preserve manual links
     DeviceLink.objects.filter(
-        session=session, discovery_method__in=("subnet", "description")
+        session=session, discovery_method__in=("subnet", "description", "lldp", "csv")
     ).delete()
 
 

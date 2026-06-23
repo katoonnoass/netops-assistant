@@ -2,6 +2,7 @@ from django.contrib import admin
 
 from .models import (
     DeviceLink,
+    TopologyEvidence,
     VlanDefinition,
     VlanEndpoint,
     VlanInterface,
@@ -26,6 +27,12 @@ class VlanTrackSessionAdmin(admin.ModelAdmin):
 class VlanTrackDeviceAdmin(admin.ModelAdmin):
     list_display = ("session", "device", "order", "role_hint")
     list_filter = ("session",)
+
+
+@admin.register(TopologyEvidence)
+class TopologyEvidenceAdmin(admin.ModelAdmin):
+    list_display = ("session", "device", "evidence_type", "created_at")
+    list_filter = ("evidence_type", "session")
 
 
 @admin.register(DeviceLink)

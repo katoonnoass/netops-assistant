@@ -13,4 +13,9 @@ urlpatterns = [
     path("<int:pk>/vlan/<int:vid>/", views.VlanDetailView.as_view(), name="vlan_detail"),
     path("<int:pk>/links/", views.LinkListView.as_view(), name="link_list"),
     path("<int:pk>/links/add/", views.LinkCreateView.as_view(), name="link_create"),
+    path("<int:pk>/topology/", views.TopologyView.as_view(), name="topology"),
+    path("<int:pk>/topology/mermaid/", views.TopologyMermaidView.as_view(), name="topology_mermaid"),
+    path("<int:pk>/evidence/", views.EvidenceListView.as_view(), name="evidence_list"),
+    path("<int:pk>/evidence/add/", views.EvidenceCreateView.as_view(), name="evidence_create"),
+    path("<int:pk>/evidence/<int:evid>/delete/", views.EvidenceDeleteView.as_view(), name="evidence_delete"),
 ]
