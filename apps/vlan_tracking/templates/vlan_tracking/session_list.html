@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}VLAN Tracking — Sessões{% endblock %}
+{% block content %}
+<h2>Rastreamento de VLANs</h2>
+<div class="actions-bar">
+  <a href="{% url 'vlan_tracking:session_create' %}" class="btn btn-primary">Nova Sessão</a>
+</div>
+
+{% if sessions %}
+<table class="table">
+  <thead>
+    <tr>
+      <th>Nome</th>
+      <th>Dispositivos</th>
+      <th>Links</th>
+      <th>VLANs</th>
+      <th>Endpoints</th>
+      <th>Issues</th>
+      <th>Criado em</th>
+      <th>Ações</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for s in sessions %}
+    <tr>
+      <td><a href="{% url 'vlan_tracking:session_detail' s.pk %}">{{ s.name }}</a></td>
+      <td>{{ s.summary.total_devices }}</td>
+      <td>{{ s.summary.total_links }}</td>
+      <td>{{ s.summary.total_vlans }}</td>
+      <td>{{ s.summary.total_endpoints }}</td>
+      <td>{{ s.summary.total_issues }}</td>
+      <td>{{ s.created_at|date:"d/m/Y H:i" }}</td>
+      <td><a href="{% url 'vlan_tracking:session_detail' s.pk %}" class="btn btn-sm">Detalhes</a></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="empty-state">
+  <p>Nenhuma sessão de rastreamento criada ainda.</p>
+  <a href="{% url 'vlan_tracking:session_create' %}" class="btn btn-primary">Criar primeira sessão</a>
+</div>
+{% endif %}
+{% endblock %}

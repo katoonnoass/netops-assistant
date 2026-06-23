@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}VLAN {{ vlan_data.definition.vlan_id }} — {{ session.name }}{% endblock %}
+{% block content %}
+<h2>VLAN {{ vlan_data.definition.vlan_id }}</h2>
+<p><strong>Nome:</strong> {{ vlan_data.definition.name|default:"-" }}</p>
+<p><strong>Descrição:</strong> {{ vlan_data.definition.description|default:"-" }}</p>
+<a href="{% url 'vlan_tracking:vlan_list' session.pk %}" class="btn">Voltar</a>
+
+<h3>Interfaces</h3>
+{% if vlan_data.interfaces %}
+<table class="table">
+  <thead><tr><th>Dispositivo</th><th>Interface</th><th>Modo</th><th>Tagged</th><th>PVID</th></tr></thead>
+  <tbody>
+    {% for vi in vlan_data.interfaces %}
+    <tr>
+      <td>{{ vi.device.name }}</td>
+      <td><code>{{ vi.interface_name }}</code></td>
+      <td>{{ vi.get_port_mode_display }}</td>
+      <td>{{ vi.tagged|yesno:"Sim,Não" }}</td>
+      <td>{{ vi.pvid|yesno:"Sim,Não" }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="empty">Nenhuma interface.</p>
+{% endif %}
+
+<h3>Caminhos ({{ vlan_data.paths|length }})</h3>
+{% if vlan_data.paths %}
+<table class="table">
+  <thead><tr><th>De</th><th>Interface</th><th>→</th><th>Para</th><th>Interface</th><th>Tagged</th></tr></thead>
+  <tbody>
+    {% for p in vlan_data.paths %}
+    <tr>
+      <td>{{ p.from_device.name }}</td><td><code>{{ p.from_interface }}</code></td>
+      <td>→</td>
+      <td>{{ p.to_device.name }}</td><td><code>{{ p.to_interface }}</code></td>
+      <td>{{ p.tagged|yesno:"Sim,Não" }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="empty">Nenhum caminho.</p>
+{% endif %}
+
+<h3>Endpoints</h3>
+{% if vlan_data.endpoints %}
+<ul>
+  {% for ep in vlan_data.endpoints %}
+  <li>{{ ep.device.name }}:{{ ep.interface_name }} — <span class="badge">{{ ep.get_endpoint_type_display }}</span></li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="empty">Nenhum endpoint.</p>
+{% endif %}
+
+<h3>Issues</h3>
+{% if vlan_data.issues %}
+<table class="table">
+  <thead><tr><th>Severidade</th><th>Issue</th></tr></thead>
+  <tbody>
+    {% for issue in vlan_data.issues %}
+    <tr>
+      <td><span class="badge badge-{{ issue.severity }}">{{ issue.get_severity_display }}</span></td>
+      <td>{{ issue.title }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="empty">Nenhuma issue.</p>
+{% endif %}
+{% endblock %}

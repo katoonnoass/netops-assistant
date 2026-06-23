@@ -9,6 +9,8 @@ from django.conf import settings
 from django.test import TestCase
 from django.urls import reverse
 
+from apps.core.tests import *
+
 from apps.analysis.documentation import generate_analysis_documentation
 from apps.analysis.models import AnalysisIssue, DetectedService, ParsedConfig
 from apps.analysis.search import global_network_search

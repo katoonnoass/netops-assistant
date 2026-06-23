@@ -13,6 +13,8 @@ from django.core.management import call_command
 from django.test import TestCase
 from django.urls import reverse
 
+from apps.core.tests import *
+
 from apps.analysis.comparison import compare_config_snapshots
 from apps.analysis.documentation import generate_analysis_documentation
 from apps.analysis.models import (

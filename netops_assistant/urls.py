@@ -1,7 +1,7 @@
 """URL configuration for netops_assistant project."""
 from django.contrib import admin
 from django.contrib.auth import views as auth_views
-from django.urls import path
+from django.urls import include, path
 
 from apps.analysis import inventory_views, search_views, views as analysis_views
 from apps.config_archive import views as config_views
@@ -72,4 +72,6 @@ urlpatterns = [
         comparison_views.comparison_detail,
         name="comparison_detail",
     ),
+    # VLAN Tracking
+    path("vlan/", include("apps.vlan_tracking.urls")),
 ]

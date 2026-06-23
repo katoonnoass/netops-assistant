@@ -12,6 +12,9 @@ Testa:
 
 import os
 from django.test import TestCase
+
+from apps.core.tests import *
+
 from apps.analysis.models import ParsedConfig, DetectedService, ConfigComparison
 from apps.config_archive.models import ConfigSnapshot
 

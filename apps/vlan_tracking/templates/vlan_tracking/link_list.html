@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Links — {{ session.name }}{% endblock %}
+{% block content %}
+<h2>Enlaces — {{ session.name }}</h2>
+<a href="{% url 'vlan_tracking:session_detail' session.pk %}" class="btn">Voltar</a>
+<a href="{% url 'vlan_tracking:link_create' session.pk %}" class="btn btn-primary">Novo Link Manual</a>
+
+{% if links %}
+<table class="table">
+  <thead>
+    <tr>
+      <th>Dispositivo A</th><th>Interface A</th>
+      <th></th>
+      <th>Dispositivo B</th><th>Interface B</th>
+      <th>Método</th><th>Confiança</th><th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for link in links %}
+    <tr>
+      <td>{{ link.device_a.name }}</td><td><code>{{ link.interface_a }}</code></td>
+      <td>↔</td>
+      <td>{{ link.device_b.name }}</td><td><code>{{ link.interface_b }}</code></td>
+      <td><span class="badge badge-{{ link.discovery_method }}">{{ link.get_discovery_method_display }}</span></td>
+      <td><span class="badge badge-{{ link.confidence }}">{{ link.get_confidence_display }}</span></td>
+      <td>{{ link.get_status_display }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="empty">Nenhum enlace encontrado.</p>
+{% endif %}
+{% endblock %}

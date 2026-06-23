@@ -59,6 +59,14 @@
                 </a>
             </div>
 
+            <div class="nav-group">
+                <span class="nav-label">Rastreamento</span>
+                <a href="{% url 'vlan_tracking:session_list' %}" class="nav-link {% if 'vlan' in request.resolver_match.url_name %}active{% endif %}">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+                    <span>VLAN Tracking</span>
+                </a>
+            </div>
+
             {% if user.is_superuser or perms.core.view_auditlog %}
             <div class="nav-group">
                 <span class="nav-label">Administração</span>

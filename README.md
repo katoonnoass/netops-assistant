@@ -4,7 +4,7 @@
   <p>
     <img src="https://img.shields.io/badge/Python-3.12-blue?logo=python" alt="Python 3.12">
     <img src="https://img.shields.io/badge/Django-5.0+-green?logo=django" alt="Django 5.0+">
-    <img src="https://img.shields.io/badge/Tests-1232_✔️-brightgreen" alt="1232 testes">
+    <img src="https://img.shields.io/badge/Tests-1265_✔️-brightgreen" alt="1265 testes">
     <img src="https://img.shields.io/badge/License-Proprietary-red" alt="License">
     <img src="https://img.shields.io/badge/Status-Development-yellow" alt="Status">
   </p>
@@ -91,7 +91,7 @@ O `parsed_data`, os metadados de serviços e as telas nunca armazenam nem exibem
 
 ## Testes
 
-**1232 testes automatizados** — 0 falhas, 0 migrations pendentes (validação em 21/06/2026).
+**1265 testes automatizados** — 0 falhas, 0 migrations pendentes (validação em 23/06/2026).
 
 ```bash
 # Todos os testes
@@ -295,6 +295,35 @@ python manage.py compare_config_files sample_configs/huawei_ha_bfd_change_before
 
 ---
 
+## VLAN Tracking / Rastreamento entre equipamentos
+
+Rastreia VLANs entre múltiplos dispositivos a partir de snapshots já analisados.
+
+### Como funciona
+
+1. **Criar sessão** — selecione dispositivos e snapshots para rastrear
+2. **Descoberta de links** — links manuais, por subrede /30/31/29 ou por descrição padronizada
+3. **Extração de VLANs** — access/trunk/hybrid, subinterfaces dot1q, QinQ, L2VPN/VSI, BAS
+4. **Correlação** — percorre o grafo de enlaces criando caminhos de VLAN entre dispositivos
+5. **Issues** — endpoints sem caminho, VLAN em trunk sem vizinho, VLAN definida não usada
+
+### CLI / Menu
+
+Acesse pelo menu **VLAN Tracking** na interface web:
+
+- `/vlan/` — sessões de rastreamento
+- `/vlan/new/` — criar nova sessão
+- `/vlan/<pk>/` — dashboard, cards, links, VLANs, issues
+
+### Limitações atuais
+
+- LLDP dinâmico ainda não é coletado (depende de comando `display lldp neighbor` que não está no `current-configuration`)
+- Links por subrede são inferência, não prova definitiva de adjacência
+- Subinterface roteada é endpoint L3, não continuação L2
+- Descoberta é manual (selecionar dispositivos) ou por subrede/descrição — não automática via LLDP
+
+---
+
 ## Arquitetura
 
 ```
@@ -311,6 +340,7 @@ netops_assistant/
 │   └── analysis/              # Detecção, busca, documentação
 ├── templates/                 # Django Templates
 ├── static/css/app.css         # Estilos
+│   └── vlan_tracking/         # Rastreamento de VLANs entre equipamentos
 ├── sample_configs/            # 36 configurações de exemplo
 └── docs/                      # Documentação do projeto
 ```
@@ -349,7 +379,7 @@ O fluxo é **idempotente** — reanalisar o mesmo snapshot não duplica registro
 
 | Fase | Objetivo |
 |------|----------|
-| **Fechamento Huawei MVP** | ✔ BGP, policies, ACLs, OSPF, **ISIS, MPLS/LDP, VRF/L3VPN, QoS/Traffic Policy/CAR, NAT/PAT, IPv6/BGP IPv6/VPNv6/OSPFv3/ISIS IPv6, BNG/BAS, PPPoE, BFD/HA, multicast, EVPN/VXLAN, Segment Routing/SRv6, MPLS-TE, CGNAT, MSDP, telemetria e BGP avançado**, diff, documentação, busca, suíte com 1232 testes |
+| **Fechamento Huawei MVP** | ✔ BGP, policies, ACLs, OSPF, **ISIS, MPLS/LDP, VRF/L3VPN, QoS/Traffic Policy/CAR, NAT/PAT, IPv6/BGP IPv6/VPNv6/OSPFv3/ISIS IPv6, BNG/BAS, PPPoE, BFD/HA, multicast, EVPN/VXLAN, Segment Routing/SRv6, MPLS-TE, CGNAT, MSDP, telemetria e BGP avançado**, diff, documentação, busca, **VLAN Tracking entre equipamentos**, suíte com 1265 testes |
 | **Inventário e Snapshots** | Cadastro de devices, upload de configs, versões |
 | **Produção** | Docker, deploy, autenticação, permissões, backup |
 | **Mapa Físico/Lógico** | PoPs, OLTs, DIOs, fibras, CTOs, clientes no mapa |

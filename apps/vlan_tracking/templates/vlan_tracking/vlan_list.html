@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}VLANs — {{ session.name }}{% endblock %}
+{% block content %}
+<h2>VLANs — {{ session.name }}</h2>
+<a href="{% url 'vlan_tracking:session_detail' session.pk %}" class="btn">Voltar</a>
+
+{% if vlans %}
+<table class="table">
+  <thead>
+    <tr><th>VLAN</th><th>Nome</th><th>Dispositivos</th><th>Interfaces</th><th>Ações</th></tr>
+  </thead>
+  <tbody>
+    {% for v in vlans %}
+    <tr>
+      <td><strong>{{ v.vlan_id }}</strong></td>
+      <td>{{ v.name|default:"-" }}</td>
+      <td>{{ v.device_count }}</td>
+      <td>{{ v.interface_count }}</td>
+      <td><a href="{% url 'vlan_tracking:vlan_detail' session.pk v.vlan_id %}" class="btn btn-sm">Ver path</a></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="empty">Nenhuma VLAN encontrada.</p>
+{% endif %}
+{% endblock %}

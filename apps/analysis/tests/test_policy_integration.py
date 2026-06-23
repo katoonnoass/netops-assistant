@@ -13,6 +13,8 @@ import os
 from django.test import TestCase
 from django.urls import reverse
 
+from apps.core.tests import *
+
 from apps.analysis.models import (
     ConfigComparison,
     DetectedService,
