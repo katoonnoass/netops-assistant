@@ -504,13 +504,13 @@ class WebViewsTests(TestCase):
         response = self.client.get(
             reverse("vlan_tracking:session_detail", args=[self.session.pk])
         )
-        self.assertContains(response, "Adicionar LLDP/CSV")
+        self.assertContains(response, "LLDP/CSV")
 
     def test_session_detail_shows_topology_button(self):
         response = self.client.get(
             reverse("vlan_tracking:session_detail", args=[self.session.pk])
         )
-        self.assertContains(response, "Ver Topologia")
+        self.assertContains(response, "Topologia")
 
 
 class LldpIntegrationTests(TestCase):

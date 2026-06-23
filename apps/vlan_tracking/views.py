@@ -20,6 +20,13 @@ from .models import (
     VlanTrackSession,
     VlanTrackingIssue,
 )
+from .presentation import (
+    _build_mermaid,
+    _get_totals,
+    get_link_display_data,
+    get_topology_filter_options,
+    get_vlan_path_display_data,
+)
 from .services import (
     create_session_from_devices,
     get_session_summary,
@@ -127,12 +134,8 @@ class VlanDetailView(LoginRequiredMixin, DetailView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         vid = self.kwargs.get("vid")
-        vlan_data = get_vlan_path_summary(self.object, vid)
-        if vlan_data:
-            for p in vlan_data["paths"]:
-                p.low_confidence = getattr(p.via_link, "confidence", "") == "low" if p.via_link else False
-                p.link_method = getattr(p.via_link, "discovery_method", "") if p.via_link else ""
-        ctx["vlan_data"] = vlan_data
+        ctx["vlan_data_new"] = get_vlan_path_display_data(self.object, vid)
+        ctx["vlan_data"] = get_vlan_path_summary(self.object, vid)
         return ctx
 
 
@@ -143,9 +146,19 @@ class LinkListView(LoginRequiredMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx["links"] = DeviceLink.objects.filter(session=self.object).select_related(
-            "device_a", "device_b"
-        ).order_by("discovery_method", "confidence")
+        qs = DeviceLink.objects.filter(session=self.object).select_related(
+            "device_a", "device_b", "evidence"
+        ).order_by("discovery_method", "-confidence")
+        filters = {}
+        if self.request.GET.get("method"):
+            qs = qs.filter(discovery_method=self.request.GET["method"])
+            filters["method"] = self.request.GET["method"]
+        if self.request.GET.get("confidence"):
+            qs = qs.filter(confidence=self.request.GET["confidence"])
+            filters["confidence"] = self.request.GET["confidence"]
+        ctx["links"] = qs
+        ctx["methods"] = DeviceLink.objects.filter(session=self.object).values_list("discovery_method", flat=True).distinct().order_by()
+        ctx["active_filters"] = filters
         return ctx
 
 
@@ -180,33 +193,23 @@ class TopologyView(LoginRequiredMixin, DetailView):
     template_name = "vlan_tracking/topology.html"
     context_object_name = "session"
 
+    def _get_filters(self):
+        return {
+            "method": self.request.GET.get("method"),
+            "confidence": self.request.GET.get("confidence"),
+            "device": self.request.GET.get("device"),
+            "vlan": self.request.GET.get("vlan"),
+            "status": self.request.GET.get("status"),
+        }
+
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        links = DeviceLink.objects.filter(session=self.object).select_related(
-            "device_a", "device_b"
-        ).order_by("discovery_method", "confidence")
-        ctx["links"] = links
-        devices = {}
-        for l in links:
-            devices[l.device_a_id] = l.device_a
-            devices[l.device_b_id] = l.device_b
-        ctx["device_list"] = list(devices.values())
-
-        # Build mermaid
-        mermaid_lines = ["graph LR"]
-        for l in links:
-            vlan_ids = list(VlanPath.objects.filter(
-                session=self.object, via_link=l
-            ).values_list("vlan_definition__vlan_id", flat=True).distinct()[:10])
-            label = f"{l.interface_a} ↔ {l.interface_b}"
-            if vlan_ids:
-                label += f"<br/>VLANs: {','.join(str(v) for v in vlan_ids[:5])}"
-            safe_a = l.device_a.name.replace("-", "_").replace(" ", "_")
-            safe_b = l.device_b.name.replace("-", "_").replace(" ", "_")
-            mermaid_lines.append(
-                f'  {safe_a}["{l.device_a.name}"] -- "{label}<br/>{l.get_discovery_method_display()}/{l.get_confidence_display()}" --> {safe_b}["{l.device_b.name}"]'
-            )
-        ctx["mermaid"] = "\n".join(mermaid_lines)
+        filters = self._get_filters()
+        ctx["active_filters"] = {k: v for k, v in filters.items() if v}
+        ctx["filter_options"] = get_topology_filter_options(self.object)
+        ctx["link_data"] = get_link_display_data(self.object, filters)
+        ctx["totals"] = _get_totals(self.object)
+        ctx["mermaid"] = _build_mermaid(self.object, filters.get("vlan"))
         return ctx
 
 
@@ -215,22 +218,10 @@ class TopologyMermaidView(LoginRequiredMixin, DetailView):
 
     def get(self, request, *args, **kwargs):
         session = self.get_object()
-        links = DeviceLink.objects.filter(session=session).select_related("device_a", "device_b")
-        mermaid_lines = ["graph LR"]
-        for l in links:
-            vlan_ids = list(VlanPath.objects.filter(
-                session=session, via_link=l
-            ).values_list("vlan_definition__vlan_id", flat=True).distinct()[:10])
-            label = f"{l.interface_a} ↔ {l.interface_b}"
-            if vlan_ids:
-                label += f"<br/>VLANs: {','.join(str(v) for v in vlan_ids[:5])}"
-            safe_a = l.device_a.name.replace("-", "_").replace(" ", "_")
-            safe_b = l.device_b.name.replace("-", "_").replace(" ", "_")
-            mermaid_lines.append(
-                f'  {safe_a}["{l.device_a.name}"] -- "{label}<br/>{l.get_discovery_method_display()}/{l.get_confidence_display()}" --> {safe_b}["{l.device_b.name}"]'
-            )
+        vlan_filter = request.GET.get("vlan")
+        mermaid_text = _build_mermaid(session, vlan_filter)
         from django.http import HttpResponse
-        return HttpResponse("\n".join(mermaid_lines), content_type="text/plain; charset=utf-8")
+        return HttpResponse(mermaid_text, content_type="text/plain; charset=utf-8")
 
 
 class EvidenceListView(LoginRequiredMixin, DetailView):

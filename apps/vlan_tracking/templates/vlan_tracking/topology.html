@@ -2,54 +2,121 @@
 {% load static %}
 {% block title %}Topologia — {{ session.name }}{% endblock %}
 {% block content %}
+<style>
+.vlan-topology-card { background:var(--card-bg,#fff); border:1px solid var(--border,#ddd); border-radius:8px; padding:1.25rem; margin-bottom:1rem; }
+.vlan-link-row { display:flex; align-items:center; gap:0.5rem; padding:0.75rem; border-bottom:1px solid var(--border,#eee); flex-wrap:wrap; }
+.vlan-link-high { border-left:4px solid #28a745; }
+.vlan-link-medium { border-left:4px solid #ffc107; }
+.vlan-link-low { border-left:4px solid #dc3545; }
+
+.badge-method { display:inline-block; padding:2px 8px; border-radius:4px; font-size:0.8em; font-weight:600; }
+.badge-manual { background:#28a745; color:#fff; }
+.badge-csv { background:#17a2b8; color:#fff; }
+.badge-lldp { background:#6f42c1; color:#fff; }
+.badge-description { background:#fd7e14; color:#fff; }
+.badge-subnet { background:#6c757d; color:#fff; }
+
+.badge-cofidence { display:inline-block; padding:2px 8px; border-radius:4px; font-size:0.8em; font-weight:600; }
+.badge-high { background:#28a74520; color:#28a745; border:1px solid #28a745; }
+.badge-medium { background:#ffc10720; color:#856404; border:1px solid #ffc107; }
+.badge-low { background:#dc354520; color:#dc3545; border:1px solid #dc3545; }
+
+.vlan-endpoint-access { color:#28a745; font-weight:600; }
+.vlan-endpoint-subinterface_l3 { color:#0056b3; font-weight:600; }
+.vlan-endpoint-l2vpn_vsi { color:#6f42c1; font-weight:600; }
+.vlan-endpoint-bas { color:#fd7e14; font-weight:600; }
+
+.vlan-issue-critical { border-left:4px solid #dc3545; padding-left:8px; }
+.vlan-issue-high { border-left:4px solid #fd7e14; padding-left:8px; }
+.vlan-issue-medium { border-left:4px solid #ffc107; padding-left:8px; }
+.vlan-issue-low { border-left:4px solid #17a2b8; padding-left:8px; }
+
+.vlan-path-arrow { display:inline-block; margin:0 8px; }
+.filter-bar { display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:1rem; }
+.filter-bar select, .filter-bar input { padding:4px 8px; border:1px solid var(--border,#ddd); border-radius:4px; }
+</style>
+
 <h2>Topologia — {{ session.name }}</h2>
 <div class="actions-bar">
   <a href="{% url 'vlan_tracking:session_detail' session.pk %}" class="btn">Voltar</a>
   <a href="{% url 'vlan_tracking:topology_mermaid' session.pk %}" target="_blank" class="btn">Export Mermaid</a>
 </div>
 
-<h3>Dispositivos ({{ device_list|length }})</h3>
 <div class="card-grid">
-{% for d in device_list %}
-  <div class="card"><div class="card-body"><strong>{{ d.name }}</strong></div></div>
+  <div class="card"><div class="card-body"><h3>{{ totals.total_devices }}</h3><p>Dispositivos</p></div></div>
+  <div class="card"><div class="card-body"><h3>{{ totals.total_links }}</h3><p>Enlaces</p></div></div>
+  <div class="card"><div class="card-body"><h3>{{ totals.links_lldp }}</h3><p>LLDP</p></div></div>
+  <div class="card"><div class="card-body"><h3>{{ totals.links_manual }} / {{ totals.links_csv }}</h3><p>Manual / CSV</p></div></div>
+  <div class="card"><div class="card-body"><h3>{{ totals.links_subnet }} / {{ totals.links_description }}</h3><p>Sub-rede / Descrição</p></div></div>
+  <div class="card"><div class="card-body"><h3>{{ totals.links_low_confidence }}</h3><p>Baixa confiança</p></div></div>
+  <div class="card"><div class="card-body"><h3>{{ totals.vlans_with_path }}</h3><p>VLANs com path</p></div></div>
+  <div class="card"><div class="card-body"><h3>{{ totals.total_issues }}</h3><p>Issues</p></div></div>
+</div>
+
+{% if totals.links_low_confidence > 0 %}
+<div class="alert alert-warning">⚠ {{ totals.links_low_confidence }} link(s) de baixa confiança — caminhos podem ser imprecisos.</div>
+{% endif %}
+
+<h3>Filtros</h3>
+<form class="filter-bar" method="get">
+  <select name="method">
+    <option value="">Método: todos</option>
+    {% for m in filter_options.methods %}
+    <option value="{{ m }}" {% if active_filters.method == m %}selected{% endif %}>{{ m|capfirst }}</option>
+    {% endfor %}
+  </select>
+  <select name="confidence">
+    <option value="">Confiança: todas</option>
+    {% for c in filter_options.confidences %}
+    <option value="{{ c }}" {% if active_filters.confidence == c %}selected{% endif %}>{{ c|capfirst }}</option>
+    {% endfor %}
+  </select>
+  <select name="device">
+    <option value="">Dispositivo: todos</option>
+    {% for d in filter_options.devices %}
+    <option value="{{ d }}" {% if active_filters.device == d %}selected{% endif %}>{{ d }}</option>
+    {% endfor %}
+  </select>
+  <input type="number" name="vlan" placeholder="VLAN ID" value="{{ active_filters.vlan }}" style="width:100px">
+  <button type="submit" class="btn btn-sm">Filtrar</button>
+  {% if active_filters %}
+  <a href="{% url 'vlan_tracking:topology' session.pk %}" class="btn btn-sm">Limpar</a>
+  {% endif %}
+</form>
+
+<h3>Enlaces ({{ link_data|length }})</h3>
+<div class="vlan-topology-card">
+{% for item in link_data %}
+<div class="vlan-link-row vlan-link-{{ item.confidence }}">
+  <span><strong>{{ item.device_a_name }}</strong></span>
+  <code>{{ item.interface_a }}</code>
+  <span class="vlan-path-arrow">⟷</span>
+  <span><strong>{{ item.device_b_name }}</strong></span>
+  <code>{{ item.interface_b }}</code>
+
+  <span class="badge-method badge-{{ item.method }}">{{ item.method_label }}</span>
+  <span class="badge-cofidence badge-{{ item.confidence }}">{{ item.confidence_label }}</span>
+
+  {% if item.vlan_ids %}
+  <span style="font-size:0.85em;color:#666;">
+    VLANs: {% for v in item.vlan_ids %}<a href="{% url 'vlan_tracking:vlan_detail' session.pk v %}">{{ v }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}
+  </span>
+  {% else %}
+  <span style="font-size:0.85em;color:#999;">sem VLAN correlacionada</span>
+  {% endif %}
+
+  {% if item.issues %}
+  <span style="font-size:0.85em;color:#dc3545;">⚠ {{ item.issue_count }} issue(s)</span>
+  {% endif %}
+</div>
 {% empty %}
-  <p class="empty">Nenhum dispositivo encontrado.</p>
+<p class="empty">Nenhum enlace encontrado.</p>
 {% endfor %}
 </div>
 
-<h3>Enlaces ({{ links|length }})</h3>
-<table class="table">
-  <thead>
-    <tr><th>Dispositivo A</th><th>Interface</th><th></th><th>Dispositivo B</th><th>Interface</th><th>Método</th><th>Confiança</th><th>Status</th><th>VLANs</th></tr>
-  </thead>
-  <tbody>
-    {% for link in links %}
-    <tr>
-      <td>{{ link.device_a.name }}</td><td><code>{{ link.interface_a }}</code></td>
-      <td>↔</td>
-      <td>{{ link.device_b.name }}</td><td><code>{{ link.interface_b }}</code></td>
-      <td><span class="badge badge-{{ link.discovery_method }}">{{ link.get_discovery_method_display }}</span></td>
-      <td><span class="badge badge-{{ link.confidence }}">{{ link.get_confidence_display }}</span></td>
-      <td>{{ link.get_status_display }}</td>
-      <td>
-        {% with vlan_ids=link.vlan_paths.values_list|slice:":5" %}
-          {% for vp in link.vlan_paths.all|slice:":5" %}
-            <a href="{% url 'vlan_tracking:vlan_detail' session.pk vp.vlan_definition.vlan_id %}">VLAN {{ vp.vlan_definition.vlan_id }}</a>{% if not forloop.last %}, {% endif %}
-          {% empty %}
-            -
-          {% endfor %}
-        {% endwith %}
-      </td>
-    </tr>
-    {% empty %}
-    <tr><td colspan="9" class="empty">Nenhum enlace.</td></tr>
-    {% endfor %}
-  </tbody>
-</table>
-
-<h3>Grafo (Mermaid)</h3>
-<pre class="mermaid-pre" style="background:#f5f5f5;padding:1em;border-radius:4px;overflow-x:auto;font-size:0.85em;line-height:1.6;">
-{{ mermaid }}
-</pre>
-<p><a href="{% url 'vlan_tracking:topology_mermaid' session.pk %}" target="_blank" class="btn btn-sm">Baixar Mermaid</a></p>
+{% if mermaid %}
+<h3>Mermaid</h3>
+<pre style="background:#f5f5f5;padding:1em;border-radius:4px;overflow-x:auto;font-size:0.85em;line-height:1.6;">{{ mermaid }}</pre>
+<a href="{% url 'vlan_tracking:topology_mermaid' session.pk %}" target="_blank" class="btn btn-sm">Copiar Mermaid</a>
+{% endif %}
 {% endblock %}

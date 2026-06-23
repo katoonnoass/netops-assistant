@@ -14,17 +14,22 @@
   <div class="card"><div class="card-body"><h3>{{ summary.total_issues }}</h3><p>Issues</p></div></div>
 </div>
 
+{% if low_conf_links > 0 %}
+<div class="alert alert-warning">⚠ {{ low_conf_links }} link(s) de baixa confiança. <a href="{% url 'vlan_tracking:link_list' session.pk %}">Revisar</a></div>
+{% endif %}
+
 <div class="actions-bar">
   <form method="post" action="{% url 'vlan_tracking:run_correlation' session.pk %}" style="display:inline">
     {% csrf_token %}
     <button type="submit" class="btn btn-primary">Executar Correlação</button>
   </form>
-  <a href="{% url 'vlan_tracking:link_list' session.pk %}" class="btn">Gerenciar Links</a>
-  <a href="{% url 'vlan_tracking:link_create' session.pk %}" class="btn">Adicionar Link Manual</a>
-  <a href="{% url 'vlan_tracking:vlan_list' session.pk %}" class="btn">Ver Todas VLANs</a>
+  <a href="{% url 'vlan_tracking:topology' session.pk %}" class="btn"><strong>Topologia</strong></a>
+  <a href="{% url 'vlan_tracking:topology_mermaid' session.pk %}" target="_blank" class="btn">Mermaid</a>
+  <a href="{% url 'vlan_tracking:link_list' session.pk %}" class="btn">Links</a>
+  <a href="{% url 'vlan_tracking:link_create' session.pk %}" class="btn">+ Link Manual</a>
+  <a href="{% url 'vlan_tracking:vlan_list' session.pk %}" class="btn">VLANs</a>
   <a href="{% url 'vlan_tracking:evidence_list' session.pk %}" class="btn">Evidências ({{ evidences|length }})</a>
-  <a href="{% url 'vlan_tracking:evidence_create' session.pk %}" class="btn">Adicionar LLDP/CSV</a>
-  <a href="{% url 'vlan_tracking:topology' session.pk %}" class="btn">Ver Topologia</a>
+  <a href="{% url 'vlan_tracking:evidence_create' session.pk %}" class="btn">+ LLDP/CSV</a>
 </div>
 
 <h3>Dispositivos</h3>
@@ -42,8 +47,16 @@
   <li>{{ method|capfirst }}: {{ count }}</li>
   {% endfor %}
 </ul>
-{% if low_conf_links > 0 %}
-<p class="alert alert-warning">⚠ {{ low_conf_links }} link(s) de baixa confiança. <a href="{% url 'vlan_tracking:link_list' session.pk %}">Revisar</a></p>
+
+<h3>Top VLANs (mais dispositivos)</h3>
+{% if summary.top_vlans %}
+<ol>
+  {% for v in summary.top_vlans|slice:":10" %}
+  <li><a href="{% url 'vlan_tracking:vlan_detail' session.pk v.vlan_id %}">VLAN {{ v.vlan_id }}</a> ({{ v.name|default:"-" }}) — {{ v.device_count }} dispositivo(s), {{ v.interface_count }} interface(s)</li>
+  {% endfor %}
+</ol>
+{% else %}
+<p class="empty">Nenhuma VLAN.</p>
 {% endif %}
 
 <h3>Links</h3>
@@ -63,8 +76,7 @@
   </tbody>
 </table>
 
-<h3>VLANs ({{
-VlanDefinition.objects.filter(session=session).count }})</h3>
+<h3>VLANs ({{ summary.total_vlans }})</h3>
 {% if vlans %}
 <table class="table">
   <thead><tr><th>VLAN ID</th><th>Nome</th><th>Dispositivos</th><th>Interfaces</th></tr></thead>
@@ -83,13 +95,13 @@ VlanDefinition.objects.filter(session=session).count }})</h3>
 <p class="empty">Nenhuma VLAN encontrada.</p>
 {% endif %}
 
-<h3>Issues</h3>
+<h3>Issues ({{ summary.total_issues }})</h3>
 {% if issues %}
 <table class="table">
   <thead><tr><th>Severidade</th><th>Código</th><th>Título</th></tr></thead>
   <tbody>
     {% for issue in issues %}
-    <tr>
+    <tr class="vlan-issue-{{ issue.severity }}">
       <td><span class="badge badge-{{ issue.severity }}">{{ issue.get_severity_display }}</span></td>
       <td><code>{{ issue.code }}</code></td>
       <td>{{ issue.title }}</td>

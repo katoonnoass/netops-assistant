@@ -1,78 +1,141 @@
 {% extends "base.html" %}
 {% load static %}
-{% block title %}VLAN {{ vlan_data.definition.vlan_id }} — {{ session.name }}{% endblock %}
+{% block title %}VLAN {{ vlan_data_new.definition.vlan_id }} — {{ session.name }}{% endblock %}
 {% block content %}
-<h2>VLAN {{ vlan_data.definition.vlan_id }}</h2>
-<p><strong>Nome:</strong> {{ vlan_data.definition.name|default:"-" }}</p>
-<p><strong>Descrição:</strong> {{ vlan_data.definition.description|default:"-" }}</p>
-<a href="{% url 'vlan_tracking:vlan_list' session.pk %}" class="btn">Voltar</a>
+<style>
+.vlan-path-step { display:flex; align-items:center; gap:0.5rem; padding:0.5rem; border-left:3px solid #ddd; margin:0.25rem 0; }
+.vlan-path-step-active { border-left-color:#28a745; }
+.vlan-path-step-low { border-left-color:#dc3545; background:#fff5f5; }
+</style>
+
+<h2>VLAN {{ vlan_data_new.definition.vlan_id }}</h2>
+<p><strong>Nome:</strong> {{ vlan_data_new.definition.name|default:"-" }}</p>
+<p><strong>Descrição:</strong> {{ vlan_data_new.definition.description|default:"-" }}</p>
+
+<div class="card-grid">
+  <div class="card"><div class="card-body"><h3>{{ vlan_data_new.device_count }}</h3><p>Dispositivos</p></div></div>
+  <div class="card"><div class="card-body"><h3>{{ vlan_data_new.interface_count }}</h3><p>Interfaces</p></div></div>
+  <div class="card"><div class="card-body"><h3>{{ vlan_data_new.path_count }}</h3><p>Saltos</p></div></div>
+  <div class="card"><div class="card-body"><h3>{{ vlan_data_new.issue_count }}</h3><p>Issues</p></div></div>
+</div>
+
+<div class="actions-bar">
+  <a href="{% url 'vlan_tracking:vlan_list' session.pk %}" class="btn">Voltar</a>
+</div>
+
+{% if vlan_data_new.has_low_confidence_path %}
+<div class="alert alert-warning">⚠ Caminho contém enlace inferido por sub-rede / baixa confiança.</div>
+{% endif %}
+
+<h3>Caminho Visual</h3>
+{% if vlan_data_new.paths %}
+<div style="font-family:monospace;font-size:0.9em;">
+  {% for ep in vlan_data_new.endpoints %}
+  {% if ep.type == "access" %}
+  <div class="vlan-path-step vlan-path-step-active">
+    <span class="vlan-endpoint-access">⬤</span>
+    <span><strong>{{ ep.device_name }}</strong>:<code>{{ ep.interface_name }}</code></span>
+    <span class="badge-method badge-manual">Access {{ ep.description|truncatechars:30 }}</span>
+  </div>
+  {% endif %}
+  {% endfor %}
+
+  {% for p in vlan_data_new.paths %}
+  <div class="vlan-path-step {% if p.low_confidence %}vlan-path-step-low{% else %}vlan-path-step-active{% endif %}">
+    <span>│</span>
+    <span>trunk {% if p.tagged %}tagged{% endif %} VLAN {{ vlan_data_new.definition.vlan_id }}</span>
+  </div>
+  <div class="vlan-path-step {% if p.low_confidence %}vlan-path-step-low{% else %}vlan-path-step-active{% endif %}">
+    <span>▼</span>
+    <span><strong>{{ p.from_device }}</strong>:<code>{{ p.from_interface }}</code></span>
+    <span class="vlan-path-arrow">⟷</span>
+    <span><strong>{{ p.to_device }}</strong>:<code>{{ p.to_interface }}</code></span>
+    <span class="badge-method badge-{{ p.method }}">{{ p.method_label }}</span>
+    <span class="badge-cofidence badge-{{ p.confidence }}">{{ p.confidence_label }}</span>
+    {% if p.low_confidence %}<span style="color:#dc3545;font-weight:600;">⚠ inferido</span>{% endif %}
+  </div>
+  {% endfor %}
+
+  {% for ep in vlan_data_new.endpoints %}
+  {% if ep.type == "subinterface_l3" %}
+  <div class="vlan-path-step vlan-path-step-active">
+    <span class="vlan-endpoint-subinterface_l3">●</span>
+    <span><strong>{{ ep.device_name }}</strong>:<code>{{ ep.interface_name }}</code></span>
+    <span class="badge-method badge-lldp">dot1q {{ vlan_data_new.definition.vlan_id }}</span>
+  </div>
+  {% endif %}
+  {% endfor %}
+
+  {% for ep in vlan_data_new.endpoints %}
+  {% if ep.type == "l2vpn_vsi" %}
+  <div class="vlan-path-step vlan-path-step-active">
+    <span class="vlan-endpoint-l2vpn_vsi">◆</span>
+    <span><strong>{{ ep.device_name }}</strong>:<code>{{ ep.interface_name }}</code></span>
+    <span class="badge-method badge-lldp">L2VPN VSI</span>
+  </div>
+  {% endif %}
+  {% endfor %}
+
+  {% for ep in vlan_data_new.endpoints %}
+  {% if ep.type == "bas" %}
+  <div class="vlan-path-step vlan-path-step-active">
+    <span class="vlan-endpoint-bas">■</span>
+    <span><strong>{{ ep.device_name }}</strong>:<code>{{ ep.interface_name }}</code></span>
+    <span class="badge-method badge-lldp">BAS/BNG</span>
+  </div>
+  {% endif %}
+  {% endfor %}
+
+  {% for ep in vlan_data_new.endpoints %}
+  {% if ep.type not in "access subinterface_l3 l2vpn_vsi bas" %}
+  <div class="vlan-path-step">
+    <span>?</span>
+    <span><strong>{{ ep.device_name }}</strong>:<code>{{ ep.interface_name }}</code></span>
+    <span class="badge badge-{{ ep.type }}">{{ ep.type_label }}</span>
+  </div>
+  {% endif %}
+  {% endfor %}
+</div>
+{% else %}
+<p class="empty">Nenhum caminho. A VLAN não atravessa enlaces entre dispositivos.</p>
+{% endif %}
 
 <h3>Interfaces</h3>
-{% if vlan_data.interfaces %}
 <table class="table">
   <thead><tr><th>Dispositivo</th><th>Interface</th><th>Modo</th><th>Tagged</th><th>PVID</th></tr></thead>
   <tbody>
-    {% for vi in vlan_data.interfaces %}
+    {% for vi in vlan_data_new.interfaces %}
     <tr>
-      <td>{{ vi.device.name }}</td>
-      <td><code>{{ vi.interface_name }}</code></td>
-      <td>{{ vi.get_port_mode_display }}</td>
-      <td>{{ vi.tagged|yesno:"Sim,Não" }}</td>
-      <td>{{ vi.pvid|yesno:"Sim,Não" }}</td>
+      <td>{{ vi.device.name }}</td><td><code>{{ vi.interface_name }}</code></td>
+      <td>{{ vi.get_port_mode_display }}</td><td>{{ vi.tagged|yesno:"Sim,Não" }}</td><td>{{ vi.pvid|yesno:"Sim,Não" }}</td>
     </tr>
+    {% empty %}<tr><td colspan="5" class="empty">Nenhuma interface.</td></tr>
     {% endfor %}
   </tbody>
 </table>
-{% else %}
-<p class="empty">Nenhuma interface.</p>
-{% endif %}
-
-<h3>Caminhos ({{ vlan_data.paths|length }})</h3>
-{% if vlan_data.paths %}
-<table class="table">
-  <thead><tr><th>De</th><th>Interface</th><th>→</th><th>Para</th><th>Interface</th><th>Tagged</th><th>Método</th><th>Confiança</th></tr></thead>
-  <tbody>
-    {% for p in vlan_data.paths %}
-    <tr>
-      <td>{{ p.from_device.name }}</td><td><code>{{ p.from_interface }}</code></td>
-      <td>→</td>
-      <td>{{ p.to_device.name }}</td><td><code>{{ p.to_interface }}</code></td>
-      <td>{{ p.tagged|yesno:"Sim,Não" }}</td>
-      <td><span class="badge badge-{{ p.link_method }}">{{ p.link_method|default:"-" }}</span></td>
-      <td>{% if p.low_confidence %}<span class="badge badge-low">Baixa</span> ⚠{% else %}{{ p.via_link.get_confidence_display|default:"-" }}{% endif %}</td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
-{% else %}
-<p class="empty">Nenhum caminho.</p>
-{% endif %}
 
 <h3>Endpoints</h3>
-{% if vlan_data.endpoints %}
-<ul>
-  {% for ep in vlan_data.endpoints %}
-  <li>{{ ep.device.name }}:{{ ep.interface_name }} — <span class="badge">{{ ep.get_endpoint_type_display }}</span></li>
-  {% endfor %}
-</ul>
-{% else %}
+<div class="card-grid">
+{% for ep in vlan_data_new.endpoints %}
+  <div class="card">
+    <div class="card-body">
+      <strong>{{ ep.device_name }}</strong>:<code>{{ ep.interface_name }}</code>
+      <br><span class="badge-method badge-{{ ep.type }}">{{ ep.type_label }}</span>
+    </div>
+  </div>
+{% empty %}
 <p class="empty">Nenhum endpoint.</p>
-{% endif %}
+{% endfor %}
+</div>
 
 <h3>Issues</h3>
-{% if vlan_data.issues %}
-<table class="table">
-  <thead><tr><th>Severidade</th><th>Issue</th></tr></thead>
-  <tbody>
-    {% for issue in vlan_data.issues %}
-    <tr>
-      <td><span class="badge badge-{{ issue.severity }}">{{ issue.get_severity_display }}</span></td>
-      <td>{{ issue.title }}</td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
-{% else %}
+{% for issue in vlan_data_new.issues %}
+<div class="vlan-issue-{{ issue.severity }}">
+  <span class="badge badge-{{ issue.severity }}">{{ issue.get_severity_display }}</span>
+  <strong>{{ issue.code }}</strong>: {{ issue.title }}
+  {% if issue.interface_name %}<br><code>{{ issue.interface_name }}</code>{% endif %}
+</div>
+{% empty %}
 <p class="empty">Nenhuma issue.</p>
-{% endif %}
+{% endfor %}
 {% endblock %}
