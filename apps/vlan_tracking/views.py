@@ -36,6 +36,10 @@ from .services import (
 from .topology import discover_links_by_csv_evidence, discover_links_by_lldp
 
 
+from .operational import (
+    export_session_report_csv_rows,
+    export_session_report_text,
+)
 from .troubleshooter import (
     build_vlan_troubleshooting_report,
     export_vlan_report_csv_rows,
@@ -102,6 +106,38 @@ class VlanTroubleshootExportCsvView(LoginRequiredMixin, DetailView):
             writer.writerows(rows)
         from django.http import HttpResponse
         filename = f"vlan_report_{session.pk}_{vid}.csv"
+        response = HttpResponse(output.getvalue(), content_type="text/csv; charset=utf-8")
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        return response
+
+
+class SessionExportTextView(LoginRequiredMixin, DetailView):
+    model = VlanTrackSession
+
+    def get(self, request, *args, **kwargs):
+        session = self.get_object()
+        text = export_session_report_text(session)
+        from django.http import HttpResponse
+        filename = f"vlan_tracking_{session.pk}.txt"
+        response = HttpResponse(text, content_type="text/plain; charset=utf-8")
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        return response
+
+
+class SessionExportCsvView(LoginRequiredMixin, DetailView):
+    model = VlanTrackSession
+
+    def get(self, request, *args, **kwargs):
+        import csv, io
+        session = self.get_object()
+        rows = export_session_report_csv_rows(session)
+        output = io.StringIO()
+        if rows:
+            writer = csv.DictWriter(output, fieldnames=rows[0].keys())
+            writer.writeheader()
+            writer.writerows(rows)
+        from django.http import HttpResponse
+        filename = f"vlan_tracking_{session.pk}.csv"
         response = HttpResponse(output.getvalue(), content_type="text/csv; charset=utf-8")
         response["Content-Disposition"] = f'attachment; filename="{filename}"'
         return response

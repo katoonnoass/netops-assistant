@@ -84,10 +84,19 @@ def device_detail(request, pk):
     summary = get_device_summary(device)
     timeline = get_device_timeline(device)
     actions = get_device_recommended_actions(device)
+
+    # VLAN Tracking context
+    try:
+        from apps.vlan_tracking.operational import get_device_vlan_tracking_context
+        vlan_context = get_device_vlan_tracking_context(device)
+    except Exception:
+        vlan_context = []
+
     return render(request, "devices/device_detail.html", {
         "summary": summary,
         "timeline": timeline,
         "actions": actions,
+        "vlan_context": vlan_context,
     })
 
 

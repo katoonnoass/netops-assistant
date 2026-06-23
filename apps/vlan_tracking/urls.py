@@ -24,4 +24,6 @@ urlpatterns = [
     path("<int:pk>/troubleshoot/<int:vid>/", views.VlanTroubleshootDetailView.as_view(), name="troubleshoot_detail"),
     path("<int:pk>/troubleshoot/<int:vid>/export.txt", views.VlanTroubleshootExportTextView.as_view(), name="troubleshoot_export_txt"),
     path("<int:pk>/troubleshoot/<int:vid>/export.csv", views.VlanTroubleshootExportCsvView.as_view(), name="troubleshoot_export_csv"),
+    path("<int:pk>/export.txt", views.SessionExportTextView.as_view(), name="session_export_txt"),
+    path("<int:pk>/export.csv", views.SessionExportCsvView.as_view(), name="session_export_csv"),
 ]

@@ -2954,6 +2954,12 @@ def _search_zte_olt(
     return results[:30]
 
 
+def _search_vlan_tracking(query: str) -> list[dict]:
+    """Search VLAN tracking sessions, VLANs, issues, links, and endpoints."""
+    from apps.vlan_tracking.operational import search_vlan_tracking
+    return search_vlan_tracking(query)
+
+
 def global_network_search(
     query: str, filters: dict | None = None
 ) -> dict[str, Any]:
@@ -3064,6 +3070,9 @@ def global_network_search(
 
     total = sum(summary_counts.values())
 
+    # VLAN Tracking search
+    vlan_tracking_results = _search_vlan_tracking(query)
+
     return {
         "classification": classification,
         "summary": {"total": total, **summary_counts},
@@ -3088,5 +3097,6 @@ def global_network_search(
         "pppoe": pppoe_results,
         "huawei_advanced": huawei_advanced_results,
         "zte_olt": zte_olt_results,
+        "vlan_tracking": vlan_tracking_results,
         "raw_matches": raw_matches,
     }

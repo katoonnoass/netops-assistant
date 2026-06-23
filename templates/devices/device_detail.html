@@ -221,6 +221,33 @@
 </div>
 {% endif %}
 
+{% if vlan_context %}
+<div class="card">
+    <h3 class="section-title">VLAN Tracking</h3>
+    <div style="overflow-x:auto;">
+        <table class="table">
+            <thead><tr><th>Sessão</th><th>VLANs</th><th>Links</th><th>Issues</th><th>Ações</th></tr></thead>
+            <tbody>
+                {% for ctx in vlan_context %}
+                <tr>
+                    <td><a href="{% url 'vlan_tracking:session_detail' ctx.session.pk %}">{{ ctx.session.name }}</a></td>
+                    <td>{% for vid in ctx.vlan_ids|slice:":10" %}<a href="{% url 'vlan_tracking:troubleshoot_detail' ctx.session.pk vid %}">VLAN {{ vid }}</a>{% if not forloop.last %}, {% endif %}{% empty %}-{% endfor %}</td>
+                    <td>{{ ctx.link_count }}</td>
+                    <td>{{ ctx.issue_count }}</td>
+                    <td>
+                        <a href="{% url 'vlan_tracking:topology' ctx.session.pk %}" class="btn btn-sm">Topologia</a>
+                        <a href="{% url 'vlan_tracking:topology_svg' ctx.session.pk %}" class="btn btn-sm">SVG</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="empty">Nenhuma sessão VLAN Tracking.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
 <!-- Timeline -->
 {% if timeline %}
 <div class="card">

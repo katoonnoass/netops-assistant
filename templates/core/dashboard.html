@@ -89,6 +89,44 @@
         </div>
     </section>
 
+    {% if vlan_summary %}
+    <section class="card">
+        <div class="panel-heading">
+            <div><span class="panel-kicker">VLAN TRACKING</span><h2>Rastreamento de VLANs</h2></div>
+            <a href="{% url 'vlan_tracking:session_list' %}" class="btn btn-sm">Ver todas</a>
+        </div>
+        <div class="kpi-grid" style="margin-bottom:1rem;">
+            <div class="kpi-card"><span class="kpi-label">Sessões</span><span class="kpi-value">{{ vlan_summary.total_sessions }}</span></div>
+            <div class="kpi-card"><span class="kpi-label">VLANs</span><span class="kpi-value">{{ vlan_summary.total_vlans }}</span></div>
+            <div class="kpi-card"><span class="kpi-label">Issues</span><span class="kpi-value">{{ vlan_summary.total_issues }}</span></div>
+            <div class="kpi-card"><span class="kpi-label">Links baixa confiança</span><span class="kpi-value">{{ vlan_summary.low_conf_links_count }}</span></div>
+        </div>
+        {% if vlan_summary.top_vlans_with_issues %}
+        <div><strong>Top VLANs com issues:</strong></div>
+        <div class="rank-list">
+            {% for item in vlan_summary.top_vlans_with_issues|slice:":5" %}
+            <a href="/vlan/{{ item.vlan_definition__session_id }}/troubleshoot/{{ item.vlan_definition__vlan_id }}/" class="rank-row">
+                <span class="rank-index">{{ forloop.counter|stringformat:"02d" }}</span>
+                <span><strong>VLAN {{ item.vlan_definition__vlan_id }}</strong><small>{{ item.vlan_definition__session__name }}</small></span>
+                <b>{{ item.total }}</b>
+            </a>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% if vlan_summary.low_conf_list %}
+        <div style="margin-top:1rem;"><strong>Links de baixa confiança:</strong></div>
+        <div class="rank-list">
+            {% for link in vlan_summary.low_conf_list|slice:":5" %}
+            <a href="/vlan/{{ link.session_id }}/topology/" class="rank-row">
+                <span class="rank-index">⚠</span>
+                <span><strong>{{ link.device_a.name }}:{{ link.interface_a }} ↔ {{ link.device_b.name }}:{{ link.interface_b }}</strong><small>{{ link.get_discovery_method_display }}</small></span>
+            </a>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </section>
+    {% endif %}
+
     <section class="card">
         <div class="panel-heading">
             <div><span class="panel-kicker">CONCENTRAÇÃO DE RISCO</span><h2>Dispositivos com mais issues</h2></div>

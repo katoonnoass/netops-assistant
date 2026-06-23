@@ -52,6 +52,13 @@ def dashboard(request):
         key=lambda d: 0 if d["attention_type"] == "critical" else 1
     )
 
+    # VLAN Tracking summary
+    try:
+        from apps.vlan_tracking.operational import get_vlan_tracking_dashboard_summary
+        vlan_summary = get_vlan_tracking_dashboard_summary()
+    except Exception:
+        vlan_summary = None
+
     context = {
         "summary": summary,
         "latest_parsed": latest,
@@ -64,6 +71,7 @@ def dashboard(request):
         "snapshots_7d": get_snapshots_last_7_days(),
         "devices_without_snapshot": get_devices_without_snapshot_count(),
         "vendors_count": len(get_vendor_summary()),
+        "vlan_summary": vlan_summary,
     }
     return render(request, "core/dashboard.html", context)
 

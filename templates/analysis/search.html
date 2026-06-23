@@ -569,6 +569,19 @@
 </div>
 {% endif %}
 
+{% if r.vlan_tracking %}
+<div class="search-section">
+    <h3>VLAN Tracking <span class="badge badge-primary">{{ r.vlan_tracking|length }}</span></h3>
+    {% for item in r.vlan_tracking %}
+    <div class="result-item {% if item.score >= 0.9 %}score-high{% endif %}">
+        <div class="title"><span class="search-type-tag">{{ item.type }}</span> {{ item.title }}</div>
+        <div class="meta">{{ item.description }}</div>
+        {% if item.url %}<a href="{{ item.url }}" class="btn btn-sm">Abrir</a>{% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
 {% if r.raw_matches %}
 <div class="search-section">
     <h3>Ocorrências em texto bruto <span class="badge badge-primary">{{ r.raw_matches|length }}</span></h3>
