@@ -251,7 +251,76 @@ PostgreSQL 16
 
 Volumes persistentes: `postgres_data`, `static_volume`, `media_volume`, `backup_volume`.
 
+## Hardening de Deploy
+
+### Atualização segura
+
+```bash
+bash scripts/docker_update.sh
+```
+
+O script:
+1. Faz `git pull` (se repo clonado)
+2. Rebuild das imagens
+3. Para containers (timeout 30s)
+4. Sobe containers
+5. Roda migrations e collectstatic
+6. Executa `check --deploy`
+7. Exibe status
+
+### Backup automatizado
+
+```bash
+# Backup diário (padrão 7 dias de retenção)
+bash scripts/docker_backup.sh
+
+# Backup semanal com raw config (contém dados sensíveis!)
+bash scripts/docker_backup.sh --include-raw-config
+
+# Retenção personalizada
+BACKUP_RETENTION_DAYS=14 bash scripts/docker_backup.sh
+```
+
+### Backup via cron (exemplo)
+
+```cron
+# Diário 02:00
+0 2 * * * cd /opt/netops-assistant && bash scripts/docker_backup.sh >> backups/backup_daily.log 2>&1
+
+# Semanal domingo 03:00 com raw config
+0 3 * * 0 cd /opt/netops-assistant && bash scripts/docker_backup.sh --include-raw-config >> backups/backup_weekly.log 2>&1
+```
+
+Veja `docs/deploy/backup_cron.md` para mais detalhes.
+
+### Checklist de deploy
+
+Consulte `docs/deploy/checklist.md` para:
+- Primeira instalação (passo a passo)
+- Atualização
+- Rollback
+- Verificações pós-deploy
+
+### HTTPS
+
+Consulte `docker/nginx/https.example.conf` para um template de configuração HTTPS com:
+- Redirecionamento HTTP → 301
+- SSL ciphers modernos
+- Cache de sessão
+- Cache de static files (30d)
+
+### Healthchecks
+
+Os containers possuem healthchecks configurados no `docker-compose.yml`:
+- **db**: `pg_isready` (30s de start_period)
+- **web**: requisição HTTP a `/health/` (60s de start_period)
+- **nginx**: `wget --spider` em `http://localhost/health/` (30s de start_period)
+
+Os containers só são considerados "healthy" após passarem nos checks.
+
 ---
+
+
 
 ## Comandos CLI
 

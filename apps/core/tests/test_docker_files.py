@@ -21,7 +21,7 @@ class DockerFilesExistTests(SimpleTestCase):
         self.assertTrue((self.base / ".env.example").exists())
 
     def test_dockerenv_example_has_secret_key(self):
-        content = (self.base / ".env.example").read_text()
+        content = (self.base / ".env.example").read_text(encoding="utf-8")
         self.assertIn("DJANGO_SECRET_KEY", content)
         self.assertIn("DATABASE_URL", content)
 
