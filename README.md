@@ -4,7 +4,7 @@
   <p>
     <img src="https://img.shields.io/badge/Python-3.12-blue?logo=python" alt="Python 3.12">
     <img src="https://img.shields.io/badge/Django-5.0+-green?logo=django" alt="Django 5.0+">
-    <img src="https://img.shields.io/badge/Tests-1265_✔️-brightgreen" alt="1265 testes">
+    <img src="https://img.shields.io/badge/Tests-1443_✔️-brightgreen" alt="1443 testes">
     <img src="https://img.shields.io/badge/License-Proprietary-red" alt="License">
     <img src="https://img.shields.io/badge/Status-Development-yellow" alt="Status">
   </p>
@@ -171,6 +171,85 @@ Executando análise...
 2. Cole a configuração de exemplo (`sample_configs/huawei_l3_transit_public_prefix.txt`)
 3. Informe o nome do equipamento e clique em **Analisar Configuração**
 4. Navegue pelos resultados, documentação automática e busca
+
+---
+
+## Deploy com Docker Compose
+
+### Pré-requisitos
+
+- Docker e Docker Compose
+- Git
+
+### Passos
+
+```bash
+# Clone
+git clone https://github.com/katoonnoass/netops-assistant.git
+cd netops-assistant
+
+# Configuração
+cp .env.example .env
+# Edite .env: altere DJANGO_SECRET_KEY para uma chave segura
+# Ajuste ALLOWED_HOSTS e CSRF_TRUSTED_ORIGINS conforme seu domínio
+
+# Build e iniciar
+docker compose build
+docker compose up -d
+
+# Criar superusuário
+docker compose exec web python manage.py createsuperuser
+
+# Setup de papéis (permissões)
+docker compose exec web python manage.py setup_roles
+
+# Acessar
+# http://localhost/
+```
+
+### Comandos úteis
+
+```bash
+# Logs
+docker compose logs -f web
+
+# Testes
+docker compose exec web python manage.py test
+
+# Backup operacional
+docker compose exec web python manage.py export_operational_backup --output /app/backups/netops_backup.json
+
+# Backup PostgreSQL
+docker compose exec db pg_dump -U netops netops_assistant > backups/postgres_dump.sql
+
+# Shell no container
+docker compose exec web bash
+```
+
+### Troubleshooting
+
+| Problema | Possível causa |
+|----------|---------------|
+| `ALLOWED_HOSTS` erro | Editar `.env` e adicionar IP/domínio em `DJANGO_ALLOWED_HOSTS` |
+| `connection refused` PostgreSQL | Aguardar healthcheck ou verificar logs: `docker compose logs db` |
+| Static files não carregam | Rodar `docker compose exec web python manage.py collectstatic --noinput` |
+| Porta 80 ocupada | Alterar `ports: "80:80"` em `docker-compose.yml` para `"8080:80"` |
+| Permissão de volume | `sudo chown -R 1000:1000 backups/` ou ajustar usuário no Dockerfile |
+
+### Arquitetura Docker
+
+```text
+Nginx (porta 80)
+  │ proxy_pass http://web:8000
+  │ serve /static/ e /media/
+  ▼
+Gunicorn + Django
+  │ WSGI
+  ▼
+PostgreSQL 16
+```
+
+Volumes persistentes: `postgres_data`, `static_volume`, `media_volume`, `backup_volume`.
 
 ---
 

@@ -1,0 +1,13 @@
+# Override para desenvolvimento local com Docker
+# Uso: docker compose -f docker-compose.yml -f docker-compose.override.yml up
+services:
+  web:
+    build:
+      args:
+        - DEBUG=true
+    volumes:
+      - .:/app
+    environment:
+      DJANGO_DEBUG: "True"
+    ports:
+      - "8000:8000"

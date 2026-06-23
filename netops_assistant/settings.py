@@ -87,24 +87,40 @@ WSGI_APPLICATION = "netops_assistant.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
-DB_ENGINE = os.getenv("DB_ENGINE", "django.db.backends.sqlite3")
+DATABASE_URL = os.getenv("DATABASE_URL", "")
 
-if DB_ENGINE == "django.db.backends.sqlite3":
-    DATABASES = {
-        "default": {
-            "ENGINE": DB_ENGINE,
-            "NAME": BASE_DIR / "db.sqlite3",
+if DATABASE_URL:
+    import re
+    m = re.match(r"postgres://(.+):(.+)@(.+):(\d+)/(.+)", DATABASE_URL)
+    if m:
+        DATABASES = {
+            "default": {
+                "ENGINE": "django.db.backends.postgresql",
+                "NAME": m.group(5),
+                "USER": m.group(1),
+                "PASSWORD": m.group(2),
+                "HOST": m.group(3),
+                "PORT": int(m.group(4)),
+            }
         }
-    }
-else:
+    else:
+        DATABASES = {"default": {}}
+elif os.getenv("DB_ENGINE", "sqlite") == "postgresql":
     DATABASES = {
         "default": {
-            "ENGINE": DB_ENGINE,
+            "ENGINE": "django.db.backends.postgresql",
             "NAME": os.getenv("DB_NAME", "netops_assistant"),
             "USER": os.getenv("DB_USER", "netops"),
             "PASSWORD": os.getenv("DB_PASSWORD", ""),
             "HOST": os.getenv("DB_HOST", "localhost"),
             "PORT": os.getenv("DB_PORT", "5432"),
+        }
+    }
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
         }
     }
 
@@ -133,6 +149,14 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
+STATIC_ROOT = os.getenv("DJANGO_STATIC_ROOT", str(BASE_DIR / "staticfiles"))
+
+MEDIA_URL = "media/"
+MEDIA_ROOT = os.getenv("DJANGO_MEDIA_ROOT", str(BASE_DIR / "media"))
+
+CSRF_TRUSTED_ORIGINS = os.getenv(
+    "DJANGO_CSRF_TRUSTED_ORIGINS", ""
+).split(",") if os.getenv("DJANGO_CSRF_TRUSTED_ORIGINS") else []
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

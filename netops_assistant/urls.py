@@ -1,6 +1,7 @@
 """URL configuration for netops_assistant project."""
 from django.contrib import admin
 from django.contrib.auth import views as auth_views
+from django.http import HttpResponse
 from django.urls import include, path
 
 from apps.analysis import inventory_views, search_views, views as analysis_views
@@ -12,6 +13,8 @@ from apps.devices import views as device_views
 handler403 = permission_denied_view
 
 urlpatterns = [
+    # Health check
+    path("health/", lambda r: HttpResponse("ok", content_type="text/plain"), name="health"),
     # Admin
     path("admin/", admin.site.urls),
     # Auth
