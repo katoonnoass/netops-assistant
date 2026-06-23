@@ -52,6 +52,23 @@ def search_vlan_tracking(query):
     if not q:
         return results
 
+    # Portuguese/English synonym mapping
+    pt_map = {
+        "baixa confiança": "low",
+        "baixa confianca": "low",
+        "atenção": "attention",
+        "atencao": "attention",
+        "crítico": "critical",
+        "critico": "critical",
+        "incompleto": "incomplete",
+        "alta confiança": "high",
+        "alta confianca": "high",
+    }
+    for pt_term, en_term in pt_map.items():
+        if pt_term in q:
+            q = q.replace(pt_term, en_term)
+    q = q.strip()
+
     # Search sessions
     for s in VlanTrackSession.objects.filter(
         Q(name__icontains=q) | Q(description__icontains=q)

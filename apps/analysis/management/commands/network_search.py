@@ -83,31 +83,37 @@ class Command(BaseCommand):
             ("políticas / filtros", results["policies"]),
             ("serviços", results["services"]),
             ("issues", results["issues"]),
-            ("ocorrências em texto bruto", results["raw_matches"]),
+            ("VLAN Tracking", results.get("vlan_tracking", [])),
         ]
 
         for section_name, items in sections:
             if not items:
                 continue
-            self.stdout.write(f"\n--- {section_name.title()} ({len(items)}) ---")
+            display_name = "VLAN Tracking" if section_name == "VLAN Tracking" else section_name.title()
+            self.stdout.write(f"\n--- {display_name} ({len(items)}) ---")
             for item in items[:5]:  # Top 5 per section
                 device = item.get("device", "")
                 title = item.get("title", "")
                 score = item.get("score", 0)
                 evidence = item.get("evidence", [])
                 meta = item.get("metadata", {})
+                desc = item.get("description", "")
+                url = item.get("url", "")
                 self.stdout.write(
                     f"  [{score:.1f}] {title}"
                 )
+                if desc:
+                    self.stdout.write(f"        {desc}")
                 if device:
                     self.stdout.write(f"        Dispositivo: {device}")
+                if url:
+                    self.stdout.write(f"        URL: {url}")
                 if meta and "vpn_instance" in meta and meta["vpn_instance"]:
                     self.stdout.write(f"        VPN: {meta['vpn_instance']}")
                 if meta and "remote_as" in meta and meta.get("remote_as"):
                     self.stdout.write(f"        AS remoto: {meta['remote_as']}")
                 if evidence:
                     for ev in evidence[:1]:
-                        # Truncate evidence for display
                         lines = ev.splitlines()
                         for line in lines[:3]:
                             self.stdout.write(f"        >> {line.strip()}")
