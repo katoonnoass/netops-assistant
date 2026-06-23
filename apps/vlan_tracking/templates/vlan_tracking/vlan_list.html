@@ -17,7 +17,10 @@
       <td>{{ v.name|default:"-" }}</td>
       <td>{{ v.device_count }}</td>
       <td>{{ v.interface_count }}</td>
-      <td><a href="{% url 'vlan_tracking:vlan_detail' session.pk v.vlan_id %}" class="btn btn-sm">Ver path</a></td>
+      <td>
+        <a href="{% url 'vlan_tracking:vlan_detail' session.pk v.vlan_id %}" class="btn btn-sm">Path</a>
+        <a href="{% url 'vlan_tracking:troubleshoot_detail' session.pk v.vlan_id %}" class="btn btn-sm">Diagnóstico</a>
+      </td>
     </tr>
     {% endfor %}
   </tbody>

@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Troubleshoot VLAN — {{ session.name }}{% endblock %}
+{% block content %}
+<h2>Troubleshooter VLAN — {{ session.name }}</h2>
+<div class="actions-bar">
+  <a href="{% url 'vlan_tracking:session_detail' session.pk %}" class="btn">Voltar</a>
+</div>
+
+<form method="get" action="{% url 'vlan_tracking:troubleshoot_search' session.pk %}" style="margin-bottom:1.5rem;">
+  <div class="form-group" style="display:flex;gap:0.5rem;align-items:center;">
+    <label style="font-weight:600;">VLAN ID:</label>
+    <input type="number" name="vlan" min="1" max="4094" required style="padding:6px 12px;border:1px solid #ddd;border-radius:4px;width:120px;">
+    <button type="submit" class="btn btn-primary">Diagnosticar</button>
+  </div>
+</form>
+
+{% if request.GET.vlan %}
+<script>
+  window.location.href = "{% url 'vlan_tracking:troubleshoot_detail' session.pk 0 %}".replace("/0/", "/{{ request.GET.vlan }}/");
+</script>
+{% endif %}
+
+<h3>VLANs com Issues</h3>
+{% if vlans_with_issues %}
+<ul>
+  {% for vid in vlans_with_issues %}
+  <li><a href="{% url 'vlan_tracking:troubleshoot_detail' session.pk vid %}">VLAN {{ vid }}</a></li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="empty">Nenhuma VLAN com issues.</p>
+{% endif %}
+
+<h3>Todas VLANs ({{ vlans|length }})</h3>
+<table class="table">
+  <thead><tr><th>VLAN</th><th>Nome</th><th>Dispositivos</th><th>Interfaces</th><th>Ações</th></tr></thead>
+  <tbody>
+    {% for v in vlans|slice:":50" %}
+    <tr>
+      <td>{{ v.vlan_id }}</td>
+      <td>{{ v.name|default:"-" }}</td>
+      <td>{{ v.device_count }}</td>
+      <td>{{ v.interface_count }}</td>
+      <td><a href="{% url 'vlan_tracking:troubleshoot_detail' session.pk v.vlan_id %}" class="btn btn-sm">Diagnosticar</a></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

@@ -36,6 +36,77 @@ from .services import (
 from .topology import discover_links_by_csv_evidence, discover_links_by_lldp
 
 
+from .troubleshooter import (
+    build_vlan_troubleshooting_report,
+    export_vlan_report_csv_rows,
+    export_vlan_report_text,
+)
+
+
+class VlanTroubleshootSearchView(LoginRequiredMixin, DetailView):
+    model = VlanTrackSession
+    template_name = "vlan_tracking/troubleshoot_search.html"
+    context_object_name = "session"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["vlans"] = VlanDefinition.objects.filter(session=self.object).order_by("-device_count", "vlan_id")
+        ctx["vlans_with_issues"] = list(
+            VlanTrackingIssue.objects.filter(session=self.object)
+            .values_list("vlan_definition__vlan_id", flat=True)
+            .distinct()[:20]
+        )
+        return ctx
+
+
+class VlanTroubleshootDetailView(LoginRequiredMixin, DetailView):
+    model = VlanTrackSession
+    template_name = "vlan_tracking/troubleshoot_detail.html"
+    context_object_name = "session"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        vid = self.kwargs.get("vid")
+        ctx["report"] = build_vlan_troubleshooting_report(self.object, vid)
+        ctx["vlan_id"] = vid
+        return ctx
+
+
+class VlanTroubleshootExportTextView(LoginRequiredMixin, DetailView):
+    model = VlanTrackSession
+
+    def get(self, request, *args, **kwargs):
+        session = self.get_object()
+        vid = kwargs.get("vid")
+        text = export_vlan_report_text(session, vid)
+        from django.http import HttpResponse
+        filename = f"vlan_report_{session.pk}_{vid}.txt"
+        response = HttpResponse(text, content_type="text/plain; charset=utf-8")
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        return response
+
+
+class VlanTroubleshootExportCsvView(LoginRequiredMixin, DetailView):
+    model = VlanTrackSession
+
+    def get(self, request, *args, **kwargs):
+        import csv
+        import io
+        session = self.get_object()
+        vid = kwargs.get("vid")
+        rows = export_vlan_report_csv_rows(session, vid)
+        output = io.StringIO()
+        if rows:
+            writer = csv.DictWriter(output, fieldnames=rows[0].keys())
+            writer.writeheader()
+            writer.writerows(rows)
+        from django.http import HttpResponse
+        filename = f"vlan_report_{session.pk}_{vid}.csv"
+        response = HttpResponse(output.getvalue(), content_type="text/csv; charset=utf-8")
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        return response
+
+
 class TopologySvgView(LoginRequiredMixin, DetailView):
     model = VlanTrackSession
     template_name = "vlan_tracking/topology_svg.html"

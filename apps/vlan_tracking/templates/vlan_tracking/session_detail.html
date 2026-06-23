@@ -26,6 +26,7 @@
   <a href="{% url 'vlan_tracking:topology' session.pk %}" class="btn"><strong>Topologia</strong></a>
   <a href="{% url 'vlan_tracking:topology_svg' session.pk %}" class="btn">Grafo SVG</a>
   <a href="{% url 'vlan_tracking:topology_mermaid' session.pk %}" target="_blank" class="btn">Mermaid</a>
+  <a href="{% url 'vlan_tracking:troubleshoot_search' session.pk %}" class="btn">Troubleshoot VLAN</a>
   <a href="{% url 'vlan_tracking:link_list' session.pk %}" class="btn">Links</a>
   <a href="{% url 'vlan_tracking:link_create' session.pk %}" class="btn">+ Link Manual</a>
   <a href="{% url 'vlan_tracking:vlan_list' session.pk %}" class="btn">VLANs</a>

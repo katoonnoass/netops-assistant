@@ -20,4 +20,8 @@ urlpatterns = [
     path("<int:pk>/evidence/<int:evid>/delete/", views.EvidenceDeleteView.as_view(), name="evidence_delete"),
     path("<int:pk>/topology/svg/", views.TopologySvgView.as_view(), name="topology_svg"),
     path("<int:pk>/topology/svg/download/", views.TopologySvgDownloadView.as_view(), name="topology_svg_download"),
+    path("<int:pk>/troubleshoot/", views.VlanTroubleshootSearchView.as_view(), name="troubleshoot_search"),
+    path("<int:pk>/troubleshoot/<int:vid>/", views.VlanTroubleshootDetailView.as_view(), name="troubleshoot_detail"),
+    path("<int:pk>/troubleshoot/<int:vid>/export.txt", views.VlanTroubleshootExportTextView.as_view(), name="troubleshoot_export_txt"),
+    path("<int:pk>/troubleshoot/<int:vid>/export.csv", views.VlanTroubleshootExportCsvView.as_view(), name="troubleshoot_export_csv"),
 ]

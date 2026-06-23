@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Relatório VLAN {{ vlan_id }} — {{ session.name }}{% endblock %}
+{% block content %}
+<h2>Relatório Operacional — VLAN {{ report.vlan.id }}</h2>
+<p><strong>Sessão:</strong> {{ report.session.name }}</p>
+<p><strong>VLAN:</strong> {{ report.vlan.id }} — {{ report.vlan.name|default:"-" }}</p>
+
+<div class="actions-bar">
+  <a href="{% url 'vlan_tracking:troubleshoot_search' session.pk %}" class="btn">Voltar</a>
+  <a href="{% url 'vlan_tracking:topology_svg' session.pk %}?vlan={{ vlan_id }}" class="btn">Grafo SVG</a>
+  <a href="{% url 'vlan_tracking:topology_mermaid' session.pk %}?vlan={{ vlan_id }}" target="_blank" class="btn">Mermaid</a>
+  <a href="{% url 'vlan_tracking:troubleshoot_export_txt' session.pk vlan_id %}" class="btn" download>Export TXT</a>
+  <a href="{% url 'vlan_tracking:troubleshoot_export_csv' session.pk vlan_id %}" class="btn" download>Export CSV</a>
+</div>
+
+{% if report.error %}
+<div class="alert alert-error">{{ report.error }}</div>
+{% else %}
+
+<div class="card-grid">
+  <div class="card"><div class="card-body"><h3>{{ report.devices|length }}</h3><p>Dispositivos</p></div></div>
+  <div class="card"><div class="card-body"><h3>{{ report.interfaces|length }}</h3><p>Interfaces</p></div></div>
+  <div class="card"><div class="card-body"><h3>{{ report.paths|length }}</h3><p>Saltos</p></div></div>
+  <div class="card"><div class="card-body"><h3>{{ report.issues|length }}</h3><p>Issues</p></div></div>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <h3>Status: <span class="badge badge-{{ report.health.status }}">{{ report.health.label }}</span></h3>
+    <p><strong>Motivo:</strong> {{ report.health.reason }}</p>
+    <p><strong>Severidade:</strong> {{ report.health.severity_score }}%</p>
+    {% if report.risk.has_risk %}<p class="alert alert-warning">⚠ {{ report.risk.low_confidence }} link(s) de baixa confiança no caminho.</p>{% endif %}
+  </div>
+</div>
+
+<h3>Endpoints</h3>
+<div class="card-grid">
+{% for etype, entries in report.endpoints.items %}
+  {% if entries %}
+  <div class="card">
+    <div class="card-body">
+      <strong>{{ etype }}</strong> ({{ entries|length }})
+      <ul>
+      {% for ep in entries %}
+        <li><strong>{{ ep.device }}</strong>:<code>{{ ep.interface }}</code>{% if ep.description %} — {{ ep.description }}{% endif %}</li>
+      {% endfor %}
+      </ul>
+    </div>
+  </div>
+  {% endif %}
+{% empty %}
+<p class="empty">Nenhum endpoint.</p>
+{% endfor %}
+</div>
+
+<h3>Caminho ({{ report.paths|length }})</h3>
+{% if report.paths %}
+<div style="font-family:monospace;font-size:0.9em;">
+{% for p in report.paths %}
+  <div style="padding:0.5rem;border-left:3px solid {% if p.low_confidence %}#dc3545{% else %}#28a745{% endif %};margin:0.25rem 0;">
+    <strong>{{ p.from_device }}</strong>:<code>{{ p.from_interface }}</code> → <strong>{{ p.to_device }}</strong>:<code>{{ p.to_interface }}</code>
+    <br><span class="badge badge-{{ p.method }}">{{ p.method }}</span> / <span class="badge badge-{{ p.confidence }}">{{ p.confidence }}</span>
+    {% if p.low_confidence %}<span style="color:#dc3545;font-weight:600;">⚠ baixa confiança</span>{% endif %}
+  </div>
+{% endfor %}
+</div>
+{% else %}
+<p class="empty">Nenhum caminho identificado.</p>
+{% endif %}
+
+<h3>Issues ({{ report.issues|length }})</h3>
+{% if report.issues %}
+<table class="table">
+  <thead><tr><th>Severidade</th><th>Código</th><th>Descrição</th></tr></thead>
+  <tbody>
+    {% for issue in report.issues %}
+    <tr class="vlan-issue-{{ issue.severity }}">
+      <td><span class="badge badge-{{ issue.severity }}">{{ issue.severity }}</span></td>
+      <td><code>{{ issue.code }}</code></td>
+      <td>{{ issue.title }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="empty">Nenhuma issue.</p>
+{% endif %}
+
+<h3>Recomendações</h3>
+{% if report.recommendations %}
+<ul>
+{% for rec in report.recommendations %}
+  <li><strong>[{{ rec.severity }}] {{ rec.code }}</strong>
+    <ul>
+    {% for r in rec.recommendations %}
+      <li>{{ r }}</li>
+    {% endfor %}
+    </ul>
+  </li>
+{% endfor %}
+</ul>
+{% else %}
+<p class="empty">Nenhuma recomendação.</p>
+{% endif %}
+
+<h3>Comandos Sugeridos</h3>
+{% if report.validation_commands %}
+{% for cmd_group in report.validation_commands %}
+<div style="background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:0.5rem;margin:0.5rem 0;">
+  <strong>{{ cmd_group.device }}</strong> <span class="badge">{{ cmd_group.vendor }}</span>
+  <pre style="margin:0.5rem 0 0 0;font-size:0.85em;">{% for cmd in cmd_group.commands %}{{ cmd }}
+{% endfor %}</pre>
+</div>
+{% endfor %}
+{% else %}
+<p class="empty">Nenhum comando disponível.</p>
+{% endif %}
+
+{% endif %}
+{% endblock %}
