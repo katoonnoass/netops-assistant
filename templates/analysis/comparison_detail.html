@@ -394,7 +394,7 @@
     {% if diff.bgp.networks_removed %}
     <div style="margin-top:0.5rem;">
         <strong>Redes removidas:</strong>
-        {% for n in diff.bgp.networks_removed %}<span class="badge badge-danger" style="background:#f8d7da;color:#842029;">{{ n }}</span> {% endfor %}
+        {% for n in diff.bgp.networks_removed %}<span class="badge badge-danger">{{ n }}</span> {% endfor %}
     </div>
     {% endif %}
 </div>
@@ -780,7 +780,7 @@ Depois: {{ item.after|pprint }}</pre></details>{% endfor %}
         {% if diff.raw_diff.truncated %}
         <div class="alert alert-warning">Diff truncado em 2000 linhas.</div>
         {% endif %}
-        <pre style="background:#f8f9fa;border:1px solid var(--border);border-radius:6px;padding:0.75rem;font-size:0.8rem;max-height:400px;overflow:auto;">{{ diff.raw_diff.lines }}</pre>
+        <pre style="max-height:400px;">{{ diff.raw_diff.lines }}</pre>
     </details>
 </div>
 {% endwith %}
