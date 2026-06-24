@@ -3,10 +3,22 @@
 set -e
 
 echo "==> Aguardando PostgreSQL ficar disponivel..."
-until PGPASSWORD="$POSTGRES_PASSWORD" psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c '\q' 2>/dev/null; do
-  echo "PostgreSQL indisponivel — aguardando..."
-  sleep 2
-done
+python -c "
+import os, time, psycopg2 as p
+while True:
+    try:
+        p.connect(
+            dbname=os.environ['POSTGRES_DB'],
+            user=os.environ['POSTGRES_USER'],
+            password=os.environ['POSTGRES_PASSWORD'],
+            host=os.environ['POSTGRES_HOST'],
+            port=os.environ.get('POSTGRES_PORT', '5432'),
+            connect_timeout=2
+        ).close()
+        break
+    except Exception:
+        time.sleep(2)
+"
 echo "PostgreSQL disponivel!"
 
 echo "==> Rodando migrate..."
