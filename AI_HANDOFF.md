@@ -63,6 +63,8 @@ Carregar a skill de **frontend-design** (LobeHub - `jonathan0823-opencode-config
 | `templates/analysis/comparison_detail.html` | Inline `#f8d7da`/`#f8f9fa` removidos (dark theme) |
 | `templates/analysis/documentation.html` | Inline `background:#f8f9fa` removido |
 | `AI_HANDOFF.md` | Atualizado com esta sessão |
+| `apps/core/tests/test_frontend_redesign.py` | **Novo** — 18 testes para VLAN tracking card no dashboard |
+| `templates/core/dashboard.html` | Card VLAN Tracking refeito com classes `vlan-mini-card` e grid responsivo |
 
 ### Design Tokens (novo tema dark):
 - Background: `#0f111a` (navy escuro), Surface: `#181b26`

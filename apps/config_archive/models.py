@@ -39,6 +39,7 @@ class ConfigSnapshot(models.Model):
             ("paste", "Colado"),
             ("upload", "Upload de arquivo"),
             ("api", "API"),
+            ("auto", "Coleta automática"),
         ],
         default="paste",
     )

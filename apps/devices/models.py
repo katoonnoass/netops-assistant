@@ -42,6 +42,11 @@ class Device(models.Model):
     ip_address = models.GenericIPAddressField("endereço IP", blank=True, null=True)
     hostname = models.CharField(max_length=255, blank=True, default="")
     description = models.TextField("descrição", blank=True, default="")
+    ssh_port = models.PositiveIntegerField("porta SSH", default=22)
+    snmp_port = models.PositiveIntegerField("porta SNMP", default=161)
+    collector_enabled = models.BooleanField("coleta automática", default=True)
+    last_collected_at = models.DateTimeField("última coleta", null=True, blank=True)
+    last_discovered_at = models.DateTimeField("última descoberta", null=True, blank=True)
     created_at = models.DateTimeField("criado em", auto_now_add=True)
     updated_at = models.DateTimeField("atualizado em", auto_now=True)
 

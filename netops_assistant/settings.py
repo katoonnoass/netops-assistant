@@ -50,6 +50,7 @@ LOCAL_APPS = [
     "apps.parsers",
     "apps.analysis",
     "apps.vlan_tracking",
+    "apps.collector",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
