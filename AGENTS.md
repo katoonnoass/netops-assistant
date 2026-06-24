@@ -199,7 +199,17 @@ python manage.py run_collector --profile "Rede Matriz" --dry-run
 - Device deduplicado por IP → name
 - `discover_network` e `run_collector` com SNMP real (sem dry-run)
 
+### Fase 3 (implementada — SSH real com Netmiko)
+- `RealSshCollectorAdapter` implementado com Netmiko (`netmiko>=4.0`)
+- Conecta por vendor: Huawei (display current-configuration), Cisco (show running-config), ZTE (show running-config)
+- Descriptografa senhas via Fernet antes de conectar
+- `ConfigSnapshot(source="auto")` criado a partir da coleta
+- `analyze=True` opcional: chama `analyze_config_snapshot()` do pipeline existente
+- `device.last_collected_at` atualizado automaticamente
+- Secrets mascarados em erros/logs; senha nunca vaza
+
 ### Próximas fases
-- **Fase 3**: SSH real com Netmiko (`collect_device_configs` funcional)
+- **Fase 4**: Web UI read-only (listagem de CollectorRun)
+- **Fase 5**: Celery/Redis para coleta assíncrona + agendamento
 - **Fase 4**: Web UI read-only (listagem de CollectorRun)
 - **Fase 5**: Celery/Redis para coleta assíncrona + agendamento

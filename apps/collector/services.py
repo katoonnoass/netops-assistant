@@ -14,7 +14,7 @@ from .discovery import (
 )
 from .models import CollectorRun, CollectorTask, DiscoveryProfile
 from .security import mask_secret
-from .ssh_collector import MockSshCollectorAdapter
+from .ssh_collector import MockSshCollectorAdapter, RealSshCollectorAdapter
 from .vendor import detect_vendor_from_sysdescr
 
 logger = logging.getLogger(__name__)
@@ -188,16 +188,13 @@ def run_collection(profile=None, device=None, adapter=None, dry_run=False, analy
         target = profile.name if profile else device.name
         return _dry_run(profile or device, f"coleta SSH de {target}")
 
-    if analyze:
-        return _dry_run(profile or device, "Análise — Fase 1: apenas mock. SSH real não disponível ainda.")
-
     run = CollectorRun.objects.create(
         profile=profile,
         status=CollectorRun.Status.RUNNING,
     )
 
     if adapter is None:
-        adapter = MockSshCollectorAdapter()
+        adapter = RealSshCollectorAdapter()
 
     devices_qs = _resolve_devices(profile, device)
     try:
@@ -227,6 +224,8 @@ def run_collection(profile=None, device=None, adapter=None, dry_run=False, analy
                     task.status = CollectorTask.Status.SUCCESS
                     run.collected_count += 1
                     task.log = f"Coletado {len(result.config_text)} bytes de {dev.name} ({dev.ip_address})"
+                    dev.last_collected_at = timezone.now()
+                    dev.save(update_fields=["last_collected_at"])
 
                     if analyze:
                         from apps.analysis.services import analyze_config_snapshot
@@ -235,11 +234,11 @@ def run_collection(profile=None, device=None, adapter=None, dry_run=False, analy
                             run.analyzed_count += 1
                             task.log += "\nAnálise concluída"
                         except Exception as e:
-                            task.log += f"\nErro na análise: {e}"
                             run.failed_count += 1
+                            task.log += f"\nErro na análise de {dev.name}: {e}"
                 else:
                     task.status = CollectorTask.Status.FAILED
-                    task.error = result.error or "Config vazia"
+                    task.error = (result.error or "Config vazia")[:500]
                     run.failed_count += 1
                     task.log = f"Falha na coleta de {dev.name}: {task.error}"
             except Exception as e:
@@ -264,6 +263,11 @@ def run_collection(profile=None, device=None, adapter=None, dry_run=False, analy
         run.summary = f"Erro geral: {e}"
         logger.exception("Erro na coleta SSH")
     finally:
+        run.summary = (
+            run.summary or f"Coletados: {run.collected_count} | "
+            f"Analisados: {run.analyzed_count} | "
+            f"Falhas: {run.failed_count}"
+        )
         run.finished_at = timezone.now()
         run.save(update_fields=[
             "status", "collected_count", "analyzed_count", "failed_count",

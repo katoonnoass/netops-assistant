@@ -42,21 +42,27 @@ class Command(BaseCommand):
             self.stdout.write("[DRY-RUN] Coleta SSH")
             if profile:
                 self.stdout.write(f"  Perfil: {profile.name}")
-                devices = profile.device_set.filter(collector_enabled=True) if hasattr(profile, 'device_set') else []
-                self.stdout.write(f"  Dispositivos alvo: {devices.count() if devices else '(todos ativos)'}")
+                devices = Device.objects.filter(collector_enabled=True)
+                self.stdout.write(f"  Dispositivos alvo: {devices.count()}")
             if device:
                 self.stdout.write(f"  Dispositivo: {device.name} ({device.ip_address})")
             self.stdout.write(f"  Analisar após coleta: {'Sim' if analyze else 'Não'}")
             self.stdout.write("  Nenhuma conexão real será realizada.")
             return
 
-        run = run_collection(profile=profile, device=device, analyze=analyze)
+        if device and not device.collector_enabled:
+            self.stdout.write(self.style.WARNING(f"Coleta desabilitada para {device.name}."))
+            return
+
+        try:
+            run = run_collection(profile=profile, device=device, analyze=analyze)
+        except ValueError as e:
+            raise CommandError(str(e)) from None
 
         self.stdout.write(f"Run #{run.pk} finalizada.")
         self.stdout.write(f"  Status: {run.get_status_display()}")
         self.stdout.write(f"  Coletados: {run.collected_count}")
         self.stdout.write(f"  Analisados: {run.analyzed_count}")
         self.stdout.write(f"  Falhas: {run.failed_count}")
-
         if run.summary:
             self.stdout.write(f"  Resumo: {run.summary}")
