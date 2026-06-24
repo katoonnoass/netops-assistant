@@ -95,11 +95,11 @@
             <div><span class="panel-kicker">VLAN TRACKING</span><h2>Rastreamento de VLANs</h2></div>
             <a href="{% url 'vlan_tracking:session_list' %}" class="btn btn-sm">Ver todas</a>
         </div>
-        <div class="kpi-grid" style="margin-bottom:1rem;">
-            <div class="kpi-card"><span class="kpi-label">Sessões</span><span class="kpi-value">{{ vlan_summary.total_sessions }}</span></div>
-            <div class="kpi-card"><span class="kpi-label">VLANs</span><span class="kpi-value">{{ vlan_summary.total_vlans }}</span></div>
-            <div class="kpi-card"><span class="kpi-label">Issues</span><span class="kpi-value">{{ vlan_summary.total_issues }}</span></div>
-            <div class="kpi-card"><span class="kpi-label">Links baixa confiança</span><span class="kpi-value">{{ vlan_summary.low_conf_links_count }}</span></div>
+        <div class="vlan-tracking-metrics">
+            <div class="vlan-mini-card"><span class="vlan-mini-label">Sessões</span><strong class="vlan-mini-value">{{ vlan_summary.total_sessions }}</strong></div>
+            <div class="vlan-mini-card"><span class="vlan-mini-label">VLANs</span><strong class="vlan-mini-value">{{ vlan_summary.total_vlans }}</strong></div>
+            <div class="vlan-mini-card"><span class="vlan-mini-label">Issues</span><strong class="vlan-mini-value">{{ vlan_summary.total_issues }}</strong></div>
+            <div class="vlan-mini-card"><span class="vlan-mini-label">Links baixa confiança</span><strong class="vlan-mini-value">{{ vlan_summary.low_conf_links_count }}</strong></div>
         </div>
         {% if vlan_summary.top_vlans_with_issues %}
         <div><strong>Top VLANs com issues:</strong></div>
