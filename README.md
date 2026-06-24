@@ -4,7 +4,7 @@
   <p>
     <img src="https://img.shields.io/badge/Python-3.12-blue?logo=python" alt="Python 3.12">
     <img src="https://img.shields.io/badge/Django-5.0+-green?logo=django" alt="Django 5.0+">
-    <img src="https://img.shields.io/badge/Tests-1459_✔️-brightgreen" alt="1459 testes">
+    <img src="https://img.shields.io/badge/Tests-1465_✔️-brightgreen" alt="1465 testes">
     <img src="https://img.shields.io/badge/License-Proprietary-red" alt="License">
     <img src="https://img.shields.io/badge/Status-Development-yellow" alt="Status">
   </p>
@@ -91,7 +91,7 @@ O `parsed_data`, os metadados de serviços e as telas nunca armazenam nem exibem
 
 ## Testes
 
-**1265 testes automatizados** — 0 falhas, 0 migrations pendentes (validação em 23/06/2026).
+**1465 testes automatizados** — 0 falhas, 0 migrations pendentes (validação em 24/06/2026).
 
 ```bash
 # Todos os testes
@@ -192,6 +192,8 @@ cd netops-assistant
 cp .env.example .env
 # Edite .env: altere DJANGO_SECRET_KEY para uma chave segura
 # Ajuste ALLOWED_HOSTS e CSRF_TRUSTED_ORIGINS conforme seu domínio
+#
+# Para produção veja também .env.production.example
 
 # Build e iniciar
 docker compose build
@@ -320,6 +322,30 @@ Os containers possuem healthchecks configurados no `docker-compose.yml`:
 - **nginx**: `wget --spider` em `http://localhost/health/` (30s de start_period)
 
 Os containers só são considerados "healthy" após passarem nos checks.
+
+### Validação em Linux
+
+Consulte o guia completo em `docs/deploy/linux_validation.md` para:
+- Pré-requisitos, clone e configuração `.env`
+- `docker compose config`, build e inicialização
+- Health check via `curl http://localhost/health/`
+- Criação de admin, smoke test manual e navegador
+- Testes dentro do container
+
+### Smoke Test Automatizado
+
+```bash
+bash scripts/docker_smoke_test.sh
+```
+
+O script executa:
+1. `docker compose config` — valida sintaxe
+2. `docker compose ps` — status dos containers
+3. `python manage.py check` — integridade do Django
+4. `python manage.py check --deploy` — exibe warnings sem falhar
+5. `python manage.py test` — suite completa de testes
+6. `python manage.py setup_roles` — permissões idempotente
+7. `curl http://localhost/health/` — health check via nginx
 
 ---
 
@@ -530,7 +556,7 @@ O fluxo é **idempotente** — reanalisar o mesmo snapshot não duplica registro
 
 | Fase | Objetivo |
 |------|----------|
-| **Fechamento Huawei MVP** | ✔ BGP, policies, ACLs, OSPF, **ISIS, MPLS/LDP, VRF/L3VPN, QoS/Traffic Policy/CAR, NAT/PAT, IPv6/BGP IPv6/VPNv6/OSPFv3/ISIS IPv6, BNG/BAS, PPPoE, BFD/HA, multicast, EVPN/VXLAN, Segment Routing/SRv6, MPLS-TE, CGNAT, MSDP, telemetria e BGP avançado**, diff, documentação, busca, **VLAN Tracking entre equipamentos**, suíte com 1265 testes |
+| **Fechamento Huawei MVP** | ✔ BGP, policies, ACLs, OSPF, **ISIS, MPLS/LDP, VRF/L3VPN, QoS/Traffic Policy/CAR, NAT/PAT, IPv6/BGP IPv6/VPNv6/OSPFv3/ISIS IPv6, BNG/BAS, PPPoE, BFD/HA, multicast, EVPN/VXLAN, Segment Routing/SRv6, MPLS-TE, CGNAT, MSDP, telemetria e BGP avançado**, diff, documentação, busca, **VLAN Tracking entre equipamentos**, suíte com 1465 testes |
 | **Inventário e Snapshots** | Cadastro de devices, upload de configs, versões |
 | **Produção** | Docker, deploy, autenticação, permissões, backup |
 | **Mapa Físico/Lógico** | PoPs, OLTs, DIOs, fibras, CTOs, clientes no mapa |
