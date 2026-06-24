@@ -77,6 +77,30 @@ class DeployHardeningFilesTests(SimpleTestCase):
         self.assertIn("DJANGO_SECRET_KEY", content)
         self.assertIn("change-me-generate", content)
 
+    def test_backup_script_has_set_e(self):
+        content = _read(self.base / "scripts" / "docker_backup.sh")
+        self.assertIn("set -e", content)
+
+    def test_update_script_has_set_e(self):
+        content = _read(self.base / "scripts" / "docker_update.sh")
+        self.assertIn("set -e", content)
+
+    def test_env_example_has_backup_retention(self):
+        content = _read(self.base / ".env.example")
+        self.assertIn("BACKUP_RETENTION_DAYS", content)
+
+    def test_gitignore_has_env(self):
+        content = _read(self.base / ".gitignore")
+        self.assertIn(".env", content)
+
+    def test_readme_contains_docker_compose_config(self):
+        content = _read(self.base / "README.md")
+        self.assertIn("docker compose config", content)
+
+    def test_readme_contains_update_script(self):
+        content = _read(self.base / "README.md")
+        self.assertIn("scripts/docker_update.sh", content)
+
 
 class ReadmeHardeningTests(SimpleTestCase):
     def test_readme_contains_hardening_section(self):

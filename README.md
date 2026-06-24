@@ -4,7 +4,7 @@
   <p>
     <img src="https://img.shields.io/badge/Python-3.12-blue?logo=python" alt="Python 3.12">
     <img src="https://img.shields.io/badge/Django-5.0+-green?logo=django" alt="Django 5.0+">
-    <img src="https://img.shields.io/badge/Tests-1443_✔️-brightgreen" alt="1443 testes">
+    <img src="https://img.shields.io/badge/Tests-1459_✔️-brightgreen" alt="1459 testes">
     <img src="https://img.shields.io/badge/License-Proprietary-red" alt="License">
     <img src="https://img.shields.io/badge/Status-Development-yellow" alt="Status">
   </p>
@@ -210,6 +210,9 @@ docker compose exec web python manage.py setup_roles
 ### Comandos úteis
 
 ```bash
+# Validar sintaxe do compose
+docker compose config
+
 # Logs
 docker compose logs -f web
 
