@@ -4,7 +4,7 @@
   <p>
     <img src="https://img.shields.io/badge/Python-3.12-blue?logo=python" alt="Python 3.12">
     <img src="https://img.shields.io/badge/Django-5.0+-green?logo=django" alt="Django 5.0+">
-    <img src="https://img.shields.io/badge/Tests-1465_✔️-brightgreen" alt="1465 testes">
+    <img src="https://img.shields.io/badge/Tests-1678_✔️-brightgreen" alt="1678 testes">
     <img src="https://img.shields.io/badge/License-Proprietary-red" alt="License">
     <img src="https://img.shields.io/badge/Status-Development-yellow" alt="Status">
   </p>
@@ -91,7 +91,10 @@ O `parsed_data`, os metadados de serviços e as telas nunca armazenam nem exibem
 
 ## Testes
 
-**1465 testes automatizados** — 0 falhas, 0 migrations pendentes (validação em 24/06/2026).
+**1678 testes automatizados** — 0 falhas, 0 migrations pendentes (validação em 24/06/2026).
+
+> Todos os testes usam **mocks/stubs/fakes** — nenhum depende de SNMP real, SSH real, equipamento real ou rede.
+> Testes de homologação real (SNMP/SSH reais, equipamento físico) estão documentados em `docs/collector/lab_validation.md` e devem ser executados manualmente em laboratório antes de produção.
 
 ```bash
 # Todos os testes
@@ -607,7 +610,7 @@ O fluxo é **idempotente** — reanalisar o mesmo snapshot não duplica registro
 
 | Fase | Objetivo |
 |------|----------|
-| **Fechamento Huawei MVP** | ✔ BGP, policies, ACLs, OSPF, **ISIS, MPLS/LDP, VRF/L3VPN, QoS/Traffic Policy/CAR, NAT/PAT, IPv6/BGP IPv6/VPNv6/OSPFv3/ISIS IPv6, BNG/BAS, PPPoE, BFD/HA, multicast, EVPN/VXLAN, Segment Routing/SRv6, MPLS-TE, CGNAT, MSDP, telemetria e BGP avançado**, diff, documentação, busca, **VLAN Tracking entre equipamentos**, suíte com 1465 testes |
+| **Fechamento Huawei MVP** | ✔ BGP, policies, ACLs, OSPF, **ISIS, MPLS/LDP, VRF/L3VPN, QoS/Traffic Policy/CAR, NAT/PAT, IPv6/BGP IPv6/VPNv6/OSPFv3/ISIS IPv6, BNG/BAS, PPPoE, BFD/HA, multicast, EVPN/VXLAN, Segment Routing/SRv6, MPLS-TE, CGNAT, MSDP, telemetria e BGP avançado**, diff, documentação, busca, **VLAN Tracking entre equipamentos**, suíte com 1678 testes |
 | **Inventário e Snapshots** | Cadastro de devices, upload de configs, versões |
 | **Produção** | Docker, deploy, autenticação, permissões, backup |
 | **Mapa Físico/Lógico** | PoPs, OLTs, DIOs, fibras, CTOs, clientes no mapa |
