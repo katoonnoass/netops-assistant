@@ -150,4 +150,56 @@ python manage.py test apps.analysis.tests.test_search
 
 # Parser-specific
 python manage.py test apps.parsers.huawei.tests
+
+# Collector-specific
+python manage.py test apps.collector
+
+# CLI commands (Fase 1 — dry-run only)
+python manage.py discover_network --profile "Rede Matriz" --dry-run
+python manage.py collect_device_configs --profile "Rede Matriz" --dry-run
+python manage.py run_collector --profile "Rede Matriz" --dry-run
 ```
+
+## Collector Architecture (Fase 1)
+
+### App: `apps/collector/`
+
+**4 modelos**:
+- `NetworkCredential` — credenciais criptografadas (Fernet) para SSH/SNMP
+- `DiscoveryProfile` — configuração de varredura (subnets, timeout, workers)
+- `CollectorRun` — execução completa (status, contadores, summary)
+- `CollectorTask` — cada etapa da execução (SNMP discovery, SSH collect, analyze)
+
+### Adaptadores mockáveis
+
+| Classe | Responsabilidade | Status |
+|---|---|---|
+| `BaseSnmpAdapter` | Interface para descoberta SNMP | Abstrata |
+| `MockSnmpAdapter` | Retorna dados mock da tabela `MOCK_DISCOVERY_TABLE` | Implementado |
+| `RealSnmpAdapter` | PySNMP real | Stub (Fase 2) |
+| `BaseSshCollectorAdapter` | Interface para coleta SSH | Abstrata |
+| `MockSshCollectorAdapter` | Retorna sample configs (Huawei/Cisco) | Implementado |
+| `RealSshCollectorAdapter` | Netmiko real | Stub (Fase 3) |
+
+### Segurança
+- `security.py`: Fernet encrypt/decrypt via `COLLECTOR_SECRET_KEY` env
+- `mask_secret()` / `mask_text()` — nunca expõe secrets em logs
+- Fallback sem criptografia em dev (com warning)
+
+### Dependências adicionadas
+- `cryptography` — Fernet para criptografia de credenciais
+- `netmiko` e `pysnmp` serão adicionados nas Fases 2/3
+
+### Fase 2 (implementada — SNMP discovery real com PySNMP)
+- `RealSnmpAdapter` implementado com PySNMP (`pysnmp>=4.2`)
+- Lê OIDs: `sysDescr` (1.3.6.1.2.1.1.1.0), `sysObjectID` (1.3.6.1.2.1.1.2.0), `sysName` (1.3.6.1.2.1.1.5.0)
+- `expand_cidr()` com `ipaddress` module, subnet safety (máx /24 por padrão)
+- `validate_subnet_size()` com flag `--allow-large-subnet`
+- Community resolvida: profile → credential
+- Device deduplicado por IP → name
+- `discover_network` e `run_collector` com SNMP real (sem dry-run)
+
+### Próximas fases
+- **Fase 3**: SSH real com Netmiko (`collect_device_configs` funcional)
+- **Fase 4**: Web UI read-only (listagem de CollectorRun)
+- **Fase 5**: Celery/Redis para coleta assíncrona + agendamento

@@ -1,11 +1,6 @@
-from django.test import TestCase
+from django.test import SimpleTestCase, TestCase
 
-from apps.collector.discovery import (
-    MockSnmpAdapter,
-    SnmpDiscoveryResult,
-    discover_subnet,
-)
-from apps.collector.models import DiscoveryProfile
+from apps.collector.discovery import MockSnmpAdapter, SnmpDiscoveryResult, expand_cidr, validate_subnet_size
 
 
 MOCK_TABLE = {
@@ -32,6 +27,54 @@ MOCK_TABLE = {
 }
 
 
+class ExpandCidrTests(SimpleTestCase):
+    def test_expand_24_returns_hosts(self):
+        hosts = expand_cidr("10.0.0.0/24")
+        self.assertEqual(len(hosts), 254)
+        self.assertEqual(hosts[0], "10.0.0.1")
+        self.assertEqual(hosts[-1], "10.0.0.254")
+
+    def test_expand_30_returns_few_hosts(self):
+        hosts = expand_cidr("10.0.0.0/30")
+        self.assertEqual(len(hosts), 2)
+        self.assertEqual(hosts[0], "10.0.0.1")
+        self.assertEqual(hosts[-1], "10.0.0.2")
+
+    def test_expand_32_returns_single(self):
+        hosts = expand_cidr("10.0.0.1/32")
+        self.assertEqual(hosts, ["10.0.0.1"])
+
+    def test_invalid_cidr_returns_bare_ip(self):
+        # Without '/', it returns the input as-is
+        self.assertEqual(expand_cidr("invalid"), ["invalid"])
+
+    def test_empty_cidr_returns_empty(self):
+        self.assertEqual(expand_cidr(""), [])
+
+
+class ValidateSubnetSizeTests(SimpleTestCase):
+    def test_24_allowed_by_default(self):
+        self.assertTrue(validate_subnet_size("10.0.0.0/24"))
+
+    def test_25_allowed(self):
+        self.assertTrue(validate_subnet_size("10.0.0.0/25"))
+
+    def test_23_raises_by_default(self):
+        with self.assertRaises(ValueError) as ctx:
+            validate_subnet_size("10.0.0.0/23")
+        self.assertIn("23", str(ctx.exception))
+
+    def test_23_allowed_with_flag(self):
+        self.assertTrue(validate_subnet_size("10.0.0.0/23", allow_large=True))
+
+    def test_16_allowed_with_flag(self):
+        self.assertTrue(validate_subnet_size("10.0.0.0/16", allow_large=True))
+
+    def test_16_raises_by_default(self):
+        with self.assertRaises(ValueError):
+            validate_subnet_size("10.0.0.0/16")
+
+
 class MockSnmpAdapterTests(TestCase):
     def setUp(self):
         self.adapter = MockSnmpAdapter(discovery_table=MOCK_TABLE)
@@ -51,19 +94,4 @@ class MockSnmpAdapterTests(TestCase):
         self.assertIn("não encontrado", result.error)
 
 
-class DiscoverSubnetDryRunTests(TestCase):
-    def setUp(self):
-        self.profile = DiscoveryProfile.objects.create(
-            name="Test Profile",
-            subnets=["10.0.0.0/24"],
-            is_active=True,
-        )
 
-    def test_dry_run_returns_lines(self):
-        result = discover_subnet(self.profile, dry_run=True)
-        self.assertTrue(any("DRY-RUN" in line for line in result))
-
-    def test_dry_run_does_not_touch_db(self):
-        from apps.collector.models import CollectorRun
-        discover_subnet(self.profile, dry_run=True)
-        self.assertEqual(CollectorRun.objects.count(), 0)

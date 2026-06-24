@@ -3,6 +3,7 @@ from django.test import TestCase
 from apps.collector.discovery import MockSnmpAdapter, SnmpDiscoveryResult
 from apps.collector.models import CollectorRun, CollectorTask, DiscoveryProfile
 from apps.collector.services import run_discovery, run_collection
+from apps.devices.models import Device
 
 
 MOCK_TABLE = {
@@ -25,7 +26,8 @@ class RunDiscoveryTests(TestCase):
     def setUp(self):
         self.profile = DiscoveryProfile.objects.create(
             name="Discovery Test",
-            subnets=["10.0.0.0/24"],
+            subnets=["10.0.0.0/30"],
+            snmp_community="public",
             is_active=True,
         )
         self.adapter = MockSnmpAdapter(discovery_table=MOCK_TABLE)
@@ -56,6 +58,57 @@ class RunDiscoveryTests(TestCase):
         self.profile.save()
         with self.assertRaises(ValueError):
             run_discovery(profile=self.profile)
+
+    def test_no_community_raises_error(self):
+        profile = DiscoveryProfile.objects.create(
+            name="No Community",
+            subnets=["10.0.0.0/30"],
+            snmp_community="",
+            is_active=True,
+        )
+        with self.assertRaises(ValueError) as ctx:
+            run_discovery(profile=profile, adapter=self.adapter)
+        self.assertIn("community", str(ctx.exception).lower())
+
+    def test_successful_discovery_creates_device(self):
+        run = run_discovery(profile=self.profile, adapter=self.adapter)
+        device = Device.objects.filter(name="PE-01").first()
+        self.assertIsNotNone(device)
+        self.assertEqual(device.ip_address, "10.0.0.1")
+        self.assertEqual(device.vendor, "huawei")
+
+    def test_discovery_updates_last_discovered_at(self):
+        run = run_discovery(profile=self.profile, adapter=self.adapter)
+        device = Device.objects.get(name="PE-01")
+        self.assertIsNotNone(device.last_discovered_at)
+
+    def test_does_not_duplicate_device_by_ip(self):
+        Device.objects.create(name="Existing", ip_address="10.0.0.1", vendor="huawei")
+        run = run_discovery(profile=self.profile, adapter=self.adapter)
+        count = Device.objects.filter(ip_address="10.0.0.1").count()
+        self.assertEqual(count, 1)
+
+    def test_does_not_duplicate_device_by_name(self):
+        Device.objects.create(name="PE-01", vendor="huawei")
+        run = run_discovery(profile=self.profile, adapter=self.adapter)
+        count = Device.objects.filter(name="PE-01").count()
+        self.assertEqual(count, 1)
+
+    def test_summary_counts_in_run(self):
+        run = run_discovery(profile=self.profile, adapter=self.adapter)
+        self.assertIn("Escaneados", run.summary)
+        self.assertIn("Descobertos", run.summary)
+
+    def test_discovery_with_allow_large_subnet(self):
+        profile = DiscoveryProfile.objects.create(
+            name="Large Subnet",
+            subnets=["10.0.0.0/23"],
+            snmp_community="public",
+            is_active=True,
+        )
+        run = run_discovery(profile=profile, adapter=self.adapter, allow_large_subnet=True)
+        # Should not raise, even with /23
+        self.assertIsNotNone(run.pk)
 
 
 class RunCollectionDryRunTests(TestCase):
