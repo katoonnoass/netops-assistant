@@ -221,6 +221,74 @@
 </div>
 {% endif %}
 
+<div class="card mb-2">
+    <h3 class="section-title">Collector / Coleta Automática</h3>
+    <div class="card-grid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));">
+        <div class="card stat-card">
+            <div class="stat-value" style="color:var(--{% if summary.device.collector_enabled %}success{% else %}text-secondary{% endif %});font-size:1rem;">
+                {% if summary.device.collector_enabled %}Ativado{% else %}Desativado{% endif %}
+            </div>
+            <div class="stat-label">Coleta automática</div>
+        </div>
+        <div class="card stat-card">
+            <div class="stat-value" style="color:var(--info);font-size:1rem;">
+                {{ summary.device.ssh_port|default:"22" }}
+            </div>
+            <div class="stat-label">Porta SSH</div>
+        </div>
+        <div class="card stat-card">
+            <div class="stat-value" style="color:var(--info);font-size:1rem;">
+                {{ summary.device.snmp_port|default:"161" }}
+            </div>
+            <div class="stat-label">Porta SNMP</div>
+        </div>
+        <div class="card stat-card">
+            <div class="stat-value" style="font-size:0.9rem;">
+                {{ summary.device.last_discovered_at|date:"d/m/Y H:i"|default:"—" }}
+            </div>
+            <div class="stat-label">Última descoberta</div>
+        </div>
+        <div class="card stat-card">
+            <div class="stat-value" style="font-size:0.9rem;">
+                {{ summary.device.last_collected_at|date:"d/m/Y H:i"|default:"—" }}
+            </div>
+            <div class="stat-label">Última coleta</div>
+        </div>
+    </div>
+    {% if collector_tasks %}
+    <div style="margin-top:0.75rem;">
+        <strong>Últimas tarefas</strong>
+        <div class="table-container" style="margin-top:0.35rem;">
+            <table>
+                <thead><tr><th>Ação</th><th>Status</th><th>Data</th><th>Run</th></tr></thead>
+                <tbody>
+                {% for t in collector_tasks %}
+                <tr>
+                    <td>{{ t.get_action_display }}</td>
+                    <td><span class="badge badge-{% if t.status == 'success' %}success{% elif t.status == 'failed' %}critical{% else %}warning{% endif %}">{{ t.get_status_display }}</span></td>
+                    <td>{{ t.started_at|date:"d/m/Y H:i"|default:"—" }}</td>
+                    <td><a href="{% url 'collector:run_detail' t.run.pk %}">#{{ t.run.pk }}</a></td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+    {% if collector_last_error %}
+    <div class="card" style="margin-top:0.5rem;border-left:4px solid var(--danger);padding:0.5rem 0.75rem;">
+        <strong>Último erro:</strong>
+        <p style="font-size:0.85rem;color:var(--text-secondary);margin-top:0.15rem;font-family:monospace;">{{ collector_last_error }}</p>
+    </div>
+    {% endif %}
+    <div style="margin-top:0.75rem;display:flex;gap:0.5rem;flex-wrap:wrap;">
+        <a href="{% url 'collector:device_status' %}" class="btn btn-outline btn-sm">Status dos dispositivos</a>
+        {% if collector_last_run %}
+        <a href="{% url 'collector:run_detail' collector_last_run.pk %}" class="btn btn-outline btn-sm">Última execução #{{ collector_last_run.pk }}</a>
+        {% endif %}
+    </div>
+</div>
+
 {% if vlan_context %}
 <div class="card">
     <h3 class="section-title">VLAN Tracking</h3>

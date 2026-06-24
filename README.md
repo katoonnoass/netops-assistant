@@ -472,6 +472,57 @@ python manage.py compare_config_files sample_configs/huawei_ha_bfd_change_before
 
 ---
 
+## Collector / Coleta Automática
+
+Sistema de descoberta e coleta automática de configurações via SNMP e SSH.
+
+### Fluxo atual (Fase 4)
+
+1. **SNMP** descobre dispositivos na rede (sysDescr, sysObjectID, sysName).
+2. **SSH** coleta a configuração running-config de cada dispositivo descoberto.
+3. O sistema cria um `ConfigSnapshot(source="auto")` para cada dispositivo.
+4. **Pipeline de análise** atual processa cada snapshot (detecção de circuitos, serviços, issues).
+5. **UI read-only** exibe execuções, tarefas e erros em `/collector/`.
+
+### Comandos
+
+```bash
+# Descobrir dispositivos em uma ou mais sub-redes
+python manage.py discover_network --profile "Rede Matriz" --dry-run   # Testar sem coletar
+python manage.py discover_network --profile "Rede Matriz"            # Descoberta real
+
+# Coletar configurações de dispositivos já descobertos
+python manage.py collect_device_configs --profile "Rede Matriz" --dry-run
+python manage.py collect_device_configs --profile "Rede Matriz" --analyze
+
+# Execução completa (descobre + coleta + analisa)
+python manage.py run_collector --profile "Rede Matriz" --discover --collect --analyze
+```
+
+### Exemplos de busca
+
+```bash
+python manage.py network_search "collector"           # Todas as execuções
+python manage.py network_search "snmp"                # Tarefas SNMP
+python manage.py network_search "ssh"                 # Tarefas SSH
+python manage.py network_search "Rede Matriz"         # Profile específico
+python manage.py network_search "failed"              # Execuções com falha
+python manage.py network_search "erro"                # Tarefas com erro
+```
+
+### Avisos importantes
+
+- **Não há botão de coleta na web** — a execução é via CLI / cron.
+- **Celery/Redis ficam para futuro** — atualmente a coleta é síncrona.
+- **Sempre teste primeiro com `--dry-run`** antes de executar coleta real.
+- **Use um usuário read-only/backup** para SSH nas fases iniciais.
+- **Valide em laboratório** antes de apontar para redes de produção.
+- **Logs e erros são mascarados** — secrets nunca aparecem em texto claro.
+
+Veja o guia completo de homologação em `docs/collector/lab_validation.md`.
+
+---
+
 ## VLAN Tracking / Rastreamento entre equipamentos
 
 Rastreia VLANs entre múltiplos dispositivos a partir de snapshots já analisados.

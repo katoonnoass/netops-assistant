@@ -2960,6 +2960,92 @@ def _search_vlan_tracking(query: str) -> list[dict]:
     return search_vlan_tracking(query)
 
 
+def _search_collector(query: str) -> list[dict]:
+    """Search collector profiles, runs, tasks, and device status."""
+    from apps.collector.models import CollectorRun, CollectorTask, DiscoveryProfile
+    from django.urls import reverse
+
+    q = query.lower().strip()
+    results = []
+
+    # Generic type-only queries return ALL items
+    _type_only = q in ("collector", "coleta", "coletor")
+
+    # Search profiles
+    if _type_only:
+        profiles = DiscoveryProfile.objects.all()
+    else:
+        profiles = DiscoveryProfile.objects.filter(name__icontains=q) if q else DiscoveryProfile.objects.all()
+    for p in profiles[:10]:
+        results.append({
+            "type": "collector_profile",
+            "title": f"Profile: {p.name}",
+            "description": f"{len(p.subnets or [])} subnets, SNMP {p.snmp_version}",
+            "device": "",
+            "url": reverse("collector:profile_detail", args=[p.pk]),
+            "score": 0.95 if q and q in p.name.lower() else 0.7,
+            "evidence": [],
+            "metadata": {"status": "ativo" if p.is_active else "inativo"},
+        })
+
+    # Search runs by status, profile name, and summary
+    run_qs = CollectorRun.objects.select_related("profile").all()
+    if not _type_only:
+        status_match = {
+            "success": "success", "sucesso": "success",
+            "partial": "partial", "parcial": "partial",
+            "failed": "failed", "falha": "failed", "erro": "failed",
+            "running": "running", "executando": "running",
+        }
+        for keyword, db_status in status_match.items():
+            if keyword in q:
+                run_qs = run_qs.filter(status=db_status)
+                break
+        else:
+            if q:
+                run_qs = run_qs.filter(profile__name__icontains=q)
+
+    for r in run_qs[:10]:
+        results.append({
+            "type": "collector_run",
+            "title": f"Run #{r.pk} — {r.profile.name}",
+            "description": f"{r.get_status_display()} — descobertos {r.discovered_count}, coletados {r.collected_count}, falhas {r.failed_count}",
+            "device": "",
+            "url": reverse("collector:run_detail", args=[r.pk]),
+            "score": 0.9,
+            "evidence": [],
+            "metadata": {"status": r.status},
+        })
+
+    # Search tasks by IP, device name, error, and action
+    if _type_only:
+        task_qs = CollectorTask.objects.select_related("device", "run__profile").all()[:10]
+    elif q:
+        task_qs = CollectorTask.objects.select_related("device", "run__profile").filter(
+            Q(ip_address__icontains=q)
+            | Q(device__name__icontains=q)
+            | Q(error__icontains=q)
+            | Q(action__icontains=q)
+        )[:10]
+    else:
+        task_qs = CollectorTask.objects.none()
+
+    for t in task_qs:
+        error_preview = t.error[:80] if t.error else ""
+        results.append({
+            "type": "collector_task",
+            "title": f"Task #{t.pk} — {t.get_action_display()} — {t.device.name if t.device else t.ip_address}",
+            "description": f"{t.get_status_display()}{' — ' + error_preview if error_preview else ''}",
+            "device": t.device.name if t.device else t.ip_address or "",
+            "url": reverse("collector:task_detail", args=[t.pk]),
+            "score": 0.85,
+            "evidence": [],
+            "metadata": {"action": t.action, "status": t.status},
+        })
+
+    return results
+
+
 def global_network_search(
     query: str, filters: dict | None = None
 ) -> dict[str, Any]:
@@ -3066,12 +3152,19 @@ def global_network_search(
         "huawei_advanced": len(huawei_advanced_results),
         "zte_olt": len(zte_olt_results),
         "raw_matches": len(raw_matches),
+        "vlan_tracking": 0,
+        "collector": 0,
     }
-
-    total = sum(summary_counts.values())
 
     # VLAN Tracking search
     vlan_tracking_results = _search_vlan_tracking(query)
+    # Collector search
+    collector_results = _search_collector(query)
+
+    summary_counts["vlan_tracking"] = len(vlan_tracking_results)
+    summary_counts["collector"] = len(collector_results)
+
+    total = sum(summary_counts.values())
 
     return {
         "classification": classification,
@@ -3098,5 +3191,6 @@ def global_network_search(
         "huawei_advanced": huawei_advanced_results,
         "zte_olt": zte_olt_results,
         "vlan_tracking": vlan_tracking_results,
+        "collector": collector_results,
         "raw_matches": raw_matches,
     }

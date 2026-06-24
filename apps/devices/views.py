@@ -92,11 +92,37 @@ def device_detail(request, pk):
     except Exception:
         vlan_context = []
 
+    # Collector context
+    collector_tasks = []
+    collector_last_error = None
+    collector_last_run = None
+    try:
+        from apps.collector.models import CollectorTask, CollectorRun
+        collector_tasks = list(
+            CollectorTask.objects.filter(device=device)
+            .select_related("run__profile")
+            .order_by("-started_at")[:5]
+        )
+        last_error_task = next(
+            (t for t in collector_tasks if t.error and t.status == CollectorTask.Status.FAILED),
+            None
+        )
+        if last_error_task:
+            collector_last_error = last_error_task.error[:200]
+        latest_run_task = CollectorTask.objects.filter(device=device).select_related("run").order_by("-run__started_at").first()
+        if latest_run_task:
+            collector_last_run = latest_run_task.run
+    except Exception:
+        pass
+
     return render(request, "devices/device_detail.html", {
         "summary": summary,
         "timeline": timeline,
         "actions": actions,
         "vlan_context": vlan_context,
+        "collector_tasks": collector_tasks,
+        "collector_last_error": collector_last_error,
+        "collector_last_run": collector_last_run,
     })
 
 

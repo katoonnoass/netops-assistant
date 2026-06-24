@@ -506,6 +506,24 @@
 </div>
 {% endif %}
 
+{% if r.collector %}
+<div class="search-section">
+    <h3>Collector / Coleta Automática <span class="badge badge-primary">{{ r.collector|length }}</span></h3>
+    {% for item in r.collector %}
+    <div class="result-item {% if item.score >= 0.9 %}score-high{% elif item.score >= 0.6 %}score-medium{% else %}score-low{% endif %}">
+        <div class="title">
+            <span class="search-type-tag" style="font-size:0.7rem;margin-right:0.35rem;">{{ item.type }}</span>
+            <a href="{{ item.url }}">{{ item.title }}</a>
+        </div>
+        <div class="meta">{{ item.description }}</div>
+        {% if item.evidence %}
+        <div class="evidence">{% for e in item.evidence %}{{ e }}{% endfor %}</div>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
 {% if r.raw_matches %}
 <div class="search-section">
     <h3>Ocorrências em texto bruto <span class="badge badge-primary">{{ r.raw_matches|length }}</span></h3>

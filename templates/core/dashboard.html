@@ -151,12 +151,12 @@
     {% else %}<p class="empty-state">Nenhuma análise encontrada.</p>{% endif %}
 </section>
 
-{% if collector_runs %}
 <section class="card data-panel">
     <div class="panel-heading">
         <div><span class="panel-kicker">COLETOR</span><h2>Coleta automática</h2></div>
         <a href="{% url 'collector:dashboard' %}" class="panel-link">Abrir Collector →</a>
     </div>
+    {% if collector_runs %}
     <div class="comparison-strip">
         <div class="comparison-card"><span>Execuções</span><strong>{{ collector_runs }}</strong></div>
         <div class="comparison-card"><span>Configs coletadas</span><strong>{{ collector_collected }}</strong></div>
@@ -165,8 +165,13 @@
         <div class="comparison-card"><span>Última execução</span><strong>{{ collector_last_run.profile.name }}</strong><small>{{ collector_last_run.get_status_display }} — {{ collector_last_run.started_at|date:"d/m/Y H:i" }}</small><time>{{ collector_last_run.discovered_count }} descobertos, {{ collector_last_run.collected_count }} coletados</time></div>
         {% endif %}
     </div>
+    {% else %}
+    <p class="empty-state">
+        Nenhuma execução ainda.
+        <a href="{% url 'collector:profile_list' %}" class="btn btn-outline btn-sm" style="margin-left:0.5rem;">Configurar perfil</a>
+    </p>
+    {% endif %}
 </section>
-{% endif %}
 
 {% if recent_comparisons %}
 <section class="card data-panel">

@@ -84,6 +84,7 @@ class Command(BaseCommand):
             ("serviços", results["services"]),
             ("issues", results["issues"]),
             ("VLAN Tracking", results.get("vlan_tracking", [])),
+            ("Collector", results.get("collector", [])),
         ]
 
         for section_name, items in sections:
