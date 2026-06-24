@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% block title %}Task #{{ task.pk }} — Collector — NetOps Assistant{% endblock %}
+
+{% block content %}
+<div class="page-header flex justify-between items-center">
+    <div>
+        <h1>Task #{{ task.pk }}</h1>
+        <p>{{ task.get_action_display }} — {{ task.ip_address|default:"sem IP" }}</p>
+    </div>
+    <div class="flex gap-1">
+        <a href="{% url 'collector:task_list' %}" class="btn btn-outline btn-sm">Voltar</a>
+        {% if task.run_id %}<a href="{% url 'collector:run_detail' task.run_id %}" class="btn btn-outline btn-sm">Ver Run</a>{% endif %}
+    </div>
+</div>
+
+<div class="card mb-2">
+    <h3 class="section-title">Detalhes da Task</h3>
+    <div class="detail-grid">
+        <div class="detail-item"><label>Ação</label><span>{{ task.get_action_display }}</span></div>
+        <div class="detail-item"><label>Status</label><span><span class="badge badge-{% if task.status == 'success' %}success{% elif task.status == 'failed' %}danger{% elif task.status == 'skipped' %}warning{% else %}info{% endif %}">{{ task.get_status_display }}</span></span></div>
+        <div class="detail-item"><label>Run</label><span>#{{ task.run_id }}</span></div>
+        <div class="detail-item"><label>Device</label><span>{{ task.device.name|default:"—" }}</span></div>
+        <div class="detail-item"><label>IP</label><span>{{ task.ip_address|default:"—" }}</span></div>
+        <div class="detail-item"><label>Início</label><span>{{ task.started_at|date:"d/m/Y H:i:s"|default:"—" }}</span></div>
+        <div class="detail-item"><label>Fim</label><span>{{ task.finished_at|date:"d/m/Y H:i:s"|default:"—" }}</span></div>
+        <div class="detail-item"><label>Duração</label><span>{% if task.finished_at and task.started_at %}{{ task.finished_at|timeuntil:task.started_at }}{% else %}—{% endif %}</span></div>
+    </div>
+</div>
+
+{% if task.log %}
+<div class="card mb-2">
+    <h3 class="section-title">Log</h3>
+    <pre style="margin:0;max-height:300px;">{{ task.log }}</pre>
+</div>
+{% endif %}
+
+{% if task.error %}
+<div class="card mb-2" style="border-left:4px solid var(--danger);">
+    <h3 class="section-title">Erro</h3>
+    <pre style="margin:0;max-height:200px;background:#1a0a0a;border-color:rgba(239,68,68,0.2);">{% if task.error %}{{ task.error }}{% else %}Nenhum erro registrado.{% endif %}</pre>
+</div>
+{% endif %}
+{% endblock %}

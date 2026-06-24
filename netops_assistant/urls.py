@@ -77,4 +77,6 @@ urlpatterns = [
     ),
     # VLAN Tracking
     path("vlan/", include("apps.vlan_tracking.urls")),
+    # Collector
+    path("collector/", include("apps.collector.urls")),
 ]

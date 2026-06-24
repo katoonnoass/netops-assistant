@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+{% block title %}Execução #{{ run.pk }} — Collector — NetOps Assistant{% endblock %}
+
+{% block content %}
+<div class="page-header flex justify-between items-center">
+    <div>
+        <h1>Execução #{{ run.pk }}</h1>
+        <p>{{ run.profile.name }} — {{ run.started_at|date:"d/m/Y H:i" }}</p>
+    </div>
+    <div class="flex gap-1">
+        <a href="{% url 'collector:run_list' %}" class="btn btn-outline btn-sm">Voltar</a>
+    </div>
+</div>
+
+<div class="card-grid">
+    <div class="card stat-card"><div class="stat-value" style="color:var(--info);">{{ run.get_status_display }}</div><div class="stat-label">Status</div></div>
+    <div class="card stat-card"><div class="stat-value" style="color:var(--success);">{{ run.discovered_count }}</div><div class="stat-label">Descobertos</div></div>
+    <div class="card stat-card"><div class="stat-value" style="color:var(--primary);">{{ run.collected_count }}</div><div class="stat-label">Coletados</div></div>
+    <div class="card stat-card"><div class="stat-value" style="color:var(--info);">{{ run.analyzed_count }}</div><div class="stat-label">Analisados</div></div>
+    <div class="card stat-card"><div class="stat-value" style="color:var(--danger);">{{ run.failed_count }}</div><div class="stat-label">Falhas</div></div>
+</div>
+
+<div class="card mb-2">
+    <h3 class="section-title">Detalhes da Execução</h3>
+    <div class="detail-grid">
+        <div class="detail-item"><label>Perfil</label><span>{{ run.profile.name }}</span></div>
+        <div class="detail-item"><label>Status</label><span><span class="badge badge-{% if run.status == 'success' %}success{% elif run.status == 'partial' %}warning{% elif run.status == 'failed' %}danger{% else %}info{% endif %}">{{ run.get_status_display }}</span></span></div>
+        <div class="detail-item"><label>Início</label><span>{{ run.started_at|date:"d/m/Y H:i:s" }}</span></div>
+        <div class="detail-item"><label>Fim</label><span>{{ run.finished_at|date:"d/m/Y H:i:s"|default:"—" }}</span></div>
+        <div class="detail-item"><label>Duração</label><span>{{ duration }}</span></div>
+        {% if run.created_by %}<div class="detail-item"><label>Criado por</label><span>{{ run.created_by }}</span></div>{% endif %}
+    </div>
+    {% if run.summary %}<div class="card" style="margin-top:0.5rem;background:var(--bg-secondary);"><pre style="margin:0;max-height:150px;">{{ run.summary }}</pre></div>{% endif %}
+</div>
+
+<div class="card mb-2">
+    <h3 class="section-title">Comando CLI Equivalente</h3>
+    <pre style="margin:0;">python manage.py run_collector --profile "{{ run.profile.name }}" --discover --collect{% if run.analyzed_count %} --analyze{% endif %}</pre>
+</div>
+
+<div class="card mb-2">
+    <h3 class="section-title">Tasks — Sucesso ({{ tasks_success|length }})</h3>
+    {% if tasks_success %}<div class="table-container">{% include 'collector/_task_table.html' with tasks=tasks_success %}</div>
+    {% else %}<p class="empty-state">Nenhuma task com sucesso.</p>{% endif %}
+</div>
+
+<div class="card mb-2">
+    <h3 class="section-title">Tasks — Falha ({{ tasks_failed|length }})</h3>
+    {% if tasks_failed %}<div class="table-container">{% include 'collector/_task_table.html' with tasks=tasks_failed %}</div>
+    {% else %}<p class="empty-state">Nenhuma task com falha.</p>{% endif %}
+</div>
+
+<div class="card mb-2">
+    <h3 class="section-title">Tasks — Puladas ({{ tasks_skipped|length }})</h3>
+    {% if tasks_skipped %}<div class="table-container">{% include 'collector/_task_table.html' with tasks=tasks_skipped %}</div>
+    {% else %}<p class="empty-state">Nenhuma task pulada.</p>{% endif %}
+</div>
+{% endblock %}

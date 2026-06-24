@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+{% block title %}{{ profile.name }} — Perfil — Collector{% endblock %}
+
+{% block content %}
+<div class="page-header flex justify-between items-center">
+    <div>
+        <h1>{{ profile.name }}</h1>
+        <p>{% if profile.description %}{{ profile.description }}{% else %}Perfil de descoberta{% endif %}</p>
+    </div>
+    <div class="flex gap-1">
+        <a href="{% url 'collector:profile_list' %}" class="btn btn-outline btn-sm">Voltar</a>
+        <a href="{% url 'collector:run_list' %}?profile={{ profile.pk }}" class="btn btn-outline btn-sm">Execuções</a>
+    </div>
+</div>
+
+<div class="card mb-2">
+    <h3 class="section-title">Detalhes do Perfil</h3>
+    <div class="detail-grid">
+        <div class="detail-item"><label>Nome</label><span>{{ profile.name }}</span></div>
+        <div class="detail-item"><label>Sub-redes</label><span>{% if profile.subnets %}{{ profile.subnets|join:", " }}{% else %}—{% endif %}</span></div>
+        <div class="detail-item"><label>Versão SNMP</label><span>{{ profile.snmp_version }}</span></div>
+        <div class="detail-item"><label>Workers</label><span>{{ profile.max_workers }}</span></div>
+        <div class="detail-item"><label>Timeout</label><span>{{ profile.timeout }}s</span></div>
+        <div class="detail-item"><label>Ativo</label><span class="badge badge-{% if profile.is_active %}success{% else %}danger{% endif %}">{% if profile.is_active %}Sim{% else %}Não{% endif %}</span></div>
+        <div class="detail-item"><label>Credencial</label><span>{{ profile.credential.name|default:"Nenhuma" }}</span></div>
+        <div class="detail-item"><label>Criado</label><span>{{ profile.created_at|date:"d/m/Y H:i" }}</span></div>
+        <div class="detail-item"><label>Atualizado</label><span>{{ profile.updated_at|date:"d/m/Y H:i" }}</span></div>
+    </div>
+</div>
+
+<div class="card mb-2">
+    <h3 class="section-title">Comando CLI Sugerido</h3>
+    <pre style="margin:0;">python manage.py run_collector --profile "{{ profile.name }}" --discover --collect --analyze</pre>
+    <pre style="margin-top:0.5rem;">python manage.py run_collector --profile "{{ profile.name }}" --dry-run</pre>
+</div>
+
+<div class="card">
+    <div class="panel-heading">
+        <div><span class="panel-kicker">EXECUÇÕES</span><h2>Últimas execuções deste perfil</h2></div>
+        <a href="{% url 'collector:run_list' %}?profile={{ profile.pk }}" class="panel-link">Ver todas →</a>
+    </div>
+    {% if recent_runs %}
+    <div class="table-container">
+        <table>
+            <thead><tr><th>#</th><th>Status</th><th>Descobertos</th><th>Coletados</th><th>Falhas</th><th>Início</th><th></th></tr></thead>
+            <tbody>
+            {% for r in recent_runs %}
+            <tr>
+                <td><code>#{{ r.pk }}</code></td>
+                <td><span class="badge badge-{% if r.status == 'success' %}success{% elif r.status == 'partial' %}warning{% elif r.status == 'failed' %}danger{% else %}info{% endif %}">{{ r.get_status_display }}</span></td>
+                <td>{{ r.discovered_count }}</td>
+                <td>{{ r.collected_count }}</td>
+                <td>{{ r.failed_count }}</td>
+                <td>{{ r.started_at|date:"d/m/Y H:i" }}</td>
+                <td class="text-right"><a href="{% url 'collector:run_detail' r.pk %}" class="btn btn-primary btn-sm">Detalhes</a></td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}<p class="empty-state">Nenhuma execução ainda.</p>{% endif %}
+</div>
+{% endblock %}

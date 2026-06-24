@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+{% block title %}Tasks — Collector — NetOps Assistant{% endblock %}
+
+{% block content %}
+<div class="page-header flex justify-between items-center">
+    <div>
+        <h1>Tasks do Collector</h1>
+        <p>{{ page_obj.paginator.count }} task(s).</p>
+    </div>
+    <a href="{% url 'collector:dashboard' %}" class="btn btn-outline btn-sm">Dashboard</a>
+</div>
+
+<div class="card mb-2">
+    <form method="get" class="flex gap-1 items-center" style="flex-wrap:wrap;">
+        <select name="action" class="form-control" style="width:auto;">
+            <option value="">Todas ações</option>
+            <option value="snmp_discovery" {% if filter_action == 'snmp_discovery' %}selected{% endif %}>SNMP Discovery</option>
+            <option value="ssh_collect" {% if filter_action == 'ssh_collect' %}selected{% endif %}>SSH Collect</option>
+            <option value="analyze" {% if filter_action == 'analyze' %}selected{% endif %}>Analyze</option>
+        </select>
+        <select name="status" class="form-control" style="width:auto;">
+            <option value="">Todos status</option>
+            <option value="success" {% if filter_status == 'success' %}selected{% endif %}>Success</option>
+            <option value="failed" {% if filter_status == 'failed' %}selected{% endif %}>Failed</option>
+            <option value="skipped" {% if filter_status == 'skipped' %}selected{% endif %}>Skipped</option>
+            <option value="running" {% if filter_status == 'running' %}selected{% endif %}>Running</option>
+        </select>
+        <select name="profile" class="form-control" style="width:auto;min-width:120px;">
+            <option value="">Todos perfis</option>
+            {% for p in profiles %}
+            <option value="{{ p.pk }}" {% if filter_profile == p.pk|stringformat:"s" %}selected{% endif %}>{{ p.name }}</option>
+            {% endfor %}
+        </select>
+        <input type="text" name="device" class="form-control" style="width:auto;min-width:120px;" placeholder="Device..." value="{{ filter_device }}">
+        <input type="text" name="ip" class="form-control" style="width:auto;min-width:120px;" placeholder="IP..." value="{{ filter_ip }}">
+        <button type="submit" class="btn btn-primary btn-sm">Filtrar</button>
+        <a href="{% url 'collector:task_list' %}" class="btn btn-outline btn-sm">Limpar</a>
+    </form>
+</div>
+
+{% if tasks %}
+<div class="table-container">
+    <table>
+        <thead><tr><th>Run #</th><th>Device</th><th>IP</th><th>Ação</th><th>Status</th><th>Log</th><th>Erro</th><th>Fim</th><th></th></tr></thead>
+        <tbody>
+        {% for t in tasks %}
+        <tr>
+            <td><code>#{{ t.run_id }}</code></td>
+            <td>{{ t.device.name|default:"—" }}</td>
+            <td>{{ t.ip_address|default:"—" }}</td>
+            <td><span class="badge badge-primary">{{ t.get_action_display }}</span></td>
+            <td><span class="badge badge-{% if t.status == 'success' %}success{% elif t.status == 'failed' %}danger{% elif t.status == 'skipped' %}warning{% else %}info{% endif %}">{{ t.get_status_display }}</span></td>
+            <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ t.log|truncatechars:50 }}</td>
+            <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{% if t.error %}<span style="color:var(--danger);">{{ t.error|truncatechars:40 }}</span>{% else %}—{% endif %}</td>
+            <td>{{ t.finished_at|date:"d/m/Y H:i"|default:"—" }}</td>
+            <td class="text-right"><a href="{% url 'collector:task_detail' t.pk %}" class="btn btn-primary btn-sm">Detalhes</a></td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% include 'collector/_pagination.html' with page=page_obj %}
+{% else %}<div class="card empty-state"><p>Nenhuma task encontrada.</p></div>{% endif %}
+{% endblock %}

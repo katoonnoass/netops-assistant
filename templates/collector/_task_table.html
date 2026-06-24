@@ -1,0 +1,17 @@
+<table>
+    <thead><tr><th>Device</th><th>IP</th><th>Ação</th><th>Status</th><th>Log</th><th>Erro</th><th>Fim</th><th></th></tr></thead>
+    <tbody>
+    {% for t in tasks %}
+    <tr>
+        <td>{{ t.device.name|default:"—" }}</td>
+        <td>{{ t.ip_address|default:"—" }}</td>
+        <td><span class="badge badge-primary">{{ t.get_action_display }}</span></td>
+        <td><span class="badge badge-{% if t.status == 'success' %}success{% elif t.status == 'failed' %}danger{% elif t.status == 'skipped' %}warning{% else %}info{% endif %}">{{ t.get_status_display }}</span></td>
+        <td style="max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ t.log|truncatechars:60 }}</td>
+        <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{% if t.error %}<span style="color:var(--danger);">{{ t.error|truncatechars:50 }}</span>{% else %}—{% endif %}</td>
+        <td>{{ t.finished_at|date:"d/m/Y H:i"|default:"—" }}</td>
+        <td class="text-right"><a href="{% url 'collector:task_detail' t.pk %}" class="btn btn-outline btn-sm">Detalhes</a></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>

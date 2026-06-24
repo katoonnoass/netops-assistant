@@ -59,6 +59,25 @@ def dashboard(request):
     except Exception:
         vlan_summary = None
 
+    # Collector summary
+    collector_runs = 0
+    collector_collected = 0
+    collector_failed = 0
+    collector_last_run = None
+    try:
+        from apps.collector.models import CollectorRun
+        collector_runs = CollectorRun.objects.count()
+        from django.db.models import Sum
+        agg = CollectorRun.objects.aggregate(
+            collected=Sum("collected_count"),
+            failed=Sum("failed_count"),
+        )
+        collector_collected = agg["collected"] or 0
+        collector_failed = agg["failed"] or 0
+        collector_last_run = CollectorRun.objects.select_related("profile").order_by("-started_at").first()
+    except Exception:
+        pass
+
     context = {
         "summary": summary,
         "latest_parsed": latest,
@@ -72,6 +91,10 @@ def dashboard(request):
         "devices_without_snapshot": get_devices_without_snapshot_count(),
         "vendors_count": len(get_vendor_summary()),
         "vlan_summary": vlan_summary,
+        "collector_runs": collector_runs,
+        "collector_collected": collector_collected,
+        "collector_failed": collector_failed,
+        "collector_last_run": collector_last_run,
     }
     return render(request, "core/dashboard.html", context)
 

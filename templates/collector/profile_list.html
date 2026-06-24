@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% block title %}Perfis — Collector — NetOps Assistant{% endblock %}
+
+{% block content %}
+<div class="page-header flex justify-between items-center">
+    <div>
+        <h1>Perfis de Descoberta</h1>
+        <p>{{ profiles|length }} perfil(is).</p>
+    </div>
+    <a href="{% url 'collector:dashboard' %}" class="btn btn-outline btn-sm">Dashboard</a>
+</div>
+
+{% if profiles %}
+{% for p in profiles %}
+<div class="card mb-2">
+    <div class="flex justify-between items-center mb-1">
+        <strong style="font-size:1rem;">{{ p.name }}</strong>
+        <span class="badge badge-{% if p.is_active %}success{% else %}danger{% endif %}">{% if p.is_active %}Ativo{% else %}Inativo{% endif %}</span>
+    </div>
+    {% if p.description %}<p style="color:var(--text-secondary);font-size:0.85rem;margin-bottom:0.5rem;">{{ p.description }}</p>{% endif %}
+    <div class="detail-grid">
+        <div class="detail-item"><label>Sub-redes</label><span>{% if p.subnets %}{{ p.subnets|join:", " }}{% else %}—{% endif %}</span></div>
+        <div class="detail-item"><label>Versão SNMP</label><span>{{ p.snmp_version }}</span></div>
+        <div class="detail-item"><label>Workers</label><span>{{ p.max_workers }}</span></div>
+        <div class="detail-item"><label>Timeout</label><span>{{ p.timeout }}s</span></div>
+        <div class="detail-item"><label>Credencial</label><span>{{ p.credential.name|default:"—" }}</span></div>
+    </div>
+    <div class="flex gap-1" style="margin-top:0.75rem;">
+        <a href="{% url 'collector:profile_detail' p.pk %}" class="btn btn-primary btn-sm">Ver perfil</a>
+        <a href="{% url 'collector:run_list' %}?profile={{ p.pk }}" class="btn btn-outline btn-sm">Execuções</a>
+    </div>
+</div>
+{% endfor %}
+{% else %}<div class="card empty-state"><p>Nenhum perfil encontrado.</p></div>{% endif %}
+{% endblock %}

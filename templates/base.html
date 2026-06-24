@@ -73,6 +73,22 @@
                 </a>
             </div>
 
+            <div class="nav-group">
+                <span class="nav-label">Coleta</span>
+                <a href="{% url 'collector:dashboard' %}" class="nav-link {% if 'collector' in request.resolver_match.namespace %}active{% endif %}">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+                    <span>Collector</span>
+                </a>
+                <a href="{% url 'collector:run_list' %}" class="nav-link {% if request.resolver_match.url_name == 'run_list' %}active{% endif %}">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14l-5-5 1.41-1.41L12 14.17l7.59-7.59L21 8l-9 9z"/></svg>
+                    <span>Execuções</span>
+                </a>
+                <a href="{% url 'collector:device_status' %}" class="nav-link {% if request.resolver_match.url_name == 'device_status' %}active{% endif %}">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 3h16a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Zm0 10h16a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2Zm2-7v2h2V6H6Zm0 10v2h2v-2H6Z"/></svg>
+                    <span>Status</span>
+                </a>
+            </div>
+
             {% if user.is_superuser or perms.core.view_auditlog %}
             <div class="nav-group">
                 <span class="nav-label">Administração</span>

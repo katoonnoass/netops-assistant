@@ -1,0 +1,13 @@
+{% if page.paginator.num_pages > 1 %}
+<div class="flex gap-1 items-center" style="margin-top:1rem;">
+    {% if page.has_previous %}
+    <a href="?page=1{% for k,v in request.GET.items %}{% if k != 'page' %}&{{ k }}={{ v }}{% endif %}{% endfor %}" class="btn btn-outline btn-sm">&laquo;</a>
+    <a href="?page={{ page.previous_page_number }}{% for k,v in request.GET.items %}{% if k != 'page' %}&{{ k }}={{ v }}{% endif %}{% endfor %}" class="btn btn-outline btn-sm">&lsaquo;</a>
+    {% endif %}
+    <span style="color:var(--text-secondary);font-size:0.82rem;">Página {{ page.number }} de {{ page.paginator.num_pages }}</span>
+    {% if page.has_next %}
+    <a href="?page={{ page.next_page_number }}{% for k,v in request.GET.items %}{% if k != 'page' %}&{{ k }}={{ v }}{% endif %}{% endfor %}" class="btn btn-outline btn-sm">&rsaquo;</a>
+    <a href="?page={{ page.paginator.num_pages }}{% for k,v in request.GET.items %}{% if k != 'page' %}&{{ k }}={{ v }}{% endif %}{% endfor %}" class="btn btn-outline btn-sm">&raquo;</a>
+    {% endif %}
+</div>
+{% endif %}

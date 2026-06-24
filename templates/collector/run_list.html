@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+{% block title %}Execuções — Collector — NetOps Assistant{% endblock %}
+
+{% block content %}
+<div class="page-header flex justify-between items-center">
+    <div>
+        <h1>Execuções do Collector</h1>
+        <p>{{ page_obj.paginator.count }} execução(ões).</p>
+    </div>
+    <div class="flex gap-1">
+        <a href="{% url 'collector:dashboard' %}" class="btn btn-outline btn-sm">Dashboard</a>
+        <a href="{% url 'collector:task_list' %}" class="btn btn-outline btn-sm">Tasks</a>
+    </div>
+</div>
+
+<div class="card mb-2">
+    <form method="get" class="flex gap-1 items-center" style="flex-wrap:wrap;">
+        <select name="status" class="form-control" style="width:auto;min-width:120px;">
+            <option value="">Todos status</option>
+            <option value="success" {% if filter_status == 'success' %}selected{% endif %}>Success</option>
+            <option value="partial" {% if filter_status == 'partial' %}selected{% endif %}>Partial</option>
+            <option value="failed" {% if filter_status == 'failed' %}selected{% endif %}>Failed</option>
+            <option value="running" {% if filter_status == 'running' %}selected{% endif %}>Running</option>
+        </select>
+        <select name="profile" class="form-control" style="width:auto;min-width:140px;">
+            <option value="">Todos perfis</option>
+            {% for p in profiles %}
+            <option value="{{ p.pk }}" {% if filter_profile == p.pk|stringformat:"s" %}selected{% endif %}>{{ p.name }}</option>
+            {% endfor %}
+        </select>
+        <input type="date" name="date_from" class="form-control" style="width:auto;" value="{{ filter_date_from }}">
+        <input type="date" name="date_to" class="form-control" style="width:auto;" value="{{ filter_date_to }}">
+        <input type="text" name="q" class="form-control" style="width:auto;min-width:160px;" placeholder="Buscar perfil..." value="{{ filter_q }}">
+        <button type="submit" class="btn btn-primary btn-sm">Filtrar</button>
+        <a href="{% url 'collector:run_list' %}" class="btn btn-outline btn-sm">Limpar</a>
+    </form>
+</div>
+
+{% if runs %}
+<div class="table-container">
+    <table>
+        <thead><tr><th>#</th><th>Perfil</th><th>Status</th><th>Descobertos</th><th>Coletados</th><th>Analisados</th><th>Falhas</th><th>Duração</th><th>Início</th><th></th></tr></thead>
+        <tbody>
+        {% for r in runs %}
+        <tr>
+            <td><code>#{{ r.pk }}</code></td>
+            <td>{{ r.profile.name }}</td>
+            <td><span class="badge badge-{% if r.status == 'success' %}success{% elif r.status == 'partial' %}warning{% elif r.status == 'failed' %}danger{% else %}info{% endif %}">{{ r.get_status_display }}</span></td>
+            <td>{{ r.discovered_count }}</td>
+            <td>{{ r.collected_count }}</td>
+            <td>{{ r.analyzed_count }}</td>
+            <td>{{ r.failed_count }}</td>
+            <td>{% if r.finished_at and r.started_at %}{{ r.finished_at|timeuntil:r.started_at }}{% else %}—{% endif %}</td>
+            <td>{{ r.started_at|date:"d/m/Y H:i" }}</td>
+            <td class="text-right"><a href="{% url 'collector:run_detail' r.pk %}" class="btn btn-primary btn-sm">Detalhes</a></td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% include 'collector/_pagination.html' with page=page_obj %}
+{% else %}<div class="card empty-state"><p>Nenhuma execução encontrada.</p></div>{% endif %}
+{% endblock %}

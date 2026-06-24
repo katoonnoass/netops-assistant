@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+{% block title %}Status dos Dispositivos — Collector — NetOps Assistant{% endblock %}
+
+{% block content %}
+<div class="page-header flex justify-between items-center">
+    <div>
+        <h1>Status dos Dispositivos</h1>
+        <p>{{ devices|length }} dispositivo(s).</p>
+    </div>
+    <a href="{% url 'collector:dashboard' %}" class="btn btn-outline btn-sm">Dashboard</a>
+</div>
+
+<div class="card mb-2">
+    <form method="get" class="flex gap-1 items-center" style="flex-wrap:wrap;">
+        <select name="vendor" class="form-control" style="width:auto;min-width:120px;">
+            <option value="">Todos vendors</option>
+            {% for v in vendors %}
+            <option value="{{ v }}" {% if filter_vendor == v %}selected{% endif %}>{{ v|capfirst }}</option>
+            {% endfor %}
+        </select>
+        <select name="enabled" class="form-control" style="width:auto;">
+            <option value="">Todos</option>
+            <option value="1" {% if filter_enabled == '1' %}selected{% endif %}>Coleta ativa</option>
+            <option value="0" {% if filter_enabled == '0' %}selected{% endif %}>Coleta inativa</option>
+        </select>
+        <label style="display:flex;align-items:center;gap:0.3rem;font-size:0.8rem;white-space:nowrap;">
+            <input type="checkbox" name="collected" value="1" {% if filter_collected %}checked{% endif %}>
+            Coletados
+        </label>
+        <label style="display:flex;align-items:center;gap:0.3rem;font-size:0.8rem;white-space:nowrap;">
+            <input type="checkbox" name="no_collection" value="1" {% if filter_no_collection %}checked{% endif %}>
+            Sem coleta
+        </label>
+        <input type="text" name="q" class="form-control" style="width:auto;min-width:120px;" placeholder="Buscar nome..." value="{{ filter_q }}">
+        <button type="submit" class="btn btn-primary btn-sm">Filtrar</button>
+        <a href="{% url 'collector:device_status' %}" class="btn btn-outline btn-sm">Limpar</a>
+    </form>
+</div>
+
+{% if devices %}
+<div class="table-container">
+    <table>
+        <thead><tr><th>Nome</th><th>Vendor</th><th>IP</th><th>Coleta</th><th>SSH</th><th>Descoberta</th><th>Coleta</th><th>Último erro</th><th></th></tr></thead>
+        <tbody>
+        {% for d in devices %}
+        <tr>
+            <td><strong>{{ d.name }}</strong></td>
+            <td><span class="badge badge-primary">{{ d.vendor }}</span></td>
+            <td>{{ d.ip_address|default:"—" }}</td>
+            <td><span class="badge badge-{% if d.collector_enabled %}success{% else %}danger{% endif %}">{% if d.collector_enabled %}Ativa{% else %}Inativa{% endif %}</span></td>
+            <td>{{ d.ssh_port }}</td>
+            <td>{{ d.last_discovered_at|date:"d/m/Y"|default:"—" }}</td>
+            <td>{{ d.last_collected_at|date:"d/m/Y H:i"|default:"—" }}</td>
+            <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{% if d.last_error %}<span style="color:var(--danger);">{{ d.last_error|truncatechars:40 }}</span>{% else %}—{% endif %}</td>
+            <td class="text-right flex gap-1">
+                <a href="{% url 'device_detail' d.pk %}" class="btn btn-outline btn-sm">Device</a>
+                <a href="{% url 'collector:task_list' %}?device={{ d.name }}" class="btn btn-outline btn-sm">Tasks</a>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% include 'collector/_pagination.html' with page=page_obj %}
+{% else %}<div class="card empty-state"><p>Nenhum dispositivo encontrado.</p></div>{% endif %}
+{% endblock %}

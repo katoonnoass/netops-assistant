@@ -208,8 +208,16 @@ python manage.py run_collector --profile "Rede Matriz" --dry-run
 - `device.last_collected_at` atualizado automaticamente
 - Secrets mascarados em erros/logs; senha nunca vaza
 
+### Fase 4 (implementada — Web UI read-only)
+- Páginas: dashboard, run_list, run_detail, task_list, task_detail, profile_list, profile_detail, device_status
+- Rotas sob `/collector/` com namespace `collector:`
+- Sidebar com grupo "Coleta" (Collector, Execuções, Status)
+- Dashboard principal com seção "Coleta automática"
+- Todas as views exigem login (LoginRequiredMixin)
+- Secrets/communities nunca aparecem nos templates
+- Logs e erros mascarados
+
 ### Próximas fases
-- **Fase 4**: Web UI read-only (listagem de CollectorRun)
 - **Fase 5**: Celery/Redis para coleta assíncrona + agendamento
 - **Fase 4**: Web UI read-only (listagem de CollectorRun)
 - **Fase 5**: Celery/Redis para coleta assíncrona + agendamento

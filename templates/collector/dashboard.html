@@ -1,0 +1,110 @@
+{% extends 'base.html' %}
+{% block title %}Collector — NetOps Assistant{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Collector</h1>
+        <p>Coleta automática de configurações via SNMP + SSH.</p>
+    </div>
+    <div class="flex gap-1">
+        <a href="{% url 'collector:run_list' %}" class="btn btn-outline btn-sm">Ver execuções</a>
+        <a href="{% url 'collector:profile_list' %}" class="btn btn-outline btn-sm">Perfis</a>
+        <a href="{% url 'collector:device_status' %}" class="btn btn-outline btn-sm">Dispositivos</a>
+        <a href="{% url 'collector:task_list' %}" class="btn btn-outline btn-sm">Tasks</a>
+    </div>
+</div>
+
+<div class="kpi-grid" aria-label="Indicadores do coletor">
+    <div class="kpi-card kpi-blue">
+        <span class="kpi-icon">▦</span><span class="kpi-copy"><small>Execuções</small><strong>{{ total_runs }}</strong><em>{{ running_now }} em andamento</em></span>
+    </div>
+    <div class="kpi-card kpi-violet">
+        <span class="kpi-icon">◫</span><span class="kpi-copy"><small>Perfis ativos</small><strong>{{ active_profiles }}</strong><em>{{ failed_or_partial }} runs c/ falha</em></span>
+    </div>
+    <div class="kpi-card kpi-green">
+        <span class="kpi-icon">⌁</span><span class="kpi-copy"><small>Devices coletáveis</small><strong>{{ collector_devices }}</strong><em>{{ collected_24h }} nas últimas 24h</em></span>
+    </div>
+    <div class="kpi-card kpi-cyan">
+        <span class="kpi-icon">◆</span><span class="kpi-copy"><small>Tasks</small><strong>{{ task_counts.total }}</strong><em>{{ task_counts.success }} success / {{ task_counts.failed }} failed</em></span>
+    </div>
+</div>
+
+<div class="dashboard-grid">
+    <section class="card">
+        <div class="panel-heading">
+            <div><span class="panel-kicker">EXECUÇÕES RECENTES</span><h2>Últimas execuções</h2></div>
+            <a href="{% url 'collector:run_list' %}" class="panel-link">Ver todas →</a>
+        </div>
+        {% if latest_runs %}
+        <div class="table-container">
+            <table>
+                <thead><tr><th>#</th><th>Perfil</th><th>Status</th><th>Descobertos</th><th>Coletados</th><th>Falhas</th><th>Início</th><th></th></tr></thead>
+                <tbody>
+                {% for r in latest_runs %}
+                <tr>
+                    <td><code>#{{ r.pk }}</code></td>
+                    <td>{{ r.profile.name }}</td>
+                    <td><span class="badge badge-{% if r.status == 'success' %}success{% elif r.status == 'partial' %}warning{% elif r.status == 'failed' %}danger{% else %}info{% endif %}">{{ r.get_status_display }}</span></td>
+                    <td>{{ r.discovered_count }}</td>
+                    <td>{{ r.collected_count }}</td>
+                    <td>{{ r.failed_count }}</td>
+                    <td>{{ r.started_at|date:"d/m/Y H:i" }}</td>
+                    <td class="text-right"><a href="{% url 'collector:run_detail' r.pk %}" class="btn btn-primary btn-sm">Detalhes</a></td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}<p class="empty-state">Nenhuma execução encontrada.</p>{% endif %}
+    </section>
+
+    <section class="card">
+        <div class="panel-heading">
+            <div><span class="panel-kicker">ERROS RECENTES</span><h2>Últimos erros</h2></div>
+            <a href="{% url 'collector:task_list' %}?status=failed" class="panel-link">Ver todos →</a>
+        </div>
+        {% if latest_errors %}
+        <div class="table-container">
+            <table>
+                <thead><tr><th>Device</th><th>Ação</th><th>Erro</th><th>Data</th></tr></thead>
+                <tbody>
+                {% for t in latest_errors %}
+                <tr>
+                    <td>{{ t.device.name|default:t.ip_address }}</td>
+                    <td><span class="badge badge-primary">{{ t.get_action_display }}</span></td>
+                    <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ t.error|truncatechars:60 }}</td>
+                    <td>{{ t.finished_at|date:"d/m/Y H:i" }}</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}<p class="empty-state">Nenhum erro registrado.</p>{% endif %}
+    </section>
+</div>
+
+<section class="card data-panel">
+    <div class="panel-heading">
+        <div><span class="panel-kicker">DISPOSITIVOS</span><h2>Últimos dispositivos coletados</h2></div>
+        <a href="{% url 'collector:device_status' %}" class="panel-link">Ver todos →</a>
+    </div>
+    {% if latest_collected %}
+    <div class="table-container">
+        <table>
+            <thead><tr><th>Nome</th><th>Vendor</th><th>IP</th><th>Última coleta</th></tr></thead>
+            <tbody>
+            {% for d in latest_collected %}
+            <tr>
+                <td><strong>{{ d.name }}</strong></td>
+                <td><span class="badge badge-primary">{{ d.vendor }}</span></td>
+                <td>{{ d.ip_address|default:"—" }}</td>
+                <td>{{ d.last_collected_at|date:"d/m/Y H:i" }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}<p class="empty-state">Nenhum dispositivo coletado ainda.</p>{% endif %}
+</section>
+{% endblock %}
