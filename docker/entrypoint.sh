@@ -4,17 +4,13 @@ set -e
 
 echo "==> Aguardando PostgreSQL ficar disponivel..."
 python -c "
-import os, time, psycopg2 as p
+import os, time, socket
+host = os.environ['POSTGRES_HOST']
+port = int(os.environ.get('POSTGRES_PORT', '5432'))
 while True:
     try:
-        p.connect(
-            dbname=os.environ['POSTGRES_DB'],
-            user=os.environ['POSTGRES_USER'],
-            password=os.environ['POSTGRES_PASSWORD'],
-            host=os.environ['POSTGRES_HOST'],
-            port=os.environ.get('POSTGRES_PORT', '5432'),
-            connect_timeout=2
-        ).close()
+        s = socket.create_connection((host, port), timeout=2)
+        s.close()
         break
     except Exception:
         time.sleep(2)
